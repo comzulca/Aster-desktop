@@ -44,7 +44,7 @@ corepack pnpm test
 corepack pnpm tauri:dev
 ```
 
-The CI Windows job also runs `cargo fmt`, `cargo check --locked`, `cargo clippy --locked`, `cargo test --locked`, dependency audit and inventories. Do not start a live NVIDIA request until the Windows checks and exact-model canaries have passed. No credential is needed for fixture tests. If either lockfile is absent, use the read-only bootstrap workflows in `.github/workflows/` and review the candidates before committing them; ordinary CI intentionally fails without both.
+The CI Windows job also runs `cargo fmt`, `cargo check --locked`, `cargo clippy --locked`, `cargo test --locked`, dependency audit and inventories. Once all three verification jobs pass on `main`, a separate CI job builds an **unsigned engineering NSIS installer** and records its source commit and executable SHA-256 in a private Actions artifact retained for 14 days. This is not a signed release or proof of installation on your laptop. See [`docs/qa/PACKAGING-0001.md`](docs/qa/PACKAGING-0001.md) for artifact verification. Do not start a live NVIDIA request until the Windows checks and exact-model canaries have passed. No credential is needed for fixture tests. If either lockfile is absent, use the read-only bootstrap workflows in `.github/workflows/` and review the candidates before committing them; ordinary CI intentionally fails without both.
 
 ## Security and contributions
 
