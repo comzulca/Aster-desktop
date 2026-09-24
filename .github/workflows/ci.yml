@@ -105,6 +105,33 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo --version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Inspect fixture drive eligibility
+        shell: pwsh
+        run: |
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Text;
+          using System.Runtime.InteropServices;
+          public static class AsterDriveDiagnostic {
+            [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+            public static extern uint QueryDosDevice(string name, StringBuilder target, uint capacity);
+          }
+          '@
+          foreach ($candidate in @($env:LOCALAPPDATA, [System.IO.Path]::GetTempPath())) {
+            if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+            $root = [System.IO.Path]::GetPathRoot($candidate)
+            $drive = [System.IO.DriveInfo]::new($root)
+            Write-Host ("Native fixture candidate root={0}; drive type={1}; filesystem={2}; ready={3}" -f $root, $drive.DriveType, $drive.DriveFormat, $drive.IsReady)
+            $device = [System.Text.StringBuilder]::new(512)
+            $units = [AsterDriveDiagnostic]::QueryDosDevice($root.Substring(0, 2), $device, 512)
+            if ($units -eq 0) { throw "Cannot read DOS mapping for fixture drive $root" }
+            Write-Host ("DOS mapping: {0}" -f $device.ToString().Split([char]0)[0])
+            $item = Get-Item -LiteralPath $candidate -Force -ErrorAction Stop
+            while ($null -ne $item) {
+              if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { Write-Host ("Reparse ancestor: {0}" -f $item.FullName) }
+              $item = $item.Parent
+            }
+          }
       - name: Rust formatting, static checks and fixture tests
         run: |
           cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
@@ -139,5 +166,66 @@ jobs:
         with:
           name: windows-host-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: reports/
+          retention-days: 14
+          if-no-files-found: error
+
+  engineering-installer:
+    needs: [source-policy, frontend, windows-host]
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    runs-on: windows-2025
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Restore exact frontend and pinned Rust inputs
+        shell: pwsh
+        run: |
+          corepack pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup toolchain install 1.97.0 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup default 1.97.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build unsigned NSIS engineering candidate
+        shell: pwsh
+        run: |
+          corepack pnpm exec tauri build --ci --no-sign
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --exit-code -- pnpm-lock.yaml src-tauri/Cargo.lock
+          if ($LASTEXITCODE -ne 0) { throw 'Locked dependency inputs changed during the build.' }
+          $candidates = @(Get-ChildItem -LiteralPath src-tauri/target/release/bundle/nsis -File -Filter '*-setup.exe' -ErrorAction Stop)
+          if ($candidates.Count -ne 1 -or $candidates[0].Length -le 0) { throw 'Expected exactly one nonempty NSIS setup executable.' }
+          $installer = $candidates[0]
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer.FullName
+          if ($signature.Status -ne 'NotSigned') { throw "Unexpected installer signature status: $($signature.Status)" }
+          New-Item -ItemType Directory -Force reports/engineering-installer | Out-Null
+          Copy-Item -LiteralPath $installer.FullName -Destination reports/engineering-installer -ErrorAction Stop
+          $revision = & git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $revision -ne $env:GITHUB_SHA) { throw 'Checked-out source revision changed.' }
+          $details = [ordered]@{
+            classification = 'unsigned-engineering-candidate'
+            source_revision = $revision
+            workflow_run_id = $env:GITHUB_RUN_ID
+            workflow_run_attempt = $env:GITHUB_RUN_ATTEMPT
+            filename = $installer.Name
+            byte_count = $installer.Length
+            sha256 = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            authenticode_status = [string]$signature.Status
+            runner = $env:RUNNER_OS
+            rustc_version = (& rustc --version)
+            built_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+          }
+          $details | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath reports/engineering-installer/manifest.json -Encoding utf8
+          Get-Content -LiteralPath reports/engineering-installer/manifest.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: UNSIGNED-engineering-aster-desktop-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/engineering-installer/
           retention-days: 14
           if-no-files-found: error

@@ -8,9 +8,17 @@ mod workspace;
 
 use credential::{CredentialError, CredentialStore};
 use futures_util::FutureExt;
-use policy::{FinishDisposition, Model, SessionState, TransportOutcome, DEFAULT_MODEL, POLICY_VERSION};
+use policy::{
+    FinishDisposition, Model, SessionState, TransportOutcome, DEFAULT_MODEL, POLICY_VERSION,
+};
 use serde::{Deserialize, Serialize};
-use std::{panic::AssertUnwindSafe, sync::{atomic::{AtomicBool, Ordering}, Mutex}};
+use std::{
+    panic::AssertUnwindSafe,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex,
+    },
+};
 use tauri::{Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use workspace::{RootSelection, Workspace};
@@ -128,6 +136,7 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
     trusted(&window)?;
     let configured = match host.credentials.configured() {
         Ok(value) => value,
+        #[cfg(not(windows))]
         Err(CredentialError::Unavailable) => false,
         Err(error) => return Err(error.code().to_owned()),
     };
@@ -144,8 +153,14 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         credential_available: cfg!(windows),
         default_model: DEFAULT_MODEL,
         models: [
-            ModelDisplay { id: DEFAULT_MODEL, label: "Nemotron 3.5 Lightning 30B A3B" },
-            ModelDisplay { id: "meta/muse-glimmer-30b", label: "Muse Glimmer 30B" },
+            ModelDisplay {
+                id: DEFAULT_MODEL,
+                label: "Nemotron 3.5 Lightning 30B A3B",
+            },
+            ModelDisplay {
+                id: "meta/muse-glimmer-30b",
+                label: "Muse Glimmer 30B",
+            },
         ],
         active_request,
         project_selected: project_label.is_some(),
@@ -193,7 +208,10 @@ async fn remove_nvidia_credential(
             .dialog()
             .message("¿Eliminar la clave de NVIDIA guardada en Windows Credential Manager?")
             .title("Aster Desktop: eliminar credencial")
-            .buttons(MessageDialogButtons::OkCancelCustom("Eliminar".into(), "Cancelar".into()))
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Eliminar".into(),
+                "Cancelar".into(),
+            ))
             .blocking_show();
         if agreed {
             host.credentials.delete().map_err(|e| e.code())?;
@@ -219,7 +237,8 @@ async fn select_project_root(
             let _guard = host.enter_native_dialog()?;
             let selected = window.dialog().file().blocking_pick_folder();
             match selected {
-                Some(path) => host.workspace
+                Some(path) => host
+                    .workspace
                     .set_native_root(path.into_path().map_err(|_| "workspace_denied")?)
                     .map(|mut selection| {
                         // Internal Windows file-service proofs are still pending.
@@ -255,7 +274,11 @@ fn cancel_message(
 ) -> Result<Cancelled, String> {
     trusted(&window)?;
     Ok(Cancelled {
-        cancelled: host.sessions.lock().map_err(|_| "host_unavailable")?.cancel(&request_id),
+        cancelled: host
+            .sessions
+            .lock()
+            .map_err(|_| "host_unavailable")?
+            .cancel(&request_id),
     })
 }
 
@@ -267,7 +290,12 @@ async fn send_message(
     input: SendIntent,
 ) -> Result<Accepted, String> {
     trusted(&window)?;
-    let SendIntent { conversation_id, request_id, model_id, message } = input;
+    let SendIntent {
+        conversation_id,
+        request_id,
+        model_id,
+        message,
+    } = input;
     let model = Model::parse(&model_id).ok_or("unregistered_model")?;
     if !policy::valid_id(&conversation_id)
         || !policy::valid_id(&request_id)
@@ -296,30 +324,46 @@ async fn send_message(
     tauri::async_runtime::spawn(async move {
         let cancellation = admission.cancellation;
         let event_cancel = cancellation.clone();
-        let response = AssertUnwindSafe(provider::stream_chat(model, &admission.messages, key, cancellation, |text| {
-            if *event_cancel.borrow() {
-                return Err(provider::ProviderFailure::Cancelled);
-            }
-            let session = worker_app.state::<Host>();
-            let mut state = session.sessions.lock().map_err(|_| provider::ProviderFailure::InvalidContract)?;
-            if !state.mark_streaming(&worker_conversation, &worker_id) {
-                return Err(provider::ProviderFailure::Cancelled);
-            }
-            // Keep the same host lock while enqueueing the event. A later
-            // cancellation acknowledgement cannot precede a new host emit.
-            let result = worker_app
-                .emit_to(MAIN_WINDOW, STREAM_EVENT, StreamEvent {
-                    request_id: &worker_id,
-                    conversation_id: &worker_conversation,
-                    kind: "content",
-                    text: Some(&text),
-                    status: None,
-                    error_code: None,
-                })
-                .map_err(|_| provider::ProviderFailure::InvalidContract);
-            drop(state);
-            result
-        })).catch_unwind().await.unwrap_or(Err(provider::ProviderFailure::InvalidContract));
+        let response = AssertUnwindSafe(provider::stream_chat(
+            model,
+            &admission.messages,
+            key,
+            cancellation,
+            |text| {
+                if *event_cancel.borrow() {
+                    return Err(provider::ProviderFailure::Cancelled);
+                }
+                let session = worker_app.state::<Host>();
+                let mut state = session
+                    .sessions
+                    .lock()
+                    .map_err(|_| provider::ProviderFailure::InvalidContract)?;
+                if !state.mark_streaming(&worker_conversation, &worker_id) {
+                    return Err(provider::ProviderFailure::Cancelled);
+                }
+                // Keep the same host lock while enqueueing the event. A later
+                // cancellation acknowledgement cannot precede a new host emit.
+                let result = worker_app
+                    .emit_to(
+                        MAIN_WINDOW,
+                        STREAM_EVENT,
+                        StreamEvent {
+                            request_id: &worker_id,
+                            conversation_id: &worker_conversation,
+                            kind: "content",
+                            text: Some(&text),
+                            status: None,
+                            error_code: None,
+                        },
+                    )
+                    .map_err(|_| provider::ProviderFailure::InvalidContract);
+                drop(state);
+                result
+            },
+        ))
+        .catch_unwind()
+        .await
+        .unwrap_or(Err(provider::ProviderFailure::InvalidContract));
         let (transport, provider_error) = match response {
             Ok(answer) => (TransportOutcome::Completed(answer), None),
             Err(provider::ProviderFailure::Cancelled) => (TransportOutcome::Cancelled, None),
@@ -340,17 +384,24 @@ async fn send_message(
                 FinishDisposition::Cancelled => ("cancelled", None),
                 FinishDisposition::Failed => ("failed", provider_error),
             };
-            let _ = worker_app.emit_to(MAIN_WINDOW, STREAM_EVENT, StreamEvent {
-                request_id: &worker_id,
-                conversation_id: &worker_conversation,
-                kind: "terminal",
-                text: None,
-                status: Some(status),
-                error_code,
-            });
+            let _ = worker_app.emit_to(
+                MAIN_WINDOW,
+                STREAM_EVENT,
+                StreamEvent {
+                    request_id: &worker_id,
+                    conversation_id: &worker_conversation,
+                    kind: "terminal",
+                    text: None,
+                    status: Some(status),
+                    error_code,
+                },
+            );
         }
     });
-    Ok(Accepted { request_id: result_id, accepted: true })
+    Ok(Accepted {
+        request_id: result_id,
+        accepted: true,
+    })
 }
 
 pub fn run() {
@@ -387,7 +438,10 @@ mod tests {
             serde_json::json!({"approved":true}),
         ] {
             let mut candidate = base.clone();
-            candidate.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            candidate
+                .as_object_mut()
+                .unwrap()
+                .extend(extra.as_object().unwrap().clone());
             assert!(serde_json::from_value::<SendIntent>(candidate).is_err());
         }
     }
@@ -396,7 +450,14 @@ mod tests {
     fn closed_command_manifest_is_explicit_and_not_wildcard() {
         let manifest = include_str!("../build.rs");
         let capability = include_str!("../capabilities/main.json");
-        for command in ["get_app_status", "configure_nvidia_credential", "remove_nvidia_credential", "select_project_root", "send_message", "cancel_message"] {
+        for command in [
+            "get_app_status",
+            "configure_nvidia_credential",
+            "remove_nvidia_credential",
+            "select_project_root",
+            "send_message",
+            "cancel_message",
+        ] {
             assert!(manifest.contains(&format!("\"{command}\"")));
             assert!(capability.contains(&format!("allow-{}", command.replace('_', "-"))));
         }

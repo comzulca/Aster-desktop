@@ -335,19 +335,43 @@
   ],
   "gates": [
     {
+      "command": "python3 /root/.codex/skills/remote-skills/skill-6ab5384e26508191beed1c6272957984/scripts/harness_gate.py check --root . --through-phase 2 --json",
+      "environment": "Linux x86_64 development workspace; Python 3.12.14; private GitHub source tree 1693869e65294da0ec96deabc3a1832ef0741169",
+      "evidence_paths": [
+        "docs/aster-builder/phase-0-inventory.md",
+        "docs/qa/CI-0002.md",
+        "https://github.com/comzulca/Aster-desktop/commit/69cd3170d60fa6b3c17d43d2596727220369a4a6"
+      ],
       "phase": 0,
-      "reason": "Design drafted; revision and independent verification pending.",
-      "status": "NOT RUN"
+      "run_at_utc": "2026-09-24T18:19:12Z",
+      "source_revision": "69cd3170d60fa6b3c17d43d2596727220369a4a6",
+      "status": "PASS"
     },
     {
+      "command": "python3 /root/.codex/skills/remote-skills/skill-6ab5384e26508191beed1c6272957984/scripts/harness_gate.py check --root . --through-phase 2 --json",
+      "environment": "Linux x86_64 development workspace; Python 3.12.14; private GitHub source tree 1693869e65294da0ec96deabc3a1832ef0741169",
+      "evidence_paths": [
+        "docs/specs/SPEC-0001.md",
+        "docs/aster-builder/contract.json"
+      ],
       "phase": 1,
-      "reason": "Design drafted; revision and independent verification pending.",
-      "status": "NOT RUN"
+      "run_at_utc": "2026-09-24T18:19:12Z",
+      "source_revision": "69cd3170d60fa6b3c17d43d2596727220369a4a6",
+      "status": "PASS"
     },
     {
+      "command": "python3 /root/.codex/skills/remote-skills/skill-6ab5384e26508191beed1c6272957984/scripts/harness_gate.py check --root . --through-phase 2 --json",
+      "environment": "Linux x86_64 development workspace; Python 3.12.14; private GitHub source tree 1693869e65294da0ec96deabc3a1832ef0741169",
+      "evidence_paths": [
+        "docs/security/THREAT-MODEL-0001.md",
+        "docs/adr/ADR-0001.md",
+        "docs/adr/ADR-0002.md",
+        "docs/adr/ADR-0003.md"
+      ],
       "phase": 2,
-      "reason": "Design drafted; revision and independent verification pending.",
-      "status": "NOT RUN"
+      "run_at_utc": "2026-09-24T18:19:12Z",
+      "source_revision": "69cd3170d60fa6b3c17d43d2596727220369a4a6",
+      "status": "PASS"
     },
     {
       "phase": 3,
@@ -399,7 +423,7 @@
     "name": "Aster-desktop",
     "platform": "Windows-11",
     "release_class": "development",
-    "source_revision": "UNPINNED"
+    "source_revision": "69cd3170d60fa6b3c17d43d2596727220369a4a6"
   },
   "providers": [
     {
