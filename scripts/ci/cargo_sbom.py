@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 from urllib.parse import quote
 import uuid
@@ -47,6 +48,10 @@ def make_reports(metadata: dict) -> tuple[dict, dict]:
             "version": pkg["version"],
             "properties": [{"name": "cargo:declared-license", "value": declared_license}],
         }
+        if declared_license != "UNKNOWN":
+            # Cargo permits the legacy slash separator as an alternative to OR.
+            # CycloneDX 1.5 requires a single SPDX expression in this field.
+            component["licenses"] = [{"expression": re.sub(r"\s*/\s*", " OR ", declared_license)}]
         if source_type == "registry":
             component["purl"] = "pkg:cargo/" + quote(pkg["name"], safe="") + "@" + quote(pkg["version"], safe="")
         components.append(component)
