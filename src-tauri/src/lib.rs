@@ -136,6 +136,7 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
     trusted(&window)?;
     let configured = match host.credentials.configured() {
         Ok(value) => value,
+        #[cfg(not(windows))]
         Err(CredentialError::Unavailable) => false,
         Err(error) => return Err(error.code().to_owned()),
     };

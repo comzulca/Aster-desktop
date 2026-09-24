@@ -8,6 +8,7 @@ const TARGET: &str = "comzulca/aster-desktop/nvidia/integrate.api.nvidia.com";
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CredentialError {
     Cancelled,
+    #[cfg(not(windows))]
     Unavailable,
     Rejected,
     System,
@@ -17,6 +18,7 @@ impl CredentialError {
     pub fn code(self) -> &'static str {
         match self {
             Self::Cancelled => "cancelled",
+            #[cfg(not(windows))]
             Self::Unavailable => "windows_only",
             Self::Rejected => "credential_rejected",
             Self::System => "credential_error",

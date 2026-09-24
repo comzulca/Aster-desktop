@@ -245,9 +245,7 @@ impl SessionState {
         request_id: &str,
         outcome: TransportOutcome,
     ) -> Option<FinishDisposition> {
-        let Some(active) = self.active.get(conversation_id) else {
-            return None;
-        };
+        let active = self.active.get(conversation_id)?;
         if active.request_id != request_id {
             return None;
         }
