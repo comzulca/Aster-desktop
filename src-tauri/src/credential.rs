@@ -8,6 +8,7 @@ const TARGET: &str = "comzulca/aster-desktop/nvidia/integrate.api.nvidia.com";
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CredentialError {
     Cancelled,
+    #[cfg(not(windows))]
     Unavailable,
     Rejected,
     System,
@@ -17,6 +18,7 @@ impl CredentialError {
     pub fn code(self) -> &'static str {
         match self {
             Self::Cancelled => "cancelled",
+            #[cfg(not(windows))]
             Self::Unavailable => "windows_only",
             Self::Rejected => "credential_rejected",
             Self::System => "credential_error",
@@ -72,10 +74,9 @@ mod native {
     use std::{ffi::c_void, iter, mem, ptr};
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_NOT_FOUND};
     use windows_sys::Win32::Security::Credentials::{
-        CredDeleteW, CredFree, CredReadW, CredUIPromptForCredentialsW, CredWriteW,
-        CREDENTIALW, CREDUI_INFOW, CREDUI_FLAGS_ALWAYS_SHOW_UI,
-        CREDUI_FLAGS_DO_NOT_PERSIST, CREDUI_FLAGS_GENERIC_CREDENTIALS,
-        CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC,
+        CredDeleteW, CredFree, CredReadW, CredUIPromptForCredentialsW, CredWriteW, CREDENTIALW,
+        CREDUI_FLAGS_ALWAYS_SHOW_UI, CREDUI_FLAGS_DO_NOT_PERSIST, CREDUI_FLAGS_GENERIC_CREDENTIALS,
+        CREDUI_INFOW, CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC,
     };
 
     // API keys from this provider are printable ASCII bearer tokens. Refuse
@@ -151,7 +152,10 @@ mod native {
         if result != 0 {
             return Err(CredentialError::System);
         }
-        let end = password.iter().position(|c| *c == 0).unwrap_or(password.len());
+        let end = password
+            .iter()
+            .position(|c| *c == 0)
+            .unwrap_or(password.len());
         let supplied = Zeroizing::new(
             String::from_utf16(&password[..end]).map_err(|_| CredentialError::Rejected)?,
         );
@@ -256,7 +260,10 @@ mod native {
 
         #[test]
         fn fixed_target_and_key_admission() {
-            assert_eq!(TARGET, "comzulca/aster-desktop/nvidia/integrate.api.nvidia.com");
+            assert_eq!(
+                TARGET,
+                "comzulca/aster-desktop/nvidia/integrate.api.nvidia.com"
+            );
             assert!(!valid_key(""));
             assert!(!valid_key("a key with whitespace"));
             assert!(valid_key("nvapi-test-key"));
@@ -279,7 +286,10 @@ mod native {
             assert!(!configured_at(&target).unwrap());
             write_at(&target, "synthetic-fixture-key-123").unwrap();
             assert!(configured_at(&target).unwrap());
-            assert_eq!(read_at(&target).unwrap().as_str(), "synthetic-fixture-key-123");
+            assert_eq!(
+                read_at(&target).unwrap().as_str(),
+                "synthetic-fixture-key-123"
+            );
             assert!(delete_at(&target).unwrap());
             assert!(!configured_at(&target).unwrap());
         }
