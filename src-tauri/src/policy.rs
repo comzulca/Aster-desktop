@@ -163,7 +163,8 @@ impl SessionState {
             .cloned()
             .unwrap_or_default();
         let context_bytes = prior.iter().fold(prompt.len(), |sum, t| {
-            sum.saturating_add(t.prompt.len()).saturating_add(t.answer.len())
+            sum.saturating_add(t.prompt.len())
+                .saturating_add(t.answer.len())
         });
         if context_bytes > MAX_CONTEXT_BYTES || prior.len() >= MAX_TURNS {
             return Err(AdmissionError::ContextLimit);
@@ -216,13 +217,20 @@ impl SessionState {
             Some(active)
                 if active.request_id == request_id
                     && !active.cancel_requested
-                    && active.stage == Stage::Streaming => true,
+                    && active.stage == Stage::Streaming =>
+            {
+                true
+            }
             _ => false,
         }
     }
 
     pub fn cancel(&mut self, request_id: &str) -> bool {
-        if let Some(active) = self.active.values_mut().find(|a| a.request_id == request_id) {
+        if let Some(active) = self
+            .active
+            .values_mut()
+            .find(|a| a.request_id == request_id)
+        {
             // Cancelling twice is idempotent. Only the worker emits a terminal event.
             active.cancel_requested = true;
             let _ = active.cancel.send(true);
@@ -237,13 +245,14 @@ impl SessionState {
         request_id: &str,
         outcome: TransportOutcome,
     ) -> Option<FinishDisposition> {
-        let Some(active) = self.active.get(conversation_id) else {
-            return None;
-        };
+        let active = self.active.get(conversation_id)?;
         if active.request_id != request_id {
             return None;
         }
-        let active = self.active.remove(conversation_id).expect("active checked above");
+        let active = self
+            .active
+            .remove(conversation_id)
+            .expect("active checked above");
         if active.cancel_requested || matches!(&outcome, TransportOutcome::Cancelled) {
             return Some(FinishDisposition::Cancelled);
         }
@@ -280,33 +289,51 @@ mod tests {
         assert!(first.is_ok());
         assert!(state.mark_streaming("c_1", "r_1"));
         assert!(state.cancel("r_1"));
-        assert_eq!(state.finish("c_1", "r_1", TransportOutcome::Failed), Some(FinishDisposition::Cancelled));
+        assert_eq!(
+            state.finish("c_1", "r_1", TransportOutcome::Failed),
+            Some(FinishDisposition::Cancelled)
+        );
         assert_eq!(state.finish("c_1", "r_1", TransportOutcome::Failed), None);
         assert_eq!(
-            state.reserve("c_1", "r_1", Model::Nemotron, "hola".to_owned()).err(),
+            state
+                .reserve("c_1", "r_1", Model::Nemotron, "hola".to_owned())
+                .err(),
             Some(AdmissionError::RequestReplayed)
         );
         let mut other = SessionState::default();
-        assert!(other.reserve("c_1", "r_1", Model::Nemotron, "hola".to_owned()).is_ok());
+        assert!(other
+            .reserve("c_1", "r_1", Model::Nemotron, "hola".to_owned())
+            .is_ok());
         assert!(other.mark_streaming("c_1", "r_1"));
         assert!(other.cancel("r_1"));
-        assert_eq!(other.finish("c_1", "r_1", TransportOutcome::Failed), Some(FinishDisposition::Cancelled));
+        assert_eq!(
+            other.finish("c_1", "r_1", TransportOutcome::Failed),
+            Some(FinishDisposition::Cancelled)
+        );
         assert_eq!(other.finish("c_1", "r_1", TransportOutcome::Failed), None);
     }
 
     #[test]
     fn model_context_is_separated_and_bounded() {
         let mut state = SessionState::default();
-        state.reserve("c", "r1", Model::Nemotron, "first".into()).unwrap();
+        state
+            .reserve("c", "r1", Model::Nemotron, "first".into())
+            .unwrap();
         state.finish("c", "r1", TransportOutcome::Completed("answer".into()));
-        let muse = state.reserve("c", "r2", Model::Muse, "second".into()).unwrap();
+        let muse = state
+            .reserve("c", "r2", Model::Muse, "second".into())
+            .unwrap();
         assert_eq!(muse.messages.len(), 1);
         state.finish("c", "r2", TransportOutcome::Failed);
-        let nemotron = state.reserve("c", "r3", Model::Nemotron, "third".into()).unwrap();
+        let nemotron = state
+            .reserve("c", "r3", Model::Nemotron, "third".into())
+            .unwrap();
         assert_eq!(nemotron.messages.len(), 3);
         assert_eq!(nemotron.messages[1].content, "answer");
         assert_eq!(
-            state.reserve("c", "r4", Model::Nemotron, "busy".into()).err(),
+            state
+                .reserve("c", "r4", Model::Nemotron, "busy".into())
+                .err(),
             Some(AdmissionError::Busy)
         );
     }
@@ -314,9 +341,13 @@ mod tests {
     #[test]
     fn forged_conversation_ids_cannot_inflate_concurrent_external_calls() {
         let mut state = SessionState::default();
-        state.reserve("c0", "r0", Model::Nemotron, "send".into()).unwrap();
+        state
+            .reserve("c0", "r0", Model::Nemotron, "send".into())
+            .unwrap();
         assert_eq!(
-            state.reserve("c1", "r1", Model::Muse, "parallel".into()).err(),
+            state
+                .reserve("c1", "r1", Model::Muse, "parallel".into())
+                .err(),
             Some(AdmissionError::Busy)
         );
         assert_eq!(state.active_count(), 1);
@@ -324,11 +355,19 @@ mod tests {
         for i in 1..MAX_CONVERSATIONS {
             let conversation = format!("c{i}");
             let request = format!("r{i}");
-            state.reserve(&conversation, &request, Model::Nemotron, "send".into()).unwrap();
-            state.finish(&conversation, &request, TransportOutcome::Completed("reply".into()));
+            state
+                .reserve(&conversation, &request, Model::Nemotron, "send".into())
+                .unwrap();
+            state.finish(
+                &conversation,
+                &request,
+                TransportOutcome::Completed("reply".into()),
+            );
         }
         assert_eq!(
-            state.reserve("new_33", "r33", Model::Nemotron, "send".into()).err(),
+            state
+                .reserve("new_33", "r33", Model::Nemotron, "send".into())
+                .err(),
             Some(AdmissionError::SessionLimit)
         );
 
@@ -336,11 +375,15 @@ mod tests {
         for i in 0..MAX_CONVERSATIONS {
             let conversation = format!("failed_c{i}");
             let request = format!("failed_r{i}");
-            failed.reserve(&conversation, &request, Model::Muse, "send".into()).unwrap();
+            failed
+                .reserve(&conversation, &request, Model::Muse, "send".into())
+                .unwrap();
             failed.finish(&conversation, &request, TransportOutcome::Failed);
         }
         assert_eq!(
-            failed.reserve("other", "new", Model::Muse, "send".into()).err(),
+            failed
+                .reserve("other", "new", Model::Muse, "send".into())
+                .err(),
             Some(AdmissionError::SessionLimit)
         );
     }
@@ -348,24 +391,35 @@ mod tests {
     #[test]
     fn cancellation_and_completion_are_linearized_by_one_host_lock() {
         let mut cancelled_first = SessionState::default();
-        cancelled_first.reserve("c", "r1", Model::Nemotron, "prompt".into()).unwrap();
+        cancelled_first
+            .reserve("c", "r1", Model::Nemotron, "prompt".into())
+            .unwrap();
         assert!(cancelled_first.cancel("r1"));
         assert!(!cancelled_first.mark_streaming("c", "r1"));
         assert_eq!(
             cancelled_first.finish("c", "r1", TransportOutcome::Completed("late answer".into())),
             Some(FinishDisposition::Cancelled)
         );
-        let next = cancelled_first.reserve("c", "r2", Model::Nemotron, "new prompt".into()).unwrap();
+        let next = cancelled_first
+            .reserve("c", "r2", Model::Nemotron, "new prompt".into())
+            .unwrap();
         assert_eq!(next.messages.len(), 1, "cancelled answer must not persist");
 
         let mut finished_first = SessionState::default();
-        finished_first.reserve("c", "r1", Model::Nemotron, "prompt".into()).unwrap();
+        finished_first
+            .reserve("c", "r1", Model::Nemotron, "prompt".into())
+            .unwrap();
         assert_eq!(
             finished_first.finish("c", "r1", TransportOutcome::Completed("answer".into())),
             Some(FinishDisposition::Completed)
         );
-        assert!(!finished_first.cancel("r1"), "late cancellation must not be acknowledged");
-        let next = finished_first.reserve("c", "r2", Model::Nemotron, "new prompt".into()).unwrap();
+        assert!(
+            !finished_first.cancel("r1"),
+            "late cancellation must not be acknowledged"
+        );
+        let next = finished_first
+            .reserve("c", "r2", Model::Nemotron, "new prompt".into())
+            .unwrap();
         assert_eq!(next.messages.len(), 3);
     }
 }

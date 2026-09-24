@@ -212,16 +212,18 @@ impl StreamDecoder {
         if self.saw_finish {
             // Usage-only events after finish are valid, but may never contain
             // another choice, answer or action.
-            let v: Value = serde_json::from_str(&data).map_err(|_| ProviderFailure::InvalidContract)?;
-            if v.get("choices").is_some_and(|choices| {
-                !choices.as_array().is_some_and(|array| array.is_empty())
-            }) {
+            let v: Value =
+                serde_json::from_str(&data).map_err(|_| ProviderFailure::InvalidContract)?;
+            if v.get("choices")
+                .is_some_and(|choices| !choices.as_array().is_some_and(|array| array.is_empty()))
+            {
                 return Err(ProviderFailure::InvalidContract);
             }
             self.validate_identity(&v)?;
             return Ok(None);
         }
-        let value: Value = serde_json::from_str(&data).map_err(|_| ProviderFailure::InvalidContract)?;
+        let value: Value =
+            serde_json::from_str(&data).map_err(|_| ProviderFailure::InvalidContract)?;
         self.validate_identity(&value)?;
         let choices = value
             .get("choices")
@@ -249,7 +251,10 @@ impl StreamDecoder {
         }
         // Reasoning is allowed by both provider contracts but never emitted
         // to the normal answer channel, logged, stored or interpreted as a tool.
-        if !matches!(delta.get("reasoning_content"), None | Some(Value::Null) | Some(Value::String(_))) {
+        if !matches!(
+            delta.get("reasoning_content"),
+            None | Some(Value::Null) | Some(Value::String(_))
+        ) {
             return Err(ProviderFailure::InvalidContract);
         }
         let content = match delta.get("content") {
@@ -259,7 +264,7 @@ impl StreamDecoder {
         };
         if let Some(reason) = choice.get("finish_reason") {
             match reason {
-                Value::Null => {},
+                Value::Null => {}
                 Value::String(text) if text == "stop" => self.saw_finish = true,
                 Value::String(text) if text == "length" => {
                     self.saw_finish = true;
@@ -367,7 +372,11 @@ where
         .headers()
         .get(header::CONTENT_TYPE)
         .and_then(|h| h.to_str().ok())
-        .is_none_or(|s| !s.split(';').next().is_some_and(|m| m.trim().eq_ignore_ascii_case("text/event-stream")))
+        .is_none_or(|s| {
+            !s.split(';')
+                .next()
+                .is_some_and(|m| m.trim().eq_ignore_ascii_case("text/event-stream"))
+        })
     {
         return Err(ProviderFailure::InvalidContract);
     }
@@ -386,7 +395,13 @@ where
         };
         let chunk = match next {
             Some(Ok(chunk)) => chunk,
-            Some(Err(error)) => return Err(if error.is_timeout() { ProviderFailure::Timeout } else { ProviderFailure::Network }),
+            Some(Err(error)) => {
+                return Err(if error.is_timeout() {
+                    ProviderFailure::Timeout
+                } else {
+                    ProviderFailure::Network
+                })
+            }
             None => return Err(ProviderFailure::Incomplete),
         };
         for item in decoder.feed(&chunk)? {
@@ -413,39 +428,49 @@ where
 mod tests {
     use super::*;
     use std::io::{Read, Write};
-    use std::net::TcpListener;
+    use std::net::{TcpListener, TcpStream};
     use std::thread;
+
+    fn read_request(connection: &mut TcpStream) -> String {
+        connection
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let mut received = Vec::new();
+        let mut buffer = [0_u8; 4096];
+        let (header_end, content_len) = loop {
+            let count = connection.read(&mut buffer).unwrap();
+            assert!(count > 0, "fake server received a premature EOF");
+            received.extend_from_slice(&buffer[..count]);
+            assert!(received.len() < MAX_REQUEST_BYTES + 4096);
+            if let Some(end) = received.windows(4).position(|w| w == b"\r\n\r\n") {
+                let headers = String::from_utf8_lossy(&received[..end]).to_ascii_lowercase();
+                let size = headers
+                    .lines()
+                    .find_map(|line| line.strip_prefix("content-length:"))
+                    .and_then(|s| s.trim().parse::<usize>().ok())
+                    .unwrap();
+                break (end + 4, size);
+            }
+        };
+        while received.len() < header_end + content_len {
+            let count = connection.read(&mut buffer).unwrap();
+            assert!(count > 0, "fake server request body was truncated");
+            received.extend_from_slice(&buffer[..count]);
+        }
+        String::from_utf8(received).unwrap()
+    }
 
     fn fake_server(response: String) -> (String, thread::JoinHandle<String>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = format!("http://{}/v1/chat/completions", listener.local_addr().unwrap());
+        let address = format!(
+            "http://{}/v1/chat/completions",
+            listener.local_addr().unwrap()
+        );
         let handle = thread::spawn(move || {
             let (mut connection, _) = listener.accept().unwrap();
-            connection.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
-            let mut received = Vec::new();
-            let mut buffer = [0_u8; 4096];
-            let (header_end, content_len) = loop {
-                let count = connection.read(&mut buffer).unwrap();
-                assert!(count > 0, "fake server received a premature EOF");
-                received.extend_from_slice(&buffer[..count]);
-                assert!(received.len() < MAX_REQUEST_BYTES + 4096);
-                if let Some(end) = received.windows(4).position(|w| w == b"\r\n\r\n") {
-                    let headers = String::from_utf8_lossy(&received[..end]).to_ascii_lowercase();
-                    let size = headers
-                        .lines()
-                        .find_map(|line| line.strip_prefix("content-length:"))
-                        .and_then(|s| s.trim().parse::<usize>().ok())
-                        .unwrap();
-                    break (end + 4, size);
-                }
-            };
-            while received.len() < header_end + content_len {
-                let count = connection.read(&mut buffer).unwrap();
-                assert!(count > 0, "fake server request body was truncated");
-                received.extend_from_slice(&buffer[..count]);
-            }
+            let received = read_request(&mut connection);
             connection.write_all(response.as_bytes()).unwrap();
-            String::from_utf8(received).unwrap()
+            received
         });
         (address, handle)
     }
@@ -458,11 +483,18 @@ mod tests {
     }
 
     fn test_client() -> Client {
-        Client::builder().no_proxy().redirect(Policy::none()).build().unwrap()
+        Client::builder()
+            .no_proxy()
+            .redirect(Policy::none())
+            .build()
+            .unwrap()
     }
 
     fn msg() -> Vec<ChatMessage> {
-        vec![ChatMessage { role: "user", content: "hola".into() }]
+        vec![ChatMessage {
+            role: "user",
+            content: "hola".into(),
+        }]
     }
 
     fn frame(model: Model, content: &str, finish: Option<&str>) -> String {
@@ -475,7 +507,8 @@ mod tests {
 
     #[test]
     fn exact_pairs_stream_with_distinct_contracts() {
-        let n: Value = serde_json::from_slice(&exact_body(Model::Nemotron, &msg()).unwrap()).unwrap();
+        let n: Value =
+            serde_json::from_slice(&exact_body(Model::Nemotron, &msg()).unwrap()).unwrap();
         assert_eq!(n["model"], "nvidia/nemotron-3.5-lightning-30b-a3b");
         assert_eq!(n["reasoning_budget"], 16384);
         assert_eq!(n["chat_template_kwargs"]["enable_thinking"], true);
@@ -493,63 +526,121 @@ mod tests {
     fn split_utf8_crlf_reasoning_and_empty_choices() {
         let mut parser = StreamDecoder::new(Model::Nemotron);
         let a = "data: {\"id\":\"chat-1\",\"model\":\"nvidia/nemotron-3.5-lightning-30b-a3b\",\"choices\":[]}\r\n\r\n";
-        assert_eq!(parser.feed(a.as_bytes()).unwrap(), Vec::<StreamOutput>::new());
+        assert_eq!(
+            parser.feed(a.as_bytes()).unwrap(),
+            Vec::<StreamOutput>::new()
+        );
         let reasoning = json!({"id":"chat-1","model":Model::Nemotron.id(),
             "choices":[{"index":0,"delta":{"reasoning_content":"private", "content":null},"finish_reason":null}]});
-        assert!(parser.feed(format!("data: {reasoning}\r\n\r\n").as_bytes()).unwrap().is_empty());
+        assert!(parser
+            .feed(format!("data: {reasoning}\r\n\r\n").as_bytes())
+            .unwrap()
+            .is_empty());
         let event = frame(Model::Nemotron, "España", Some("stop"));
         let position = event.find('ñ').unwrap() + 1;
-        assert!(parser.feed(&event.as_bytes()[..position]).unwrap().is_empty());
-        assert_eq!(parser.feed(&event.as_bytes()[position..]).unwrap(), vec![StreamOutput::Content("España".into())]);
-        assert_eq!(parser.feed(b"data: [DONE]\r\n\r\n").unwrap(), vec![StreamOutput::Done]);
+        assert!(parser
+            .feed(&event.as_bytes()[..position])
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            parser.feed(&event.as_bytes()[position..]).unwrap(),
+            vec![StreamOutput::Content("España".into())]
+        );
+        assert_eq!(
+            parser.feed(b"data: [DONE]\r\n\r\n").unwrap(),
+            vec![StreamOutput::Done]
+        );
     }
 
     #[test]
     fn malformed_identity_tool_and_truncation_fail_closed() {
         let mut parser = StreamDecoder::new(Model::Muse);
-        assert_eq!(parser.feed(frame(Model::Nemotron, "wrong", Some("stop")).as_bytes()).err(), Some(ProviderFailure::InvalidContract));
+        assert_eq!(
+            parser
+                .feed(frame(Model::Nemotron, "wrong", Some("stop")).as_bytes())
+                .err(),
+            Some(ProviderFailure::InvalidContract)
+        );
         let mut parser = StreamDecoder::new(Model::Muse);
         let call = json!({"id":"chat-1", "model":Model::Muse.id(),
             "choices":[{"index":0,"delta":{"tool_calls":[{"id":"bad"}]},"finish_reason":"tool_calls"}]});
-        assert_eq!(parser.feed(format!("data: {call}\n\n").as_bytes()).err(), Some(ProviderFailure::InvalidContract));
+        assert_eq!(
+            parser.feed(format!("data: {call}\n\n").as_bytes()).err(),
+            Some(ProviderFailure::InvalidContract)
+        );
         let mut parser = StreamDecoder::new(Model::Muse);
-        parser.feed(frame(Model::Muse, "partial", Some("length")).as_bytes()).unwrap();
-        assert_eq!(parser.feed(b"data: [DONE]\n\n").err(), Some(ProviderFailure::Incomplete));
+        parser
+            .feed(frame(Model::Muse, "partial", Some("length")).as_bytes())
+            .unwrap();
+        assert_eq!(
+            parser.feed(b"data: [DONE]\n\n").err(),
+            Some(ProviderFailure::Incomplete)
+        );
         let mut parser = StreamDecoder::new(Model::Muse);
-        assert_eq!(parser.feed(b"data: not-json\n\n").err(), Some(ProviderFailure::InvalidContract));
+        assert_eq!(
+            parser.feed(b"data: not-json\n\n").err(),
+            Some(ProviderFailure::InvalidContract)
+        );
     }
 
     #[test]
     fn finite_frame_budget_duplicate_done_and_missing_finish() {
         let mut parser = StreamDecoder::new(Model::Muse);
         let oversized_frame = vec![b'a'; MAX_FRAME_BYTES + 1];
-        assert_eq!(parser.feed(&oversized_frame).err(), Some(ProviderFailure::ResponseLimit));
+        assert_eq!(
+            parser.feed(&oversized_frame).err(),
+            Some(ProviderFailure::ResponseLimit)
+        );
         let mut parser = StreamDecoder::new(Model::Muse);
-        parser.feed(frame(Model::Muse, "answer", Some("stop")).as_bytes()).unwrap();
-        assert_eq!(parser.feed(b"data: [DONE]\n\ndata: [DONE]\n\n").err(), Some(ProviderFailure::InvalidContract));
+        parser
+            .feed(frame(Model::Muse, "answer", Some("stop")).as_bytes())
+            .unwrap();
+        assert_eq!(
+            parser.feed(b"data: [DONE]\n\ndata: [DONE]\n\n").err(),
+            Some(ProviderFailure::InvalidContract)
+        );
         let mut parser = StreamDecoder::new(Model::Muse);
-        parser.feed(frame(Model::Muse, "answer", None).as_bytes()).unwrap();
-        assert_eq!(parser.feed(b"data: [DONE]\n\n").err(), Some(ProviderFailure::Incomplete));
+        parser
+            .feed(frame(Model::Muse, "answer", None).as_bytes())
+            .unwrap();
+        assert_eq!(
+            parser.feed(b"data: [DONE]\n\n").err(),
+            Some(ProviderFailure::Incomplete)
+        );
     }
 
     #[tokio::test]
     async fn loopback_fixture_sends_exact_muse_shape_and_separates_reasoning() {
         let reasoning = json!({"id":"chat-1","model":Model::Muse.id(),
             "choices":[{"index":0,"delta":{"reasoning_content":"not answer"},"finish_reason":null}]});
-        let body = format!("data: {reasoning}\n\n{}data: [DONE]\n\n", frame(Model::Muse,"Hola",Some("stop")));
+        let body = format!(
+            "data: {reasoning}\n\n{}data: [DONE]\n\n",
+            frame(Model::Muse, "Hola", Some("stop"))
+        );
         let (url, listener) = fake_server(fake_response("200 OK", "text/event-stream", &body));
         let (_tx, cancel) = watch::channel(false);
         let mut parts = Vec::new();
         let answer = stream_with_client(
-            &test_client(), &url, Model::Muse, &msg(),
-            Zeroizing::new("synthetic-fixture-key-123".to_owned()), cancel,
-            |text| { parts.push(text); Ok(()) },
-        ).await.unwrap();
+            &test_client(),
+            &url,
+            Model::Muse,
+            &msg(),
+            Zeroizing::new("synthetic-fixture-key-123".to_owned()),
+            cancel,
+            |text| {
+                parts.push(text);
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
         assert_eq!(answer, "Hola");
         assert_eq!(parts, vec!["Hola"]);
         let captured = listener.join().unwrap();
         assert!(captured.starts_with("POST /v1/chat/completions HTTP/1.1"));
-        assert!(captured.to_ascii_lowercase().contains("authorization: bearer synthetic-fixture-key-123\r\n"));
+        assert!(captured
+            .to_ascii_lowercase()
+            .contains("authorization: bearer synthetic-fixture-key-123\r\n"));
         let body: Value = serde_json::from_str(captured.split_once("\r\n\r\n").unwrap().1).unwrap();
         assert_eq!(body["model"], Model::Muse.id());
         assert_eq!(body["stream"], true);
@@ -558,21 +649,170 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn loopback_fixture_sends_exact_nemotron_shape_and_streams_answer() {
+        let reasoning = json!({"id":"chat-1","model":Model::Nemotron.id(),
+            "choices":[{"index":0,"delta":{"reasoning_content":"private"},"finish_reason":null}]});
+        let body = format!(
+            "data: {reasoning}\n\n{}{}data: [DONE]\n\n",
+            frame(Model::Nemotron, "Hola", None),
+            frame(Model::Nemotron, " mundo", Some("stop"))
+        );
+        let (url, listener) = fake_server(fake_response("200 OK", "text/event-stream", &body));
+        let (_tx, cancel) = watch::channel(false);
+        let mut parts = Vec::new();
+        let answer = stream_with_client(
+            &test_client(),
+            &url,
+            Model::Nemotron,
+            &msg(),
+            Zeroizing::new("synthetic-fixture-key-123".to_owned()),
+            cancel,
+            |text| {
+                parts.push(text);
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(answer, "Hola mundo");
+        assert_eq!(parts, vec!["Hola", " mundo"]);
+        let captured = listener.join().unwrap();
+        assert!(captured.starts_with("POST /v1/chat/completions HTTP/1.1"));
+        assert!(captured
+            .to_ascii_lowercase()
+            .contains("authorization: bearer synthetic-fixture-key-123\r\n"));
+        let request: Value =
+            serde_json::from_str(captured.split_once("\r\n\r\n").unwrap().1).unwrap();
+        assert_eq!(request["model"], Model::Nemotron.id());
+        assert_eq!(request["stream"], true);
+        assert_eq!(request["reasoning_budget"], 16384);
+        assert_eq!(request["chat_template_kwargs"]["enable_thinking"], true);
+        assert!(request.get("tools").is_none());
+    }
+
+    #[tokio::test]
+    async fn cancellation_while_waiting_for_response_headers_stops_request() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!(
+            "http://{}/v1/chat/completions",
+            listener.local_addr().unwrap()
+        );
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let server = thread::spawn(move || {
+            let (mut connection, _) = listener.accept().unwrap();
+            let captured = read_request(&mut connection);
+            ready_tx.send(()).unwrap();
+            let _ = release_rx.recv_timeout(Duration::from_secs(5));
+            captured
+        });
+        let (tx, cancel) = watch::channel(false);
+        let client = test_client();
+        let messages = msg();
+        let request = stream_with_client(
+            &client,
+            &url,
+            Model::Muse,
+            &messages,
+            Zeroizing::new("synthetic-fixture-key-123".to_owned()),
+            cancel,
+            |_| Ok(()),
+        );
+        tokio::pin!(request);
+        let ready = tokio::time::timeout(Duration::from_secs(5), ready_rx);
+        tokio::pin!(ready);
+        tokio::select! {
+            result = &mut request => panic!("request ended before headers: {result:?}"),
+            result = &mut ready => result
+                .expect("fake server must receive the request promptly")
+                .expect("fake server received the request"),
+        }
+        tx.send(true).unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(3), &mut request)
+            .await
+            .expect("cancellation must end a pending response promptly");
+        assert_eq!(result.err(), Some(ProviderFailure::Cancelled));
+        release_tx.send(()).unwrap();
+        assert!(server
+            .join()
+            .unwrap()
+            .starts_with("POST /v1/chat/completions"));
+    }
+
+    #[tokio::test]
+    async fn cancellation_after_first_content_wins_before_incomplete_eof() {
+        let first = frame(Model::Nemotron, "partial", None);
+        let (url, server) = fake_server(fake_response("200 OK", "text/event-stream", &first));
+        let (tx, cancel) = watch::channel(false);
+        let mut parts = Vec::new();
+        let result = stream_with_client(
+            &test_client(),
+            &url,
+            Model::Nemotron,
+            &msg(),
+            Zeroizing::new("synthetic-fixture-key-123".to_owned()),
+            cancel,
+            |text| {
+                parts.push(text);
+                tx.send(true).unwrap();
+                Ok(())
+            },
+        )
+        .await;
+        assert_eq!(parts, vec!["partial"]);
+        assert_eq!(result.err(), Some(ProviderFailure::Cancelled));
+        assert!(server
+            .join()
+            .unwrap()
+            .starts_with("POST /v1/chat/completions"));
+    }
+
+    #[tokio::test]
     async fn loopback_fixture_rejects_non_streaming_or_pending_and_does_not_retry() {
         for (status, content_type, body, expected) in [
-            ("200 OK", "application/json", "{}", ProviderFailure::InvalidContract),
-            ("202 Accepted", "text/event-stream", "", ProviderFailure::InvalidContract),
-            ("401 Unauthorized", "application/json", "{}", ProviderFailure::Authentication),
-            ("429 Too Many Requests", "application/json", "{}", ProviderFailure::RateLimited),
-            ("302 Found", "text/event-stream", "", ProviderFailure::InvalidContract),
+            (
+                "200 OK",
+                "application/json",
+                "{}",
+                ProviderFailure::InvalidContract,
+            ),
+            (
+                "202 Accepted",
+                "text/event-stream",
+                "",
+                ProviderFailure::InvalidContract,
+            ),
+            (
+                "401 Unauthorized",
+                "application/json",
+                "{}",
+                ProviderFailure::Authentication,
+            ),
+            (
+                "429 Too Many Requests",
+                "application/json",
+                "{}",
+                ProviderFailure::RateLimited,
+            ),
+            (
+                "302 Found",
+                "text/event-stream",
+                "",
+                ProviderFailure::InvalidContract,
+            ),
         ] {
             let (url, listener) = fake_server(fake_response(status, content_type, body));
             let (_tx, cancel) = watch::channel(false);
             let result = stream_with_client(
-                &test_client(), &url, Model::Nemotron, &msg(),
-                Zeroizing::new("synthetic-fixture-key-123".to_owned()), cancel,
+                &test_client(),
+                &url,
+                Model::Nemotron,
+                &msg(),
+                Zeroizing::new("synthetic-fixture-key-123".to_owned()),
+                cancel,
                 |_| Ok(()),
-            ).await;
+            )
+            .await;
             assert_eq!(result.err(), Some(expected));
             let captured = listener.join().unwrap();
             assert!(captured.contains("\r\n\r\n"));
@@ -584,10 +824,15 @@ mod tests {
         let (tx, cancel) = watch::channel(true);
         assert!(*tx.borrow());
         let response = stream_with_client(
-            &test_client(), "http://127.0.0.1:9/v1/chat/completions", Model::Muse,
-            &msg(), Zeroizing::new("synthetic-fixture-key-123".to_owned()), cancel,
+            &test_client(),
+            "http://127.0.0.1:9/v1/chat/completions",
+            Model::Muse,
+            &msg(),
+            Zeroizing::new("synthetic-fixture-key-123".to_owned()),
+            cancel,
             |_| Ok(()),
-        ).await;
+        )
+        .await;
         assert_eq!(response.err(), Some(ProviderFailure::Cancelled));
     }
 }
