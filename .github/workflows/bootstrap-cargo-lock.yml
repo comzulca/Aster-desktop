@@ -1,0 +1,47 @@
+name: Generate Cargo lockfile for review
+
+# Run manually on a reviewed branch after the Rust manifest exists. This job
+# uploads a candidate lockfile only; it never writes to the repository.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-lockfile:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Install exact Rust toolchain
+        run: |
+          rustup toolchain install 1.97.0 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup default 1.97.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustc --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Resolve candidate and verify metadata
+        shell: pwsh
+        run: |
+          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $metadata = & cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --locked
+          if ($LASTEXITCODE -ne 0 -or -not $metadata) { throw 'Cargo metadata failed' }
+          if (-not (Test-Path src-tauri/Cargo.lock -PathType Leaf) -or (Get-Item src-tauri/Cargo.lock).Length -eq 0) { throw 'Cargo.lock is missing or empty' }
+          New-Item -ItemType Directory -Force reports | Out-Null
+          $sourceRevision = & git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sourceRevision | Set-Content -Path reports/bootstrap-source-revision.txt
+          Get-FileHash src-tauri/Cargo.lock -Algorithm SHA256 | Format-Table Path,Hash -AutoSize
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cargo-lock-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            src-tauri/Cargo.lock
+            reports/bootstrap-source-revision.txt
+          retention-days: 14
+          if-no-files-found: error

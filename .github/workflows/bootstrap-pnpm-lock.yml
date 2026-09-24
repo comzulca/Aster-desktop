@@ -1,0 +1,37 @@
+name: Generate pnpm lockfile for review
+
+# Run manually on a reviewed branch after package.json exists. It resolves a
+# candidate without running dependency lifecycle scripts or writing to Git.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-lockfile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Resolve candidate without package scripts
+        run: |
+          corepack pnpm --version
+          corepack pnpm install --lockfile-only --ignore-scripts
+          test -s pnpm-lock.yaml
+          mkdir -p reports
+          printf '%s\n' "$(git rev-parse HEAD)" > reports/bootstrap-source-revision.txt
+          sha256sum pnpm-lock.yaml
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pnpm-lock-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            pnpm-lock.yaml
+            reports/bootstrap-source-revision.txt
+          retention-days: 14
+          if-no-files-found: error

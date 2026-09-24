@@ -1,0 +1,831 @@
+{
+  "acceptance": [
+    {
+      "id": "AC-001",
+      "requirement_ids": [
+        "PR-001"
+      ],
+      "test_ids": [
+        "T-001"
+      ],
+      "threat_ids": [],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-002",
+      "requirement_ids": [
+        "PR-002"
+      ],
+      "test_ids": [
+        "T-002"
+      ],
+      "threat_ids": [
+        "TM-011"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-003",
+      "requirement_ids": [
+        "FR-001"
+      ],
+      "test_ids": [
+        "T-003"
+      ],
+      "threat_ids": [
+        "TM-003"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-004",
+      "requirement_ids": [
+        "FR-002"
+      ],
+      "test_ids": [
+        "T-004",
+        "T-005"
+      ],
+      "threat_ids": [
+        "TM-003"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-005",
+      "requirement_ids": [
+        "FR-003"
+      ],
+      "test_ids": [
+        "T-006"
+      ],
+      "threat_ids": [
+        "TM-008"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-006",
+      "requirement_ids": [
+        "FR-004"
+      ],
+      "test_ids": [
+        "T-007"
+      ],
+      "threat_ids": [],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-007",
+      "requirement_ids": [
+        "FR-005"
+      ],
+      "test_ids": [
+        "T-008"
+      ],
+      "threat_ids": [
+        "TM-004"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-008",
+      "requirement_ids": [
+        "FR-006",
+        "SEC-004"
+      ],
+      "test_ids": [
+        "T-009",
+        "T-010"
+      ],
+      "threat_ids": [
+        "TM-004",
+        "TM-005"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-009",
+      "requirement_ids": [
+        "FR-007",
+        "SEC-005"
+      ],
+      "test_ids": [
+        "T-011"
+      ],
+      "threat_ids": [
+        "TM-006"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-010",
+      "requirement_ids": [
+        "FR-008",
+        "SEC-006"
+      ],
+      "test_ids": [
+        "T-012"
+      ],
+      "threat_ids": [
+        "TM-006",
+        "TM-007"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-011",
+      "requirement_ids": [
+        "FR-009",
+        "SEC-006"
+      ],
+      "test_ids": [
+        "T-013"
+      ],
+      "threat_ids": [
+        "TM-007"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-012",
+      "requirement_ids": [
+        "FR-010",
+        "SEC-008"
+      ],
+      "test_ids": [
+        "T-014"
+      ],
+      "threat_ids": [
+        "TM-010"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-013",
+      "requirement_ids": [
+        "FR-011",
+        "SEC-001"
+      ],
+      "test_ids": [
+        "T-015"
+      ],
+      "threat_ids": [
+        "TM-001",
+        "TM-012"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-014",
+      "requirement_ids": [
+        "FR-012"
+      ],
+      "test_ids": [
+        "T-016"
+      ],
+      "threat_ids": [
+        "TM-002"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-015",
+      "requirement_ids": [
+        "UX-001"
+      ],
+      "test_ids": [
+        "T-017"
+      ],
+      "threat_ids": [],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-016",
+      "requirement_ids": [
+        "UX-002"
+      ],
+      "test_ids": [
+        "T-018"
+      ],
+      "threat_ids": [],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-017",
+      "requirement_ids": [
+        "NFR-001"
+      ],
+      "test_ids": [
+        "T-019"
+      ],
+      "threat_ids": [
+        "TM-008"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-018",
+      "requirement_ids": [
+        "NFR-002"
+      ],
+      "test_ids": [
+        "T-020"
+      ],
+      "threat_ids": [
+        "TM-009"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-019",
+      "requirement_ids": [
+        "NFR-003",
+        "SEC-009"
+      ],
+      "test_ids": [
+        "T-021"
+      ],
+      "threat_ids": [
+        "TM-011"
+      ],
+      "verification_phase": 9
+    },
+    {
+      "id": "AC-020",
+      "requirement_ids": [
+        "SEC-001",
+        "SEC-002"
+      ],
+      "test_ids": [
+        "T-022"
+      ],
+      "threat_ids": [
+        "TM-001",
+        "TM-002"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-021",
+      "requirement_ids": [
+        "SEC-003"
+      ],
+      "test_ids": [
+        "T-023"
+      ],
+      "threat_ids": [
+        "TM-003"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-022",
+      "requirement_ids": [
+        "SEC-004"
+      ],
+      "test_ids": [
+        "T-024"
+      ],
+      "threat_ids": [
+        "TM-004",
+        "TM-005"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-023",
+      "requirement_ids": [
+        "SEC-005"
+      ],
+      "test_ids": [
+        "T-025"
+      ],
+      "threat_ids": [
+        "TM-006"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-024",
+      "requirement_ids": [
+        "SEC-006"
+      ],
+      "test_ids": [
+        "T-026"
+      ],
+      "threat_ids": [
+        "TM-007"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-025",
+      "requirement_ids": [
+        "SEC-007"
+      ],
+      "test_ids": [
+        "T-027"
+      ],
+      "threat_ids": [
+        "TM-010"
+      ],
+      "verification_phase": 6
+    }
+  ],
+  "gates": [
+    {
+      "phase": 0,
+      "reason": "Design drafted; revision and independent verification pending.",
+      "status": "NOT RUN"
+    },
+    {
+      "phase": 1,
+      "reason": "Design drafted; revision and independent verification pending.",
+      "status": "NOT RUN"
+    },
+    {
+      "phase": 2,
+      "reason": "Design drafted; revision and independent verification pending.",
+      "status": "NOT RUN"
+    },
+    {
+      "phase": 3,
+      "reason": "Chat host/UI source candidate exists; Windows native and renderer gate evidence on pinned revision pending.",
+      "status": "NOT RUN"
+    },
+    {
+      "phase": 4,
+      "reason": "Two fixed provider adapters and fixtures exist; Windows transport tests and live per-model canaries pending.",
+      "status": "NOT RUN"
+    },
+    {
+      "phase": 5,
+      "reason": "Windows Credential Manager source exists; native entry/read/delete and persistence evidence pending.",
+      "status": "NOT RUN"
+    },
+    {
+      "phase": 6,
+      "reason": "Workspace native helpers exist but file IPC and apply remain disabled pending native review/race/recovery evidence.",
+      "status": "NOT RUN"
+    },
+    {
+      "phase": 7,
+      "reason": "Capability not implemented and not verified.",
+      "status": "NOT RUN"
+    },
+    {
+      "phase": 8,
+      "reason": "Local frontend checks passed; hosted exact-revision CI, Rust audit, native tests and SBOM review pending.",
+      "status": "NOT RUN"
+    },
+    {
+      "phase": 9,
+      "reason": "Capability not implemented and not verified.",
+      "status": "NOT RUN"
+    }
+  ],
+  "policy": {
+    "allow_automatic_provider_fallback": false,
+    "allow_automatic_retry": false,
+    "host_enforces_privileges": true,
+    "human_confirms_mutations": true,
+    "model_may_commit": false,
+    "secrets_in_renderer": false,
+    "storage_enabled": false,
+    "web_enabled": false
+  },
+  "project": {
+    "name": "Aster-desktop",
+    "platform": "Windows-11",
+    "release_class": "development",
+    "source_revision": "UNPINNED"
+  },
+  "providers": [
+    {
+      "enabled": false,
+      "id": "nvidia-nemotron-3.5-lightning-30b-a3b"
+    },
+    {
+      "enabled": false,
+      "id": "nvidia-muse-glimmer-30b"
+    }
+  ],
+  "release": {
+    "artifact_sha256": null,
+    "live_provider_evidence": null,
+    "live_provider_verified": false,
+    "signature_evidence": null,
+    "signed": false,
+    "target_os_evidence": null,
+    "target_os_verified": false
+  },
+  "requirements": [
+    {
+      "id": "PR-001",
+      "text": "Target a local Windows 11 Tauri/Rust host and React/TypeScript renderer; the requested Windows checkout path is configurable deployment context, not source code."
+    },
+    {
+      "id": "PR-002",
+      "text": "Repository `comzulca/Aster-desktop` is private, with verified owner/collaborator roles and source revision."
+    },
+    {
+      "id": "FR-001",
+      "text": "Closed catalog selects exact two NVIDIA model IDs; Nemotron is the initial default."
+    },
+    {
+      "id": "FR-002",
+      "text": "Stream both providers through separately validated adapters and safe text rendering."
+    },
+    {
+      "id": "FR-003",
+      "text": "Cancel and finish each request exactly once; handle duplicate/out-of-order/framing errors."
+    },
+    {
+      "id": "FR-004",
+      "text": "Present accurate unconfigured, ready, sending, cancelled, failure and recovery states."
+    },
+    {
+      "id": "FR-005",
+      "text": "User selects a project root through a native host-controlled dialog; no default root."
+    },
+    {
+      "id": "FR-006",
+      "text": "Permit bounded UTF-8 project reads solely within a granted and revalidated root."
+    },
+    {
+      "id": "FR-007",
+      "text": "Present a bounded, typed, exact-diff proposal without giving a model write authority."
+    },
+    {
+      "id": "FR-008",
+      "text": "After separate exact confirmation, support conflict-checked new-file creation only when native Windows safety/recovery is proven."
+    },
+    {
+      "id": "FR-009",
+      "text": "Support existing-file replacement only after equivalent native Windows race/crash/recovery proof; otherwise remain proposal-only."
+    },
+    {
+      "id": "FR-010",
+      "text": "Keep chat state in process memory for the session; clear it on app restart."
+    },
+    {
+      "id": "FR-011",
+      "text": "Provision/read/delete NVIDIA credential with trusted native Windows UI and host-side Credential Manager calls."
+    },
+    {
+      "id": "FR-012",
+      "text": "Disable shell, browser, arbitrary network, MCP, and model-provided tool names or URLs in v0.1.0."
+    },
+    {
+      "id": "UX-001",
+      "text": "Use original 1917×1137 JPG as the dark Aster visual reference, with compact-window adaptation."
+    },
+    {
+      "id": "UX-002",
+      "text": "Provide keyboard navigation, visible focus, named controls, readable status, safe stream announcements, and Spanish user-facing copy."
+    },
+    {
+      "id": "NFR-001",
+      "text": "Version policy and host state machine so fixed fixtures produce repeatable decisions and exactly one terminal outcome."
+    },
+    {
+      "id": "NFR-002",
+      "text": "Apply time, size, request, stream, file and proposal ceilings and fail closed on exceeded limits."
+    },
+    {
+      "id": "NFR-003",
+      "text": "Bind engineering quality, secret/dependency scans, Windows target tests, SBOM and release claims to an exact revision/artifact."
+    },
+    {
+      "id": "SEC-001",
+      "text": "Credential bytes never pass through renderer/ordinary IPC, logs, repository or model context."
+    },
+    {
+      "id": "SEC-002",
+      "text": "Host authenticates caller and independently validates typed, bounded IPC against a closed window/command permission map."
+    },
+    {
+      "id": "SEC-003",
+      "text": "Live egress allows only fixed NVIDIA HTTPS destination and selected pair; no redirect, unintended proxy, silent retry or fallback."
+    },
+    {
+      "id": "SEC-004",
+      "text": "All file grants bind root identity, conversation, request, resource, operation, expiry and uses; reject aliases and escape attempts."
+    },
+    {
+      "id": "SEC-005",
+      "text": "A model cannot approve a proposal; one human confirmation applies once to one exact change and cannot be replayed."
+    },
+    {
+      "id": "SEC-006",
+      "text": "Publication rechecks root/parent/target identity and old hash, journals intent, verifies outcome, and fails closed on conflict/crash."
+    },
+    {
+      "id": "SEC-007",
+      "text": "Prompt/project contents are disclosed to NVIDIA only by explicit user request; logs redact keys and private content."
+    },
+    {
+      "id": "SEC-008",
+      "text": "No persistent local chat history or unapproved import/export for v0.1.0."
+    },
+    {
+      "id": "SEC-009",
+      "text": "Dependencies, secrets, licenses and release artifacts have independent quality evidence; CI is not a live canary."
+    }
+  ],
+  "schema_version": 1,
+  "tests": [
+    {
+      "id": "T-001",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 8
+    },
+    {
+      "id": "T-002",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 8
+    },
+    {
+      "id": "T-003",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 4
+    },
+    {
+      "id": "T-004",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 4
+    },
+    {
+      "id": "T-005",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 4
+    },
+    {
+      "id": "T-006",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 4
+    },
+    {
+      "id": "T-007",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 3
+    },
+    {
+      "id": "T-008",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-009",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-010",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-011",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-012",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-013",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-014",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 5
+    },
+    {
+      "id": "T-015",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 3
+    },
+    {
+      "id": "T-016",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-017",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 3
+    },
+    {
+      "id": "T-018",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 3
+    },
+    {
+      "id": "T-019",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-020",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-021",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 9
+    },
+    {
+      "id": "T-022",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 3
+    },
+    {
+      "id": "T-023",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 4
+    },
+    {
+      "id": "T-024",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-025",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-026",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-027",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    }
+  ],
+  "threats": [
+    {
+      "id": "TM-001",
+      "requirement_ids": [
+        "SEC-001",
+        "SEC-002"
+      ]
+    },
+    {
+      "id": "TM-002",
+      "requirement_ids": [
+        "SEC-002",
+        "FR-012"
+      ]
+    },
+    {
+      "id": "TM-003",
+      "requirement_ids": [
+        "SEC-003",
+        "FR-001",
+        "FR-002"
+      ]
+    },
+    {
+      "id": "TM-004",
+      "requirement_ids": [
+        "SEC-004",
+        "FR-005",
+        "FR-006"
+      ]
+    },
+    {
+      "id": "TM-005",
+      "requirement_ids": [
+        "SEC-004",
+        "SEC-006"
+      ]
+    },
+    {
+      "id": "TM-006",
+      "requirement_ids": [
+        "SEC-005",
+        "FR-007",
+        "FR-008"
+      ]
+    },
+    {
+      "id": "TM-007",
+      "requirement_ids": [
+        "SEC-006",
+        "FR-008",
+        "FR-009"
+      ]
+    },
+    {
+      "id": "TM-008",
+      "requirement_ids": [
+        "NFR-001",
+        "FR-003"
+      ]
+    },
+    {
+      "id": "TM-009",
+      "requirement_ids": [
+        "NFR-002"
+      ]
+    },
+    {
+      "id": "TM-010",
+      "requirement_ids": [
+        "SEC-007",
+        "SEC-008"
+      ]
+    },
+    {
+      "id": "TM-011",
+      "requirement_ids": [
+        "PR-002",
+        "SEC-009"
+      ]
+    },
+    {
+      "id": "TM-012",
+      "requirement_ids": [
+        "SEC-001"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "enabled": false,
+      "id": "read_project_text"
+    },
+    {
+      "enabled": false,
+      "id": "propose_project_change"
+    },
+    {
+      "enabled": false,
+      "id": "apply_approved_change"
+    }
+  ]
+}

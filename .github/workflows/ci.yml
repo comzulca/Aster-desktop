@@ -1,0 +1,143 @@
+name: Source security and Windows host
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: '0'
+  ASTER_DISABLE_LIVE: '1'
+
+jobs:
+  source-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Check tracked source for probable credentials
+        run: |
+          git rev-parse HEAD
+          python3 scripts/ci/scan_secrets.py --self-test
+          python3 scripts/ci/scan_secrets.py
+      - name: Require reproducible dependency inputs
+        run: |
+          test -s pnpm-lock.yaml
+          python3 -m json.tool docs/aster-builder/contract.json > /dev/null
+
+  frontend:
+    needs: source-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Install exact locked dependencies
+        run: |
+          corepack pnpm --version
+          corepack pnpm install --frozen-lockfile
+      - name: Static checks and fixture tests
+        run: |
+          corepack pnpm typecheck
+          corepack pnpm test
+          corepack pnpm build
+      - name: Dependency advisory gate
+        run: corepack pnpm audit --audit-level moderate
+      - name: Capture license inventory and frontend SBOM
+        run: |
+          mkdir -p reports
+          printf '%s\n' "$(git rev-parse HEAD)" > reports/source-revision.txt
+          corepack pnpm licenses list --json > reports/frontend-licenses.json
+          corepack pnpm sbom --sbom-format cyclonedx > reports/frontend.cdx.json
+          python3 -m json.tool reports/frontend-licenses.json > /dev/null
+          python3 -m json.tool reports/frontend.cdx.json > /dev/null
+          sha256sum reports/*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/
+          retention-days: 14
+          if-no-files-found: error
+
+  windows-host:
+    needs: [source-policy, frontend]
+    runs-on: windows-2025
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Require a committed Rust lockfile
+        shell: pwsh
+        run: |
+          if (-not (Test-Path src-tauri/Cargo.lock -PathType Leaf) -or (Get-Item src-tauri/Cargo.lock).Length -eq 0) { throw 'Commit reviewed nonempty src-tauri/Cargo.lock before Windows CI.' }
+      - name: Build renderer for the Windows host
+        run: |
+          corepack pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          corepack pnpm build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.97.0 --profile minimal --component clippy --component rustfmt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup default 1.97.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustc --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Rust formatting, static checks and fixture tests
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo check --manifest-path src-tauri/Cargo.toml --locked --all-targets
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --manifest-path src-tauri/Cargo.toml --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: RustSec advisory gate
+        run: |
+          cargo install cargo-audit --locked --version 0.22.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo audit --file src-tauri/Cargo.lock
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Capture Rust dependency and license SBOM
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force reports | Out-Null
+          $sourceRevision = & git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sourceRevision | Set-Content -Path reports/source-revision.txt
+          $metadata = & cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $metadata | Set-Content -Path reports/rust-metadata.json
+          python scripts/ci/cargo_sbom.py reports/rust-metadata.json reports/rust.cdx.json reports/rust-licenses.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item reports/rust-metadata.json
+          Get-FileHash reports/* -Algorithm SHA256 | Format-Table Path,Hash -AutoSize
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-host-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/
+          retention-days: 14
+          if-no-files-found: error

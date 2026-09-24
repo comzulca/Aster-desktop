@@ -1,0 +1,36 @@
+name: Generate Rust formatting patch for review
+
+# Read-only formatting candidate on the checked-out revision. No auto-commit.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Install pinned formatter
+        run: |
+          rustup toolchain install 1.97.0 --profile minimal --component rustfmt
+          rustup default 1.97.0
+          rustfmt --version
+      - name: Format source and collect candidate patch
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml
+          git diff --check
+          mkdir -p reports
+          git diff --binary -- src-tauri > reports/rustfmt.patch
+          printf '%s\n' "$(git rev-parse HEAD)" > reports/bootstrap-source-revision.txt
+          sha256sum reports/*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rustfmt-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/
+          retention-days: 14
+          if-no-files-found: error

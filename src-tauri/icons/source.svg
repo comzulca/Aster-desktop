@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Aster A monogram">
+  <defs>
+    <radialGradient id="disc" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#354c7a"/>
+      <stop offset="52%" stop-color="#0d1423"/>
+      <stop offset="83%" stop-color="#102c60"/>
+      <stop offset="100%" stop-color="#06132b"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#84cbff"/>
+      <stop offset="48%" stop-color="#2e74d6"/>
+      <stop offset="82%" stop-color="#0bf1f1"/>
+      <stop offset="100%" stop-color="#204bac"/>
+    </linearGradient>
+    <linearGradient id="letter" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="55%" stop-color="#e7f4ff"/>
+      <stop offset="100%" stop-color="#3ab9fa"/>
+    </linearGradient>
+  </defs>
+  <circle cx="128" cy="128" r="119" fill="#0a1328" stroke="#1f458c" stroke-width="5"/>
+  <circle cx="128" cy="128" r="111" fill="url(#disc)" stroke="url(#ring)" stroke-width="5"/>
+  <circle cx="128" cy="128" r="102" fill="none" stroke="#83cbfb" stroke-opacity=".23" stroke-width="2"/>
+  <path d="M73 192 112 66q4-13 16-13t16 13l39 126h-31l-9-32h-31l-9 32zm47-56h16l-8-31z" fill="url(#letter)" fill-rule="evenodd" stroke="#c2edff" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M44 195q84 58 168 0" fill="none" stroke="#0fd4ee" stroke-opacity=".7" stroke-width="4" stroke-linecap="round"/>
+</svg>

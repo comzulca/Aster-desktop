@@ -1,0 +1,28 @@
+[package]
+name = "aster-desktop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.97.0"
+build = "build.rs"
+publish = false
+
+[lib]
+name = "aster_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+futures-util = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls-native-roots"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tokio = { version = "1", features = ["sync", "time", "macros", "rt"] }
+zeroize = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security_Credentials", "Win32_UI_WindowsAndMessaging"] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

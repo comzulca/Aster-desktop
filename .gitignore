@@ -1,0 +1,36 @@
+# Installed packages, compiler output and generated reports.
+node_modules/
+dist/
+coverage/
+target/
+src-tauri/gen/schemas/
+/reports/
+*.log
+*.tmp
+__pycache__/
+.pytest_cache/
+
+# Local editor, environment, and credential material.
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+!.env.sample
+.npmrc
+*.key
+*.pem
+*.p12
+*.pfx
+*.kdbx
+
+# Ephemeral user content and local journals. No chat persistence in v0.1.0.
+/data/
+/logs/
+*.sqlite
+*.sqlite3
+*.db
+
+# Keep both lockfiles in source control: pnpm-lock.yaml and src-tauri/Cargo.lock.
