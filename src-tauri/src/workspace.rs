@@ -12,13 +12,13 @@
 //! have not yet passed. A hash check followed by a rename is not a safe CAS.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 #[cfg(windows)]
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Mutex;
-use std::time::Instant;
 #[cfg(windows)]
 use std::time::Duration;
+use std::time::Instant;
 
 use serde::Serialize;
 #[cfg(windows)]
@@ -197,7 +197,12 @@ impl Workspace {
 
     /// Only a non-sensitive label crosses IPC. A missing root yields `None`.
     pub fn selected_status(&self) -> Option<String> {
-        self.state.lock().ok()?.root.as_ref().map(|r| r.label.clone())
+        self.state
+            .lock()
+            .ok()?
+            .root
+            .as_ref()
+            .map(|r| r.label.clone())
     }
 
     /// The caller MUST obtain `selected_path` from a trusted OS-native FILE
@@ -247,7 +252,10 @@ impl Workspace {
                     sha256,
                 },
             );
-            Ok(FileSelection { relative_path, request_id: request_id.to_owned() })
+            Ok(FileSelection {
+                relative_path,
+                request_id: request_id.to_owned(),
+            })
         }
         #[cfg(not(windows))]
         {
@@ -273,7 +281,10 @@ impl Workspace {
             let key = (conversation_id.to_owned(), request_id.to_owned());
             // Consume even if later validation fails: stale or replayed grants
             // must never be revived by changing renderer input.
-            let grant = state.read_grants.remove(&key).ok_or(WorkspaceError::Denied)?;
+            let grant = state
+                .read_grants
+                .remove(&key)
+                .ok_or(WorkspaceError::Denied)?;
             let components = parse_relative_path(relative_path)?;
             let normalized = join_relative(&components);
             if grant.relative_path != normalized
@@ -288,7 +299,11 @@ impl Workspace {
             if id != grant.id || sha256 != grant.sha256 {
                 return Err(WorkspaceError::Conflict);
             }
-            let read = ProjectRead { relative_path: normalized, content, sha256 };
+            let read = ProjectRead {
+                relative_path: normalized,
+                content,
+                sha256,
+            };
             let epoch = state.epoch;
             let now = Instant::now();
             state.snapshots.retain(|_, value| value.deadline > now);
@@ -404,16 +419,27 @@ impl Workspace {
                 "relativePath": normalized.clone(),
                 "before": {"sha256": old_sha256.clone(), "content": current},
                 "after": {"sha256": new_sha256.clone(), "content": new_content},
-            })).map_err(|_| WorkspaceError::Unavailable)?;
-            if diff.len() > MAX_DIFF_BYTES { return Err(WorkspaceError::TooLarge); }
+            }))
+            .map_err(|_| WorkspaceError::Unavailable)?;
+            if diff.len() > MAX_DIFF_BYTES {
+                return Err(WorkspaceError::TooLarge);
+            }
             let now = Instant::now();
             state.proposals.retain(|_, value| {
                 value.deadline > now && value.conversation_id != conversation_id
             });
-            if state.proposals.len() >= MAX_PENDING { return Err(WorkspaceError::TooLarge); }
+            if state.proposals.len() >= MAX_PENDING {
+                return Err(WorkspaceError::TooLarge);
+            }
             let proposal_id = windows_fs::random_nonce()?;
-            if state.proposals.contains_key(&proposal_id) { return Err(WorkspaceError::Unavailable); }
-            state.snapshots.get_mut(&key).ok_or(WorkspaceError::Denied)?.proposal_remaining = false;
+            if state.proposals.contains_key(&proposal_id) {
+                return Err(WorkspaceError::Unavailable);
+            }
+            state
+                .snapshots
+                .get_mut(&key)
+                .ok_or(WorkspaceError::Denied)?
+                .proposal_remaining = false;
             state.proposals.insert(
                 proposal_id.clone(),
                 Proposal {
@@ -459,7 +485,9 @@ impl Workspace {
 fn validate_id(value: &str) -> Result<(), WorkspaceError> {
     if value.is_empty()
         || value.len() > MAX_ID_BYTES
-        || !value.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        || !value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
     {
         return Err(WorkspaceError::Denied);
     }
@@ -471,7 +499,9 @@ fn validate_text(value: &str, max_bytes: u64) -> Result<(), WorkspaceError> {
         return Err(WorkspaceError::TooLarge);
     }
     if value.chars().any(|ch| {
-        ch == '\0' || risky_format_mark(ch) || (ch.is_control() && !matches!(ch, '\n' | '\r' | '\t'))
+        ch == '\0'
+            || risky_format_mark(ch)
+            || (ch.is_control() && !matches!(ch, '\n' | '\r' | '\t'))
     }) {
         return Err(WorkspaceError::Denied);
     }
@@ -479,7 +509,11 @@ fn validate_text(value: &str, max_bytes: u64) -> Result<(), WorkspaceError> {
 }
 
 fn parse_relative_path(path: &str) -> Result<Vec<String>, WorkspaceError> {
-    if path.is_empty() || path.len() > MAX_PATH_BYTES || path.starts_with('/') || path.starts_with('\\') {
+    if path.is_empty()
+        || path.len() > MAX_PATH_BYTES
+        || path.starts_with('/')
+        || path.starts_with('\\')
+    {
         return Err(WorkspaceError::Denied);
     }
     let mut result = Vec::new();
@@ -489,22 +523,31 @@ fn parse_relative_path(path: &str) -> Result<Vec<String>, WorkspaceError> {
             || segment == ".."
             || segment.ends_with('.')
             || segment.ends_with(' ')
-            || segment.chars().any(|c| c.is_control() || risky_format_mark(c) || ":*?\"<>|~".contains(c))
+            || segment
+                .chars()
+                .any(|c| c.is_control() || risky_format_mark(c) || ":*?\"<>|~".contains(c))
         {
             return Err(WorkspaceError::Denied);
         }
         let low = segment.to_ascii_lowercase();
         let base = low.split('.').next().unwrap_or("");
-        let reserved = matches!(base, "con" | "prn" | "aux" | "nul" | "clock$" | "conin$" | "conout$")
-            || (base.len() == 4 && (base.starts_with("com") || base.starts_with("lpt"))
-                && base.as_bytes()[3].is_ascii_digit())
+        let reserved = matches!(
+            base,
+            "con" | "prn" | "aux" | "nul" | "clock$" | "conin$" | "conout$"
+        ) || (base.len() == 4
+            && (base.starts_with("com") || base.starts_with("lpt"))
+            && base.as_bytes()[3].is_ascii_digit())
             || ["com¹", "com²", "com³", "lpt¹", "lpt²", "lpt³"].contains(&base);
-        let sensitive = matches!(low.as_str(), ".git" | ".ssh" | ".aws" | ".npmrc" | ".pypirc" | ".netrc" | "id_rsa" | "id_ed25519")
-            || low == ".env"
+        let sensitive = matches!(
+            low.as_str(),
+            ".git" | ".ssh" | ".aws" | ".npmrc" | ".pypirc" | ".netrc" | "id_rsa" | "id_ed25519"
+        ) || low == ".env"
             || low.starts_with(".env.")
             || low.starts_with("credentials")
             || low.starts_with("secret")
-            || [".pem", ".key", ".p12", ".pfx", ".kdbx"].iter().any(|s| low.ends_with(s));
+            || [".pem", ".key", ".p12", ".pfx", ".kdbx"]
+                .iter()
+                .any(|s| low.ends_with(s));
         if reserved || sensitive {
             return Err(WorkspaceError::Denied);
         }
@@ -540,12 +583,16 @@ fn sha256_hex(bytes: &[u8]) -> String {
 fn changed_bytes(old: &str, new: &str) -> (usize, usize) {
     let mut prefix = 0;
     for (a, b) in old.chars().zip(new.chars()) {
-        if a != b { break; }
+        if a != b {
+            break;
+        }
         prefix += a.len_utf8();
     }
     let mut suffix = 0;
     for (a, b) in old[prefix..].chars().rev().zip(new[prefix..].chars().rev()) {
-        if a != b { break; }
+        if a != b {
+            break;
+        }
         suffix += a.len_utf8();
     }
     (old.len() - prefix - suffix, new.len() - prefix - suffix)
@@ -574,7 +621,10 @@ mod windows_fs {
     const BCRYPT_USE_SYSTEM_PREFERRED_RNG: u32 = 0x0000_0002;
 
     #[repr(C)]
-    struct FileTime { low: u32, high: u32 }
+    struct FileTime {
+        low: u32,
+        high: u32,
+    }
     #[repr(C)]
     struct ByHandleFileInformation {
         attributes: u32,
@@ -591,7 +641,10 @@ mod windows_fs {
     #[allow(non_snake_case, clippy::too_many_arguments)]
     #[link(name = "kernel32")]
     unsafe extern "system" {
-        fn GetFileInformationByHandle(handle: *mut c_void, info: *mut ByHandleFileInformation) -> i32;
+        fn GetFileInformationByHandle(
+            handle: *mut c_void,
+            info: *mut ByHandleFileInformation,
+        ) -> i32;
         fn GetDriveTypeW(root_path: *const u16) -> u32;
         fn QueryDosDeviceW(device_name: *const u16, target_path: *mut u16, capacity: u32) -> u32;
         fn GetVolumeInformationW(
@@ -622,7 +675,9 @@ mod windows_fs {
         // SAFETY: File's OS handle remains open for this call and points to a
         // correctly laid-out, writable BY_HANDLE_FILE_INFORMATION buffer.
         let ok = unsafe { GetFileInformationByHandle(file.as_raw_handle(), info.as_mut_ptr()) };
-        if ok == 0 { return Err(WorkspaceError::Io); }
+        if ok == 0 {
+            return Err(WorkspaceError::Io);
+        }
         // SAFETY: a successful Win32 call fully initialized the output.
         Ok(unsafe { info.assume_init() })
     }
@@ -634,7 +689,10 @@ mod windows_fs {
         }
     }
 
-    fn check_info(info: &ByHandleFileInformation, directory: bool) -> Result<FileIdentity, WorkspaceError> {
+    fn check_info(
+        info: &ByHandleFileInformation,
+        directory: bool,
+    ) -> Result<FileIdentity, WorkspaceError> {
         if info.attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
             || ((info.attributes & FILE_ATTRIBUTE_DIRECTORY != 0) != directory)
             || (!directory && info.links != 1)
@@ -671,7 +729,9 @@ mod windows_fs {
             return Err(WorkspaceError::Denied);
         }
         let tail = text[3..].trim_end_matches(['/', '\\']);
-        if tail.is_empty() { return Ok(Vec::new()); }
+        if tail.is_empty() {
+            return Ok(Vec::new());
+        }
         parse_relative_path(tail)
     }
 
@@ -690,12 +750,24 @@ mod windows_fs {
         let mut target = [0u16; 512];
         // SAFETY: valid NUL-terminated drive name and writable target buffer.
         let units = unsafe {
-            QueryDosDeviceW(drive_name.as_ptr(), target.as_mut_ptr(), target.len() as u32)
+            QueryDosDeviceW(
+                drive_name.as_ptr(),
+                target.as_mut_ptr(),
+                target.len() as u32,
+            )
         } as usize;
-        if units == 0 || units > target.len() { return Err(WorkspaceError::Denied); }
-        let first_end = target[..units].iter().position(|unit| *unit == 0).ok_or(WorkspaceError::Denied)?;
-        let mapping = String::from_utf16(&target[..first_end]).map_err(|_| WorkspaceError::Denied)?;
-        let suffix = mapping.strip_prefix(r"\Device\HarddiskVolume").ok_or(WorkspaceError::Denied)?;
+        if units == 0 || units > target.len() {
+            return Err(WorkspaceError::Denied);
+        }
+        let first_end = target[..units]
+            .iter()
+            .position(|unit| *unit == 0)
+            .ok_or(WorkspaceError::Denied)?;
+        let mapping =
+            String::from_utf16(&target[..first_end]).map_err(|_| WorkspaceError::Denied)?;
+        let suffix = mapping
+            .strip_prefix(r"\Device\HarddiskVolume")
+            .ok_or(WorkspaceError::Denied)?;
         if suffix.is_empty() || !suffix.bytes().all(|b| b.is_ascii_digit()) {
             return Err(WorkspaceError::Denied);
         }
@@ -705,14 +777,25 @@ mod windows_fs {
         // correctly-sized writable buffer with a declared element capacity.
         let ok = unsafe {
             GetVolumeInformationW(
-                drive_root.as_ptr(), std::ptr::null_mut(), 0,
-                &mut serial, std::ptr::null_mut(), std::ptr::null_mut(),
-                file_system.as_mut_ptr(), file_system.len() as u32,
+                drive_root.as_ptr(),
+                std::ptr::null_mut(),
+                0,
+                &mut serial,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                file_system.as_mut_ptr(),
+                file_system.len() as u32,
             )
         };
-        if ok == 0 { return Err(WorkspaceError::Unavailable); }
-        let length = file_system.iter().position(|unit| *unit == 0).ok_or(WorkspaceError::Denied)?;
-        if String::from_utf16(&file_system[..length]).map_err(|_| WorkspaceError::Denied)? != "NTFS" {
+        if ok == 0 {
+            return Err(WorkspaceError::Unavailable);
+        }
+        let length = file_system
+            .iter()
+            .position(|unit| *unit == 0)
+            .ok_or(WorkspaceError::Denied)?;
+        if String::from_utf16(&file_system[..length]).map_err(|_| WorkspaceError::Denied)? != "NTFS"
+        {
             return Err(WorkspaceError::Denied);
         }
         Ok(serial)
@@ -732,26 +815,48 @@ mod windows_fs {
         }
         let anchor = open_dir(&cursor, FILE_SHARE_READ | FILE_SHARE_WRITE)?;
         let id = check_info(&file_info(&anchor)?, true)?;
-        if id.volume != volume_serial { return Err(WorkspaceError::Denied); }
+        if id.volume != volume_serial {
+            return Err(WorkspaceError::Denied);
+        }
         drop(parents);
-        let label = segments.last().cloned().unwrap_or_else(|| prefix.to_owned());
-        Ok(Root { path: cursor, label, anchor, id })
+        let label = segments
+            .last()
+            .cloned()
+            .unwrap_or_else(|| prefix.to_owned());
+        Ok(Root {
+            path: cursor,
+            label,
+            anchor,
+            id,
+        })
     }
 
-    pub(super) fn selected_relative_path(root: &Root, selected: &Path) -> Result<Vec<String>, WorkspaceError> {
+    pub(super) fn selected_relative_path(
+        root: &Root,
+        selected: &Path,
+    ) -> Result<Vec<String>, WorkspaceError> {
         let _ = local_absolute(selected)?;
-        let raw = selected.strip_prefix(&root.path).map_err(|_| WorkspaceError::Denied)?;
+        let raw = selected
+            .strip_prefix(&root.path)
+            .map_err(|_| WorkspaceError::Denied)?;
         let text = raw.to_str().ok_or(WorkspaceError::Denied)?;
         parse_relative_path(text)
     }
 
-    pub(super) fn read_guarded(root: &Root, components: &[String]) -> Result<(String, FileIdentity), WorkspaceError> {
-        if components.is_empty() { return Err(WorkspaceError::Denied); }
+    pub(super) fn read_guarded(
+        root: &Root,
+        components: &[String],
+    ) -> Result<(String, FileIdentity), WorkspaceError> {
+        if components.is_empty() {
+            return Err(WorkspaceError::Denied);
+        }
         let mut dirs = Vec::with_capacity(components.len());
         // Verify the selected root remains the same directory object. The
         // anchor denies delete sharing and stays open for the session.
         let anchor_id = check_info(&file_info(&root.anchor)?, true)?;
-        if anchor_id != root.id { return Err(WorkspaceError::Conflict); }
+        if anchor_id != root.id {
+            return Err(WorkspaceError::Conflict);
+        }
         let current_root = open_dir(&root.path, FILE_SHARE_READ | FILE_SHARE_WRITE)?;
         if check_info(&file_info(&current_root)?, true)? != root.id {
             return Err(WorkspaceError::Conflict);
@@ -776,9 +881,16 @@ mod windows_fs {
             return Err(WorkspaceError::TooLarge);
         }
         let mut bytes = Vec::new();
-        (&mut file).take(MAX_READ_BYTES + 1).read_to_end(&mut bytes).map_err(|_| WorkspaceError::Io)?;
-        if bytes.len() as u64 > MAX_READ_BYTES { return Err(WorkspaceError::TooLarge); }
-        if check_info(&file_info(&file)?, false)? != id { return Err(WorkspaceError::Conflict); }
+        (&mut file)
+            .take(MAX_READ_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| WorkspaceError::Io)?;
+        if bytes.len() as u64 > MAX_READ_BYTES {
+            return Err(WorkspaceError::TooLarge);
+        }
+        if check_info(&file_info(&file)?, false)? != id {
+            return Err(WorkspaceError::Conflict);
+        }
         let text = String::from_utf8(bytes).map_err(|_| WorkspaceError::Denied)?;
         validate_text(&text, MAX_READ_BYTES)?;
         Ok((text, id))
@@ -787,8 +899,17 @@ mod windows_fs {
     pub(super) fn random_nonce() -> Result<String, WorkspaceError> {
         let mut bytes = [0u8; 16];
         // SAFETY: fixed writable 16-byte buffer, documented system RNG flag.
-        let status = unsafe { BCryptGenRandom(std::ptr::null_mut(), bytes.as_mut_ptr(), 16, BCRYPT_USE_SYSTEM_PREFERRED_RNG) };
-        if status != 0 { return Err(WorkspaceError::Unavailable); }
+        let status = unsafe {
+            BCryptGenRandom(
+                std::ptr::null_mut(),
+                bytes.as_mut_ptr(),
+                16,
+                BCRYPT_USE_SYSTEM_PREFERRED_RNG,
+            )
+        };
+        if status != 0 {
+            return Err(WorkspaceError::Unavailable);
+        }
         Ok(bytes.iter().map(|b| format!("{b:02x}")).collect::<String>())
     }
 }
@@ -799,14 +920,39 @@ mod tests {
 
     #[test]
     fn malicious_windows_paths_are_rejected_even_on_non_windows_hosts() {
-        for path in ["../x", "a/../x", "a\\..\\x", "C:\\x", "\\\\srv\\file", "a:x", "a/.git/config", "A/.ENV.local", "foo~1.txt", "CON.txt", "COM¹.txt", "aux", "a/secret.key", "a/.ssh/id_rsa", "a//b", "a\\\\b", "a/naïve.", "re\u{202e}adme.txt"] {
+        for path in [
+            "../x",
+            "a/../x",
+            "a\\..\\x",
+            "C:\\x",
+            "\\\\srv\\file",
+            "a:x",
+            "a/.git/config",
+            "A/.ENV.local",
+            "foo~1.txt",
+            "CON.txt",
+            "COM¹.txt",
+            "aux",
+            "a/secret.key",
+            "a/.ssh/id_rsa",
+            "a//b",
+            "a\\\\b",
+            "a/naïve.",
+            "re\u{202e}adme.txt",
+        ] {
             assert!(parse_relative_path(path).is_err(), "accepted {path:?}");
         }
         for base in ["COM¹", "COM²", "COM³", "LPT¹", "LPT²", "LPT³"] {
             assert!(parse_relative_path(base).is_err(), "accepted {base}");
-            assert!(parse_relative_path(&format!("dir/{base}.txt")).is_err(), "accepted {base}.txt");
+            assert!(
+                parse_relative_path(&format!("dir/{base}.txt")).is_err(),
+                "accepted {base}.txt"
+            );
         }
-        assert_eq!(join_relative(&parse_relative_path("src/lib.rs").unwrap()), "src/lib.rs");
+        assert_eq!(
+            join_relative(&parse_relative_path("src/lib.rs").unwrap()),
+            "src/lib.rs"
+        );
     }
 
     #[test]
@@ -814,15 +960,28 @@ mod tests {
         assert_eq!(changed_bytes("aéz", "a🦊z"), (2, 4));
         assert_eq!(changed_bytes("equal", "equal"), (0, 0));
         assert_eq!(changed_bytes("abc", "xbc"), (1, 1));
-        assert!(validate_text(&"a".repeat(MAX_CHANGED_BYTES + 1), MAX_CHANGED_BYTES as u64).is_err());
-        assert_eq!(validate_text("safe\u{202e}unsafe", MAX_READ_BYTES), Err(WorkspaceError::Denied));
+        assert!(
+            validate_text(&"a".repeat(MAX_CHANGED_BYTES + 1), MAX_CHANGED_BYTES as u64).is_err()
+        );
+        assert_eq!(
+            validate_text("safe\u{202e}unsafe", MAX_READ_BYTES),
+            Err(WorkspaceError::Denied)
+        );
     }
 
     #[test]
     fn no_renderer_boolean_or_proposal_nonce_can_publish() {
         let service = Workspace::default();
-        assert_eq!(service.apply_proposal("attacker-value").unwrap_err(), WorkspaceError::Unavailable);
-        assert_eq!(service.read_project_file("conv", "req", "src/lib.rs").unwrap_err(), WorkspaceError::Unavailable);
+        assert_eq!(
+            service.apply_proposal("attacker-value").unwrap_err(),
+            WorkspaceError::Unavailable
+        );
+        assert_eq!(
+            service
+                .read_project_file("conv", "req", "src/lib.rs")
+                .unwrap_err(),
+            WorkspaceError::Unavailable
+        );
     }
 
     #[cfg(windows)]
@@ -834,8 +993,10 @@ mod tests {
     #[cfg(windows)]
     impl NativeFixture {
         fn new() -> Self {
-            let dir = std::env::temp_dir()
-                .join(format!("aster-workspace-test-{}", windows_fs::random_nonce().unwrap()));
+            let dir = std::env::temp_dir().join(format!(
+                "aster-workspace-test-{}",
+                windows_fs::random_nonce().unwrap()
+            ));
             std::fs::create_dir(&dir).unwrap();
             let workspace = Workspace::default();
             workspace.set_native_root(dir.clone()).unwrap();
@@ -859,20 +1020,53 @@ mod tests {
         let fixture = NativeFixture::new();
         let path = fixture.dir.join("allowed.txt");
         std::fs::write(&path, "old content\n").unwrap();
-        let selected = fixture.workspace.grant_native_file_read("conv", "req", path.clone()).unwrap();
+        let selected = fixture
+            .workspace
+            .grant_native_file_read("conv", "req", path.clone())
+            .unwrap();
         assert_eq!(selected.relative_path, "allowed.txt");
-        let read = fixture.workspace.read_project_file("conv", "req", "allowed.txt").unwrap();
+        let read = fixture
+            .workspace
+            .read_project_file("conv", "req", "allowed.txt")
+            .unwrap();
         assert_eq!(read.content, "old content\n");
-        assert_eq!(fixture.workspace.read_project_file("conv", "req", "allowed.txt").unwrap_err(), WorkspaceError::Denied);
-        let proposal = fixture.workspace.review_proposal("conv", "req", "allowed.txt", "new content\n", Some(&read.sha256)).unwrap();
+        assert_eq!(
+            fixture
+                .workspace
+                .read_project_file("conv", "req", "allowed.txt")
+                .unwrap_err(),
+            WorkspaceError::Denied
+        );
+        let proposal = fixture
+            .workspace
+            .review_proposal(
+                "conv",
+                "req",
+                "allowed.txt",
+                "new content\n",
+                Some(&read.sha256),
+            )
+            .unwrap();
         assert_eq!(proposal.status, "proposal_only");
         assert!(!proposal.apply_available);
         let exact: serde_json::Value = serde_json::from_str(&proposal.diff).unwrap();
         assert_eq!(exact["before"]["content"], "old content\n");
         assert_eq!(exact["after"]["content"], "new content\n");
-        assert_eq!(fixture.workspace.apply_proposal(&proposal.proposal_id).unwrap_err(), WorkspaceError::Unavailable);
+        assert_eq!(
+            fixture
+                .workspace
+                .apply_proposal(&proposal.proposal_id)
+                .unwrap_err(),
+            WorkspaceError::Unavailable
+        );
         assert_eq!(std::fs::read_to_string(path).unwrap(), "old content\n");
-        assert_eq!(fixture.workspace.review_proposal("conv", "req", "allowed.txt", "third\n", Some(&read.sha256)).unwrap_err(), WorkspaceError::Denied);
+        assert_eq!(
+            fixture
+                .workspace
+                .review_proposal("conv", "req", "allowed.txt", "third\n", Some(&read.sha256))
+                .unwrap_err(),
+            WorkspaceError::Denied
+        );
     }
 
     #[cfg(windows)]
@@ -881,10 +1075,25 @@ mod tests {
         let fixture = NativeFixture::new();
         let path = fixture.dir.join("drift.txt");
         std::fs::write(&path, "before").unwrap();
-        fixture.workspace.grant_native_file_read("conv", "req", path.clone()).unwrap();
+        fixture
+            .workspace
+            .grant_native_file_read("conv", "req", path.clone())
+            .unwrap();
         std::fs::write(&path, "after").unwrap();
-        assert_eq!(fixture.workspace.read_project_file("conv", "req", "drift.txt").unwrap_err(), WorkspaceError::Conflict);
-        assert_eq!(fixture.workspace.read_project_file("conv", "req", "drift.txt").unwrap_err(), WorkspaceError::Denied);
+        assert_eq!(
+            fixture
+                .workspace
+                .read_project_file("conv", "req", "drift.txt")
+                .unwrap_err(),
+            WorkspaceError::Conflict
+        );
+        assert_eq!(
+            fixture
+                .workspace
+                .read_project_file("conv", "req", "drift.txt")
+                .unwrap_err(),
+            WorkspaceError::Denied
+        );
     }
 
     #[cfg(windows)]
@@ -895,12 +1104,24 @@ mod tests {
         let alias = fixture.dir.join("alias.txt");
         std::fs::write(&real, "data").unwrap();
         std::fs::hard_link(&real, &alias).unwrap();
-        assert_eq!(fixture.workspace.grant_native_file_read("conv", "req", real.clone()).unwrap_err(), WorkspaceError::Denied);
+        assert_eq!(
+            fixture
+                .workspace
+                .grant_native_file_read("conv", "req", real.clone())
+                .unwrap_err(),
+            WorkspaceError::Denied
+        );
         std::fs::remove_file(&alias).unwrap();
         // Symlink creation may require Developer Mode or elevation. A blocked
         // creation fails this required native gate; it is never silently PASS.
         std::os::windows::fs::symlink_file(&real, &alias).unwrap();
-        assert_eq!(fixture.workspace.grant_native_file_read("conv", "req", alias).unwrap_err(), WorkspaceError::Denied);
+        assert_eq!(
+            fixture
+                .workspace
+                .grant_native_file_read("conv", "req", alias)
+                .unwrap_err(),
+            WorkspaceError::Denied
+        );
     }
 
     // T-009/T-010/T-024/T-025/T-026 Windows NTFS integration cases are NOT
