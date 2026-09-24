@@ -574,7 +574,10 @@ fn risky_format_mark(ch: char) -> bool {
 
 #[cfg(windows)]
 fn sha256_hex(bytes: &[u8]) -> String {
-    Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 /// Return the lengths of the changed old/new UTF-8 slices, using common
