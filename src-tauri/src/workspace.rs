@@ -980,7 +980,11 @@ mod tests {
             service
                 .read_project_file("conv", "req", "src/lib.rs")
                 .unwrap_err(),
-            WorkspaceError::Unavailable
+            if cfg!(windows) {
+                WorkspaceError::Denied
+            } else {
+                WorkspaceError::Unavailable
+            }
         );
     }
 
@@ -993,14 +997,36 @@ mod tests {
     #[cfg(windows)]
     impl NativeFixture {
         fn new() -> Self {
-            let dir = std::env::temp_dir().join(format!(
-                "aster-workspace-test-{}",
-                windows_fs::random_nonce().unwrap()
-            ));
-            std::fs::create_dir(&dir).unwrap();
-            let workspace = Workspace::default();
-            workspace.set_native_root(dir.clone()).unwrap();
-            Self { dir, workspace }
+            // Hosted runners may place TEMP on a volume or ancestor that the
+            // production NTFS policy rightly rejects. Try the user's local
+            // application-data directory first, then TEMP. A candidate must
+            // pass the exact production root admission; no gate is bypassed.
+            let mut attempts = Vec::new();
+            for base in [
+                std::env::var_os("LOCALAPPDATA").map(PathBuf::from),
+                Some(std::env::temp_dir()),
+            ]
+            .into_iter()
+            .flatten()
+            {
+                let dir = base.join(format!(
+                    "aster-workspace-test-{}",
+                    windows_fs::random_nonce().unwrap()
+                ));
+                if let Err(error) = std::fs::create_dir(&dir) {
+                    attempts.push(format!("{}: create {error}", dir.display()));
+                    continue;
+                }
+                let workspace = Workspace::default();
+                match workspace.set_native_root(dir.clone()) {
+                    Ok(_) => return Self { dir, workspace },
+                    Err(error) => {
+                        attempts.push(format!("{}: {error}", dir.display()));
+                        std::fs::remove_dir(&dir).unwrap();
+                    }
+                }
+            }
+            panic!("No eligible fixed local NTFS fixture directory: {attempts:?}");
         }
     }
 
