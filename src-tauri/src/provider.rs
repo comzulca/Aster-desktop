@@ -89,6 +89,7 @@ pub fn exact_body(model: Model, messages: &[ChatMessage]) -> Result<Vec<u8>, Pro
 
 fn client() -> Result<Client, ProviderFailure> {
     Client::builder()
+        .tls_backend_rustls()
         .https_only(true)
         .no_proxy()
         .redirect(Policy::none())
@@ -482,12 +483,31 @@ mod tests {
         )
     }
 
+    fn write_http_chunk(connection: &mut TcpStream, bytes: &[u8]) {
+        let size = format!("{:X}\r\n", bytes.len());
+        connection.write_all(size.as_bytes()).unwrap();
+        connection.write_all(bytes).unwrap();
+        connection.write_all(b"\r\n").unwrap();
+        connection.flush().unwrap();
+    }
+
     fn test_client() -> Client {
         Client::builder()
             .no_proxy()
             .redirect(Policy::none())
             .build()
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn production_client_builds_and_rejects_cleartext() {
+        let error = client()
+            .expect("production client must initialize Rustls")
+            .get("http://example.invalid/")
+            .send()
+            .await
+            .expect_err("HTTPS-only production client must reject cleartext HTTP");
+        assert!(error.is_builder());
     }
 
     fn msg() -> Vec<ChatMessage> {
@@ -732,6 +752,76 @@ mod tests {
             .await
             .expect("cancellation must end a pending response promptly");
         assert_eq!(result.err(), Some(ProviderFailure::Cancelled));
+        release_tx.send(()).unwrap();
+        assert!(server
+            .join()
+            .unwrap()
+            .starts_with("POST /v1/chat/completions"));
+    }
+
+    #[tokio::test]
+    async fn chunked_stream_cancels_while_body_is_still_open() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!(
+            "http://{}/v1/chat/completions",
+            listener.local_addr().unwrap()
+        );
+        let event = frame(Model::Nemotron, "España", None);
+        let split = event.find('ñ').unwrap() + 1;
+        let first = event.as_bytes()[..split].to_vec();
+        let second = event.as_bytes()[split..].to_vec();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let server = thread::spawn(move || {
+            let (mut connection, _) = listener.accept().unwrap();
+            let captured = read_request(&mut connection);
+            connection
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
+                )
+                .unwrap();
+            write_http_chunk(&mut connection, &first);
+            write_http_chunk(&mut connection, &second);
+            let _ = release_rx.recv_timeout(Duration::from_secs(5));
+            captured
+        });
+
+        let (cancel_tx, cancel) = watch::channel(false);
+        let (seen_tx, seen_rx) = tokio::sync::oneshot::channel();
+        let mut seen_tx = Some(seen_tx);
+        let client = test_client();
+        let messages = msg();
+        let request = stream_with_client(
+            &client,
+            &url,
+            Model::Nemotron,
+            &messages,
+            Zeroizing::new("synthetic-fixture-key-123".to_owned()),
+            cancel,
+            move |text| {
+                seen_tx
+                    .take()
+                    .expect("fixture emits exactly one content event")
+                    .send(text)
+                    .expect("test must still await streamed content");
+                Ok(())
+            },
+        );
+        tokio::pin!(request);
+
+        let content = tokio::select! {
+            result = &mut request => panic!("request ended while the chunked body was open: {result:?}"),
+            result = tokio::time::timeout(Duration::from_secs(5), seen_rx) => result
+                .expect("streamed content must arrive promptly")
+                .expect("content callback must report the first event"),
+        };
+        assert_eq!(content, "España");
+
+        cancel_tx.send(true).unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(3), &mut request)
+            .await
+            .expect("cancellation must end a pending body read promptly");
+        assert_eq!(result.err(), Some(ProviderFailure::Cancelled));
+
         release_tx.send(()).unwrap();
         assert!(server
             .join()
