@@ -12,7 +12,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
 futures-util = "0.3"
-reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls-native-roots"] }
+reqwest = { version = "0.13", default-features = false, features = ["stream", "rustls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
