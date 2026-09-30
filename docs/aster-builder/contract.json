@@ -384,17 +384,17 @@
     },
     {
       "phase": 4,
-      "reason": "Two fixed provider adapters and fixtures exist; Windows transport tests and live per-model canaries pending.",
+      "reason": "Offline Windows loopback transport/closed-registry fixtures passed; owner live per-model canaries and normal-app secret-boundary acceptance remain NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 5,
-      "reason": "Windows Credential Manager source exists; native entry/read/delete and persistence evidence pending.",
+      "reason": "Synthetic Windows Credential Manager API/DPAPI fixtures passed; owner native/Control Panel GUI, renderer secret-boundary and no-history restart evidence pending.",
       "status": "NOT RUN"
     },
     {
       "phase": 6,
-      "reason": "Workspace native helpers exist but file IPC and apply remain disabled pending native review/race/recovery evidence.",
+      "reason": "Internal workspace fixtures passed, but normal-app owner HWND/disclosure/proposal/new-file routes, journal DACL and independent-process recovery implementation/evidence remain missing. File IPC/apply stay disabled.",
       "status": "NOT RUN"
     },
     {
@@ -404,12 +404,12 @@
     },
     {
       "phase": 8,
-      "reason": "Local frontend checks passed; hosted exact-revision CI, Rust audit, native tests and SBOM review pending.",
+      "reason": "Owner offline fmt/check/Clippy, 80 Rust and 23 frontend fixtures passed; exact-head hosted CI/audit/SBOM/license review, new packaging and interactive Windows acceptance pending.",
       "status": "NOT RUN"
     },
     {
       "phase": 9,
-      "reason": "Capability not implemented and not verified.",
+      "reason": "Unsigned engineering packaging/manual acceptance on this revision pending; signed/public production promotion is not requested or claimed.",
       "status": "NOT RUN"
     }
   ],
