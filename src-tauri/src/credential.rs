@@ -50,6 +50,16 @@ fn decode_native_password(password: &[u16]) -> Result<Zeroizing<String>, Credent
     Ok(key)
 }
 
+#[cfg(any(windows, test))]
+fn admit_fixture_password(supplied: Zeroizing<String>) -> Result<(), CredentialError> {
+    // Consume the zeroizing buffer even on rejection. A diagnostic never
+    // returns supplied bytes and can admit only this known non-secret value.
+    if !valid_key(&supplied) || supplied.as_str() != crate::credential_fixture::SYNTHETIC_KEY {
+        return Err(CredentialError::Rejected);
+    }
+    Ok(())
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CredentialError {
     Cancelled,
@@ -92,6 +102,45 @@ impl CredentialStore {
     }
 }
 
+// These diagnostic-only entry points accept an opaque generated target, never
+// a string supplied by argv, environment, a renderer, or a provider. The
+// diagnostic cannot call the production store through this surface.
+#[cfg(windows)]
+pub(crate) fn fixture_present(
+    target: &crate::credential_fixture::FixtureTarget,
+) -> Result<bool, CredentialError> {
+    native::fixture_present(target)
+}
+
+#[cfg(windows)]
+pub(crate) fn fixture_snapshot(
+    target: &crate::credential_fixture::FixtureTarget,
+) -> Result<crate::credential_fixture::FixtureSnapshot, CredentialError> {
+    native::fixture_snapshot(target)
+}
+
+#[cfg(windows)]
+pub(crate) fn fixture_prompt(
+    target: &crate::credential_fixture::FixtureTarget,
+) -> Result<bool, CredentialError> {
+    native::fixture_prompt(target)
+}
+
+#[cfg(windows)]
+pub(crate) fn fixture_write(
+    target: &crate::credential_fixture::FixtureTarget,
+) -> Result<(), CredentialError> {
+    native::fixture_write(target)
+}
+
+#[cfg(windows)]
+pub(crate) fn fixture_delete(
+    target: &crate::credential_fixture::FixtureTarget,
+    expected: &crate::credential_fixture::FixtureSnapshot,
+) -> Result<(), CredentialError> {
+    native::fixture_delete(target, expected)
+}
+
 #[cfg(not(windows))]
 mod native {
     use super::{CredentialError, Zeroizing};
@@ -116,14 +165,15 @@ mod native {
 #[cfg(windows)]
 mod native {
     use super::{
-        decode_blob, decode_native_password, valid_key, CredentialError, Zeroizing, TARGET,
+        admit_fixture_password, decode_blob, decode_native_password, valid_key, CredentialError,
+        Zeroizing, TARGET,
     };
     use std::{ffi::c_void, iter, mem, ptr};
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_NOT_FOUND};
     use windows_sys::Win32::Security::Credentials::{
         CredDeleteW, CredFree, CredReadW, CredUIPromptForCredentialsW, CredWriteW, CREDENTIALW,
         CREDUI_FLAGS_ALWAYS_SHOW_UI, CREDUI_FLAGS_DO_NOT_PERSIST, CREDUI_FLAGS_GENERIC_CREDENTIALS,
-        CREDUI_INFOW, CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC,
+        CREDUI_INFOW, CRED_PERSIST_ENTERPRISE, CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC,
     };
     use zeroize::Zeroize;
 
@@ -146,9 +196,27 @@ mod native {
     }
 
     pub fn prompt_and_save() -> Result<bool, CredentialError> {
-        let target = wide(TARGET);
-        let message = wide("Introduce la clave NVIDIA. Se guardará en el Administrador de credenciales de esta cuenta de Windows.");
-        let caption = wide("Aster Desktop: clave de NVIDIA");
+        let supplied = prompt_at(
+            TARGET,
+            "nvidia-api",
+            "Introduce la clave NVIDIA. Se guardará en el Administrador de credenciales de esta cuenta de Windows.",
+            "Aster Desktop: clave de NVIDIA",
+        )?;
+        write_at(TARGET, &supplied)?;
+        Ok(true)
+    }
+
+    // The native UI never persists implicitly. A caller must independently
+    // admit the result before its explicit, target-bound write.
+    fn prompt_at(
+        target_name: &str,
+        default_username: &str,
+        message_text: &str,
+        caption_text: &str,
+    ) -> Result<Zeroizing<String>, CredentialError> {
+        let target = wide(target_name);
+        let message = wide(message_text);
+        let caption = wide(caption_text);
         let info = CREDUI_INFOW {
             cbSize: mem::size_of::<CREDUI_INFOW>() as u32,
             hwndParent: ptr::null_mut(),
@@ -157,15 +225,14 @@ mod native {
             hbmBanner: ptr::null_mut(),
         };
         let mut username = Zeroizing::new(vec![0_u16; 513]);
-        let default_user = wide("nvidia-api");
+        let default_user = wide(default_username);
         username[..default_user.len()].copy_from_slice(&default_user);
         let mut password = Zeroizing::new(vec![0_u16; 257]);
         let mut save = 0;
         let flags = CREDUI_FLAGS_GENERIC_CREDENTIALS
             | CREDUI_FLAGS_DO_NOT_PERSIST
             | CREDUI_FLAGS_ALWAYS_SHOW_UI;
-        // DO_NOT_PERSIST keeps the OS prompt from implicitly storing any
-        // credential. Our explicit CredWriteW uses exactly one fixed target.
+        // DO_NOT_PERSIST keeps the OS prompt from implicitly storing anything.
         // SAFETY: all buffers are live and sized to the values passed.
         let result = unsafe {
             CredUIPromptForCredentialsW(
@@ -191,12 +258,14 @@ mod native {
             .iter()
             .position(|c| *c == 0)
             .unwrap_or(password.len());
-        let supplied = decode_native_password(&password[..end])?;
-        write_at(TARGET, &supplied)?;
-        Ok(true)
+        decode_native_password(&password[..end])
     }
 
     fn write_at(target_name: &str, key: &str) -> Result<(), CredentialError> {
+        write_at_user(target_name, key, "nvidia-api")
+    }
+
+    fn write_at_user(target_name: &str, key: &str, username: &str) -> Result<(), CredentialError> {
         if !valid_key(key) {
             return Err(CredentialError::Rejected);
         }
@@ -206,14 +275,23 @@ mod native {
         for byte in key.bytes() {
             blob.extend_from_slice(&[byte, 0]);
         }
-        write_blob_at(target_name, &mut blob)
+        write_blob_at_user(target_name, &mut blob, username)
     }
 
+    #[cfg(test)]
     fn write_blob_at(target_name: &str, blob: &mut [u8]) -> Result<(), CredentialError> {
+        write_blob_at_user(target_name, blob, "nvidia-api")
+    }
+
+    fn write_blob_at_user(
+        target_name: &str,
+        blob: &mut [u8],
+        username: &str,
+    ) -> Result<(), CredentialError> {
         // Shared with disposable synthetic tests, never accepts an IPC key.
         decode_blob(blob)?;
         let target = wide(target_name);
-        let user = wide("nvidia-api");
+        let user = wide(username);
         let entry = CREDENTIALW {
             Flags: 0,
             Type: CRED_TYPE_GENERIC,
@@ -301,9 +379,226 @@ mod native {
         }
     }
 
+    fn fixture_name(
+        target: &crate::credential_fixture::FixtureTarget,
+    ) -> Result<&str, CredentialError> {
+        target.validated_name().ok_or(CredentialError::Rejected)
+    }
+
+    struct FixtureAllocation(*mut CREDENTIALW);
+
+    impl Drop for FixtureAllocation {
+        fn drop(&mut self) {
+            // This frees and scrubs only an OS read allocation. It NEVER
+            // deletes a persisted credential on Drop, error or interruption.
+            // SAFETY: the allocation is owned by CredReadW until CredFree.
+            unsafe {
+                let entry = &*self.0;
+                if !entry.CredentialBlob.is_null() && entry.CredentialBlobSize <= 5 * 512 {
+                    std::slice::from_raw_parts_mut(
+                        entry.CredentialBlob,
+                        entry.CredentialBlobSize as usize,
+                    )
+                    .zeroize();
+                }
+                CredFree(self.0.cast::<c_void>());
+            }
+        }
+    }
+
+    fn fixture_allocation(
+        target: &crate::credential_fixture::FixtureTarget,
+    ) -> Result<Option<FixtureAllocation>, CredentialError> {
+        let target = wide(fixture_name(target)?);
+        let mut pointer: *mut CREDENTIALW = ptr::null_mut();
+        // Raw presence is deliberately independent of decoding. A malformed
+        // existing entry is still present and must block a diagnostic write.
+        // SAFETY: validated fixture namespace and a live output pointer.
+        if unsafe { CredReadW(target.as_ptr(), CRED_TYPE_GENERIC, 0, &mut pointer) } == 0 {
+            return if unsafe { GetLastError() } == ERROR_NOT_FOUND {
+                Ok(None)
+            } else {
+                Err(CredentialError::System)
+            };
+        }
+        if pointer.is_null() {
+            return Err(CredentialError::System);
+        }
+        Ok(Some(FixtureAllocation(pointer)))
+    }
+
+    pub(super) fn fixture_present(
+        target: &crate::credential_fixture::FixtureTarget,
+    ) -> Result<bool, CredentialError> {
+        // Never copy, decode or output a password during raw presence checks.
+        Ok(fixture_allocation(target)?.is_some())
+    }
+
+    fn exact_wide(pointer: *const u16, expected: &str) -> bool {
+        if pointer.is_null() {
+            return false;
+        }
+        // SAFETY: CredReadW supplies NUL-terminated metadata strings. Compare
+        // only the bounded expected value and terminator, stopping on mismatch.
+        // Test callers provide live, NUL-terminated fixture arrays.
+        for (index, unit) in expected.encode_utf16().chain(iter::once(0)).enumerate() {
+            if unsafe { *pointer.add(index) } != unit {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn empty_wide(pointer: *const u16) -> bool {
+        pointer.is_null() || exact_wide(pointer, "")
+    }
+
+    fn fixture_metadata_matches(entry: &CREDENTIALW, target_name: &str) -> bool {
+        entry.Type == CRED_TYPE_GENERIC
+            && entry.Flags == 0
+            && matches!(
+                entry.Persist,
+                CRED_PERSIST_LOCAL_MACHINE | CRED_PERSIST_ENTERPRISE
+            )
+            && entry.AttributeCount == 0
+            && empty_wide(entry.TargetAlias)
+            && empty_wide(entry.Comment)
+            && exact_wide(entry.TargetName, target_name)
+            && exact_wide(
+                entry.UserName,
+                crate::credential_fixture::SYNTHETIC_USERNAME,
+            )
+    }
+
+    pub(super) fn fixture_snapshot(
+        target: &crate::credential_fixture::FixtureTarget,
+    ) -> Result<crate::credential_fixture::FixtureSnapshot, CredentialError> {
+        let target_name = fixture_name(target)?;
+        let allocation = fixture_allocation(target)?.ok_or(CredentialError::Rejected)?;
+        // SAFETY: allocation remains owned and live through this scope.
+        let entry = unsafe { &*allocation.0 };
+        if !fixture_metadata_matches(entry, target_name)
+            || entry.CredentialBlob.is_null()
+            || entry.CredentialBlobSize > 512
+        {
+            return Err(CredentialError::Rejected);
+        }
+        // SAFETY: the validated size refers to the live OS allocation.
+        let bytes = Zeroizing::new(unsafe {
+            std::slice::from_raw_parts(entry.CredentialBlob, entry.CredentialBlobSize as usize)
+                .to_vec()
+        });
+        admit_fixture_password(decode_blob(&bytes)?)?;
+        Ok(crate::credential_fixture::FixtureSnapshot {
+            target_name: target_name.to_owned(),
+            last_written: ((entry.LastWritten.dwHighDateTime as u64) << 32)
+                | entry.LastWritten.dwLowDateTime as u64,
+            persistence: entry.Persist,
+        })
+    }
+
+    pub(super) fn fixture_prompt(
+        target: &crate::credential_fixture::FixtureTarget,
+    ) -> Result<bool, CredentialError> {
+        let supplied = match prompt_at(
+            fixture_name(target)?,
+            crate::credential_fixture::SYNTHETIC_USERNAME,
+            "PRUEBA SINTÉTICA SIN RED. No introduzcas una clave real. Usa únicamente synthetic-fixture-key-123. Este diálogo no guarda nada automáticamente.",
+            "Aster: prueba sintética de credenciales (sin NVIDIA)",
+        ) {
+            Ok(value) => value,
+            Err(CredentialError::Cancelled) => return Ok(false),
+            Err(error) => return Err(error),
+        };
+        // Wrong input is zeroized as supplied leaves this scope. No returned
+        // key bytes and no write occur in the prompt, even after acceptance.
+        admit_fixture_password(supplied)?;
+        Ok(true)
+    }
+
+    pub(super) fn fixture_write(
+        target: &crate::credential_fixture::FixtureTarget,
+    ) -> Result<(), CredentialError> {
+        if fixture_present(target)? {
+            return Err(CredentialError::Rejected);
+        }
+        // A last raw-absence check is not atomic CAS against a malicious
+        // same-user racer. The closed namespace still excludes production.
+        write_at_user(
+            fixture_name(target)?,
+            crate::credential_fixture::SYNTHETIC_KEY,
+            crate::credential_fixture::SYNTHETIC_USERNAME,
+        )
+    }
+
+    pub(super) fn fixture_delete(
+        target: &crate::credential_fixture::FixtureTarget,
+        expected: &crate::credential_fixture::FixtureSnapshot,
+    ) -> Result<(), CredentialError> {
+        if &fixture_snapshot(target)? != expected {
+            return Err(CredentialError::Rejected);
+        }
+        // No unconditional cleanup exists. This non-atomic revalidation is
+        // allowed only after explicit native fixture consent.
+        if !delete_at(fixture_name(target)?)? {
+            return Err(CredentialError::Rejected);
+        }
+        Ok(())
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        #[test]
+        fn fixture_metadata_admission_rejects_foreign_entries_with_known_fake_password() {
+            // Pure stack-backed metadata fixtures: no Credential Manager API
+            // or real target is named or called by this test.
+            let target_name = "comzulca/aster-desktop/credential-gui-fixture/00000001-00000000000000000000000000000002-0000000000000003";
+            let mut target = wide(target_name);
+            let mut username = wide(crate::credential_fixture::SYNTHETIC_USERNAME);
+            let mut foreign_username = wide("other-synthetic-fixture");
+            let mut foreign_target = wide("unrelated-synthetic-target");
+            let mut annotation = wide("foreign-synthetic-metadata");
+            let mut blob = b"synthetic-fixture-key-123".to_vec();
+            let baseline = CREDENTIALW {
+                Flags: 0,
+                Type: CRED_TYPE_GENERIC,
+                TargetName: target.as_mut_ptr(),
+                Comment: ptr::null_mut(),
+                LastWritten: unsafe { mem::zeroed() },
+                CredentialBlobSize: blob.len() as u32,
+                CredentialBlob: blob.as_mut_ptr(),
+                Persist: CRED_PERSIST_LOCAL_MACHINE,
+                AttributeCount: 0,
+                Attributes: ptr::null_mut(),
+                TargetAlias: ptr::null_mut(),
+                UserName: username.as_mut_ptr(),
+            };
+            assert!(fixture_metadata_matches(&baseline, target_name));
+            let mut entry = baseline;
+            entry.Persist = CRED_PERSIST_ENTERPRISE;
+            assert!(fixture_metadata_matches(&entry, target_name));
+            for field in 0..9 {
+                let mut entry = baseline;
+                match field {
+                    0 => entry.UserName = foreign_username.as_mut_ptr(),
+                    1 => entry.UserName = ptr::null_mut(),
+                    2 => entry.TargetName = foreign_target.as_mut_ptr(),
+                    3 => entry.TargetName = ptr::null_mut(),
+                    4 => entry.Type = 2,
+                    5 => entry.Flags = 1,
+                    6 => entry.Persist = 1,
+                    7 => entry.AttributeCount = 1,
+                    8 => entry.TargetAlias = annotation.as_mut_ptr(),
+                    _ => unreachable!(),
+                }
+                assert!(!fixture_metadata_matches(&entry, target_name));
+            }
+            let mut entry = baseline;
+            entry.Comment = annotation.as_mut_ptr();
+            assert!(!fixture_metadata_matches(&entry, target_name));
+        }
 
         // This deliberately bypasses admission only to exercise malformed
         // stored blobs. It cannot name the real app credential or cross IPC.
@@ -414,6 +709,51 @@ mod native {
 #[cfg(test)]
 mod representation_tests {
     use super::*;
+
+    #[test]
+    fn fixture_password_admission_consumes_only_the_known_synthetic_value() {
+        assert_eq!(
+            admit_fixture_password(Zeroizing::new(
+                crate::credential_fixture::SYNTHETIC_KEY.to_owned(),
+            )),
+            Ok(()),
+        );
+        for value in ["", "synthetic-other-key-123", "synthetic key with spaces"] {
+            assert_eq!(
+                admit_fixture_password(Zeroizing::new(value.to_owned())),
+                Err(CredentialError::Rejected),
+            );
+        }
+    }
+
+    #[test]
+    fn fixture_native_admission_rejects_bounded_wrong_and_malformed_input() {
+        let expected = Zeroizing::new(
+            crate::credential_fixture::SYNTHETIC_KEY
+                .encode_utf16()
+                .collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            decode_native_password(&expected).and_then(admit_fixture_password),
+            Ok(()),
+        );
+        for input in [
+            "synthetic-other-key-123".encode_utf16().collect(),
+            vec![b'x' as u16; 7],
+            vec![b'x' as u16; 8],
+            vec![b'x' as u16; 256],
+            vec![b'x' as u16; 257],
+            "synthetic key with spaces".encode_utf16().collect(),
+            "synthetic\0fixture-key".encode_utf16().collect(),
+            vec![0xd800; 23],
+        ] {
+            let input = Zeroizing::new(input);
+            assert_eq!(
+                decode_native_password(&input).and_then(admit_fixture_password),
+                Err(CredentialError::Rejected),
+            );
+        }
+    }
 
     #[test]
     fn legacy_ascii_and_native_utf16_decode_identically() {

@@ -340,47 +340,41 @@
         "TM-010"
       ],
       "verification_phase": 6
+    },
+    {
+      "id": "AC-026",
+      "requirement_ids": ["FR-013", "SEC-010"],
+      "test_ids": ["T-033", "T-034"],
+      "threat_ids": ["TM-013"],
+      "verification_phase": 3
     }
   ],
   "gates": [
     {
-      "command": "python \"C:/Users/Rene Nehru Alvarez/.agents/skills/aster-builder/scripts/harness_gate.py\" check --root . --through-phase 2 --json",
-      "environment": "Microsoft Windows 11 Pro 10.0.26300 build 26300; existing owner administrator account, non-elevated token; owner-enabled Developer Mode; Python 3.12.14. Static scope/spec/threat review is not interactive acceptance.",
-      "evidence_paths": [
-        "docs/qa/LOCAL-0002.md",
-        "https://github.com/comzulca/Aster-desktop/commit/198db2111907d7ea548ccb365f4d0b42c80ea50a"
-      ],
       "phase": 0,
-      "run_at_utc": "2026-09-30T16:09:16.2965781Z",
-      "source_revision": "198db2111907d7ea548ccb365f4d0b42c80ea50a",
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; installed Git 2.56.0; static source/inventory review, not interactive acceptance.",
+      "command": "git ls-tree -r -l HEAD and per-file git hash-object --no-filters; scope/spec/threat source review recorded in LOCAL-0003",
+      "run_at_utc": "2026-09-30T22:10:14.2635473Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md"],
       "status": "PASS"
     },
     {
-      "command": "python \"C:/Users/Rene Nehru Alvarez/.agents/skills/aster-builder/scripts/harness_gate.py\" check --root . --through-phase 2 --json",
-      "environment": "Microsoft Windows 11 Pro 10.0.26300 build 26300; existing owner administrator account, non-elevated token; owner-enabled Developer Mode; Python 3.12.14. Static scope/spec/threat review is not interactive acceptance.",
-      "evidence_paths": [
-        "docs/qa/LOCAL-0002.md",
-        "https://github.com/comzulca/Aster-desktop/commit/198db2111907d7ea548ccb365f4d0b42c80ea50a",
-        "docs/specs/SPEC-0001.md",
-        "docs/aster-builder/verification-plan.md"
-      ],
       "phase": 1,
-      "run_at_utc": "2026-09-30T16:09:16.2965781Z",
-      "source_revision": "198db2111907d7ea548ccb365f4d0b42c80ea50a",
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; source-bound static specification review, not GUI acceptance.",
+      "command": "Independent root/source review of SPEC-0001 and FR-013/SEC-010/AC-026 to separate T-033/T-034; source binding recorded in LOCAL-0003",
+      "run_at_utc": "2026-09-30T22:10:14.2635473Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md", "docs/specs/SPEC-0001.md", "docs/aster-builder/verification-plan.md"],
       "status": "PASS"
     },
     {
-      "command": "python \"C:/Users/Rene Nehru Alvarez/.agents/skills/aster-builder/scripts/harness_gate.py\" check --root . --through-phase 2 --json",
-      "environment": "Microsoft Windows 11 Pro 10.0.26300 build 26300; existing owner administrator account, non-elevated token; owner-enabled Developer Mode; Python 3.12.14. Static scope/spec/threat review is not interactive acceptance.",
-      "evidence_paths": [
-        "docs/qa/LOCAL-0002.md",
-        "https://github.com/comzulca/Aster-desktop/commit/198db2111907d7ea548ccb365f4d0b42c80ea50a",
-        "docs/security/THREAT-MODEL-0001.md",
-        "docs/adr/ADR-0004.md"
-      ],
       "phase": 2,
-      "run_at_utc": "2026-09-30T16:09:16.2965781Z",
-      "source_revision": "198db2111907d7ea548ccb365f4d0b42c80ea50a",
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; independent read-only source/threat review, no GUI or OS credential access by reviewer.",
+      "command": "Independent root/source audit of TM-013/ADR-0005 and typed credential diagnostic boundaries; source binding recorded in LOCAL-0003",
+      "run_at_utc": "2026-09-30T22:10:14.2635473Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md", "docs/security/THREAT-MODEL-0001.md", "docs/adr/ADR-0005.md"],
       "status": "PASS"
     },
     {
@@ -390,17 +384,17 @@
     },
     {
       "phase": 4,
-      "reason": "Two fixed provider adapters and fixtures exist; Windows transport tests and live per-model canaries pending.",
+      "reason": "Offline Windows loopback transport/closed-registry fixtures passed; owner live per-model canaries and normal-app secret-boundary acceptance remain NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 5,
-      "reason": "Windows Credential Manager source exists; native entry/read/delete and persistence evidence pending.",
+      "reason": "Synthetic Windows Credential Manager API/DPAPI fixtures passed; owner native/Control Panel GUI, renderer secret-boundary and no-history restart evidence pending.",
       "status": "NOT RUN"
     },
     {
       "phase": 6,
-      "reason": "Workspace native helpers exist but file IPC and apply remain disabled pending native review/race/recovery evidence.",
+      "reason": "Internal workspace fixtures passed, but normal-app owner HWND/disclosure/proposal/new-file routes, journal DACL and independent-process recovery implementation/evidence remain missing. File IPC/apply stay disabled.",
       "status": "NOT RUN"
     },
     {
@@ -410,12 +404,12 @@
     },
     {
       "phase": 8,
-      "reason": "Local frontend checks passed; hosted exact-revision CI, Rust audit, native tests and SBOM review pending.",
+      "reason": "Owner offline fmt/check/Clippy, 80 Rust and 23 frontend fixtures passed; exact-head hosted CI/audit/SBOM/license review, new packaging and interactive Windows acceptance pending.",
       "status": "NOT RUN"
     },
     {
       "phase": 9,
-      "reason": "Capability not implemented and not verified.",
+      "reason": "Unsigned engineering packaging/manual acceptance on this revision pending; signed/public production promotion is not requested or claimed.",
       "status": "NOT RUN"
     }
   ],
@@ -433,7 +427,7 @@
     "name": "Aster-desktop",
     "platform": "Windows-11",
     "release_class": "development",
-    "source_revision": "198db2111907d7ea548ccb365f4d0b42c80ea50a"
+    "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e"
   },
   "providers": [
     {
@@ -566,6 +560,14 @@
     {
       "id": "SEC-009",
       "text": "Dependencies, secrets, licenses and release artifacts have independent quality evidence; CI is not a live canary."
+    },
+    {
+      "id": "FR-013",
+      "text": "Provide an explicit owner-run isolated synthetic native credential GUI diagnostic preserving any existing NVIDIA credential."
+    },
+    {
+      "id": "SEC-010",
+      "text": "Credential diagnostic custody and malformed invocation fail closed before normal host initialization, excluding production credential targets, IPC, providers and network."
     }
   ],
   "schema_version": 1,
@@ -771,13 +773,11 @@
       "path": "docs/aster-builder/verification-plan.md",
       "status": "PASS",
       "verification_phase": 6,
-      "source_revision": "198db2111907d7ea548ccb365f4d0b42c80ea50a",
-      "environment": "Windows 11 Pro 10.0.26300 build 26300; owner non-elevated account; Developer Mode enabled by owner; Rust 1.97.0; ASTER_DISABLE_LIVE=1; internal synthetic fixture only",
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; Rust 1.97.0; ASTER_DISABLE_LIVE=1; internal fixture only",
       "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-09-30T15:57:58.8576264Z",
-      "evidence_paths": [
-        "docs/qa/LOCAL-0002.md"
-      ]
+      "run_at_utc": "2026-09-30T22:06:40.4284964Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md"]
     },
     {
       "id": "T-030",
@@ -798,13 +798,29 @@
       "path": "docs/aster-builder/verification-plan.md",
       "status": "PASS",
       "verification_phase": 6,
-      "source_revision": "198db2111907d7ea548ccb365f4d0b42c80ea50a",
-      "environment": "Windows 11 Pro 10.0.26300 build 26300; owner non-elevated account; Developer Mode enabled by owner; Rust 1.97.0; ASTER_DISABLE_LIVE=1; internal synthetic fixture only",
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; Rust 1.97.0; ASTER_DISABLE_LIVE=1; dormant internal disclosure fixture only",
       "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-09-30T15:57:58.8576264Z",
-      "evidence_paths": [
-        "docs/qa/LOCAL-0002.md"
-      ]
+      "run_at_utc": "2026-09-30T22:06:40.4284964Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md"]
+    },
+    {
+      "id": "T-033",
+      "path": "docs/aster-builder/verification-plan.md",
+      "status": "PASS",
+      "verification_phase": 3,
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; Rust 1.97.0; ASTER_DISABLE_LIVE=1; 21 new pure diagnostic tests, no native GUI/live calls",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
+      "run_at_utc": "2026-09-30T22:06:40.4284964Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md"]
+    },
+    {
+      "id": "T-034",
+      "path": "docs/qa/CREDENTIAL-GUI-FIXTURE-0001.md",
+      "reason": "Actual owner non-elevated Windows 11 native GUI journey on the new packaged diagnostic is not executed. Preserve existing real credential.",
+      "status": "NOT RUN",
+      "verification_phase": 3
     }
   ],
   "threats": [
@@ -893,6 +909,10 @@
       "requirement_ids": [
         "SEC-001"
       ]
+    },
+    {
+      "id": "TM-013",
+      "requirement_ids": ["FR-013", "SEC-010"]
     }
   ],
   "tools": [
