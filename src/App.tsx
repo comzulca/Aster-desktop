@@ -52,6 +52,8 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const settingsOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const settingsOpenRef = useRef(false);
   const settingsDialogRef = useRef<HTMLElement>(null);
   const conversationRef = useRef(conversationId);
   const activeRef = useRef<string | null>(null);
@@ -60,7 +62,15 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   useEffect(() => { conversationRef.current = conversationId; }, [conversationId]);
   useEffect(() => { bottomRef.current?.scrollIntoView?.({ block: 'end', behavior: 'smooth' }); }, [entries]);
   useEffect(() => {
-    if (settingsOpen) settingsDialogRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+    if (settingsOpen) {
+      settingsDialogRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+    } else if (settingsOpenerRef.current) {
+      const opener = settingsOpenerRef.current;
+      settingsOpenerRef.current = null;
+      // Restore after the modal is removed; credential changes can remove the banner opener.
+      if (opener.isConnected && !opener.disabled) opener.focus();
+      else settingsTriggerRef.current?.focus();
+    }
   }, [settingsOpen]);
 
   useEffect(() => {
@@ -101,10 +111,14 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   useEffect(() => {
     function shortcut(event: globalThis.KeyboardEvent) {
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      if (settingsOpenRef.current && ['n', 'k'].includes(event.key.toLowerCase())) {
+        event.preventDefault();
+        return;
+      }
       if (event.key.toLowerCase() === 'n' && !activeRef.current) { event.preventDefault(); startNewChat(); }
       if (event.key.toLowerCase() === 'k') {
         event.preventDefault(); setSearchOpen(true); setSidebarOpen(true);
-        requestAnimationFrame(() => searchRef.current?.focus());
+        requestAnimationFrame(() => { if (!settingsOpenRef.current) searchRef.current?.focus(); });
       }
     }
     window.addEventListener('keydown', shortcut);
@@ -213,11 +227,21 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     }
   }
 
+  function openSettings(opener: HTMLButtonElement) {
+    settingsOpenerRef.current = opener;
+    settingsOpenRef.current = true;
+    setSettingsOpen(true);
+  }
+
+  function closeSettings() {
+    settingsOpenRef.current = false;
+    setSettingsOpen(false);
+  }
+
   function onSettingsKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === 'Escape') {
       event.preventDefault();
-      setSettingsOpen(false);
-      settingsTriggerRef.current?.focus();
+      closeSettings();
     }
     if (event.key !== 'Tab' || !settingsDialogRef.current) return;
     const buttons = Array.from(settingsDialogRef.current.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
@@ -256,12 +280,12 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       <p className="project-label" title={status?.projectLabel ?? undefined}>{status?.projectSelected ? status.projectLabel : 'Sin proyecto seleccionado'}</p>
       <div className="sidebar-bottom">
         <div className="sidebar-tip"><Icon name="shield" size={21}/><span><strong>Control local</strong><small>Sin historial guardado en disco.</small></span></div>
-        <button className="account-button" onClick={() => setSettingsOpen(true)}><span className="avatar">A</span><span><strong>Ajustes</strong><small>{status?.configured ? 'Clave configurada' : 'NVIDIA sin configurar'}</small></span><Icon name="settings" size={18}/></button>
+        <button className="account-button" onClick={(event) => openSettings(event.currentTarget)}><span className="avatar">A</span><span><strong>Ajustes</strong><small>{status?.configured ? 'Clave configurada' : 'NVIDIA sin configurar'}</small></span><Icon name="settings" size={18}/></button>
       </div>
     </aside>
 
     <main className="main-panel" id="main">
-      <div className="conversation-heading"><strong>{entries.length ? 'Sesión actual' : 'Nueva conversación'}</strong><span className={`connection ${connection === 'ready' && status?.configured ? 'connected' : ''}`} role="status" aria-live="polite"><span className="status-dot" />{statusText}</span><button ref={settingsTriggerRef} className="icon-button" aria-label="Abrir ajustes" onClick={() => setSettingsOpen(true)}><Icon name="settings"/></button></div>
+      <div className="conversation-heading"><strong>{entries.length ? 'Sesión actual' : 'Nueva conversación'}</strong><span className={`connection ${connection === 'ready' && status?.configured ? 'connected' : ''}`} role="status" aria-live="polite"><span className="status-dot" />{statusText}</span><button ref={settingsTriggerRef} className="icon-button" aria-label="Abrir ajustes" onClick={(event) => openSettings(event.currentTarget)}><Icon name="settings"/></button></div>
       <div className="content-area">
         {!entries.length ? <section className="welcome" aria-labelledby="welcome-title">
           <div className="welcome-icon" role="img" aria-label="Emblema Aster de la imagen original" />
@@ -289,7 +313,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
 
       <div className="composer-zone">
         {notice && <div className="notice" role="status"><span>{notice}</span><button className="icon-button" onClick={() => setNotice(null)} aria-label="Cerrar aviso"><Icon name="close" size={16}/></button></div>}
-        {!status?.configured && <div className="connect-banner"><Icon name="key"/><div><strong>{connection === 'unavailable' ? 'Abre la app de escritorio para conectarte' : 'Configura NVIDIA para enviar'}</strong><small>{connection === 'unavailable' ? 'La vista web no tiene acceso al anfitrión de Windows.' : 'La clave se introduce en una ventana nativa de Windows.'}</small></div><button onClick={() => setSettingsOpen(true)} disabled={connection === 'unavailable'}>Abrir ajustes</button></div>}
+        {!status?.configured && <div className="connect-banner"><Icon name="key"/><div><strong>{connection === 'unavailable' ? 'Abre la app de escritorio para conectarte' : 'Configura NVIDIA para enviar'}</strong><small>{connection === 'unavailable' ? 'La vista web no tiene acceso al anfitrión de Windows.' : 'La clave se introduce en una ventana nativa de Windows.'}</small></div><button onClick={(event) => openSettings(event.currentTarget)} disabled={connection === 'unavailable'}>Abrir ajustes</button></div>}
         {status?.projectSelected && <div className="project-context"><span><Icon name="folder" size={16}/>{status.projectLabel}</span><small>Lectura y cambios de archivos: pendientes de visor seguro y pruebas nativas</small></div>}
         <div className="composer"><label htmlFor="message-input" className="visually-hidden">Mensaje para Aster</label><textarea ref={draftRef} id="message-input" placeholder="Pregúntale a Aster lo que necesites" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onComposerKeyDown} maxLength={32_768} rows={2} disabled={Boolean(activeRequest)} aria-describedby="composer-hint" />
           <div className="composer-controls"><button className="composer-add" type="button" aria-label="Adjuntar archivo (no disponible)" disabled title="Envío de archivos a NVIDIA: pendiente de revisión nativa segura"><Icon name="plus" size={20}/></button><label htmlFor="model-select" className="visually-hidden">Modelo</label><select id="model-select" value={model} onChange={(event) => { const next = event.target.value; if (next === DEFAULT_MODEL || next === MUSE_MODEL) setModel(next); }} disabled={!status || Boolean(activeRequest)}>{MODELS.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select><span className="stream-indicator"><Icon name="bolt" size={15}/> Streaming</span><span className="composer-spacer"/>{activeRequest ? <button className="send-button cancel-button" aria-label="Cancelar solicitud" onClick={() => void cancel()} disabled={cancelling}><Icon name="stop" size={18}/></button> : <button className="send-button" aria-label="Enviar mensaje" onClick={() => void send()} disabled={!canSend}><Icon name="send" size={19}/></button>}</div>
@@ -299,7 +323,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       </div>
     </main>
 
-    {settingsOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}><section ref={settingsDialogRef} onKeyDown={onSettingsKeyDown} className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title"><div className="settings-header"><div><p className="eyebrow">ASTER DESKTOP</p><h2 id="settings-title">Conexión y privacidad</h2></div><button className="icon-button" aria-label="Cerrar ajustes" onClick={() => { setSettingsOpen(false); settingsTriggerRef.current?.focus(); }}><Icon name="close"/></button></div>
+    {settingsOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSettings(); }}><section ref={settingsDialogRef} onKeyDown={onSettingsKeyDown} className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title"><div className="settings-header"><div><p className="eyebrow">ASTER DESKTOP</p><h2 id="settings-title">Conexión y privacidad</h2></div><button className="icon-button" aria-label="Cerrar ajustes" onClick={closeSettings}><Icon name="close"/></button></div>
       <div className="settings-row"><Icon name="key"/><div><strong>Credencial de NVIDIA</strong><p>{status?.configured ? 'Configurada para esta cuenta de Windows. Conexión aún sin verificar.' : 'Sin configurar. La clave solo se introduce en la ventana nativa.'}</p></div></div>
       <div className="settings-actions"><button className="primary-action" disabled={!status || secretBusy} onClick={() => void configureCredential()}>{status?.configured ? 'Cambiar clave en Windows' : 'Configurar clave en Windows'}</button>{status?.configured && <button className="secondary-action" disabled={secretBusy || Boolean(activeRequest)} onClick={() => void removeCredential()}>Eliminar clave</button>}</div>
       <div className="privacy-note"><Icon name="shield"/><p>El historial de chat no se guarda en disco. Windows Credential Manager protege la clave bajo tu cuenta; otros procesos ejecutados con esa misma cuenta pueden acceder a credenciales genéricas.</p></div>

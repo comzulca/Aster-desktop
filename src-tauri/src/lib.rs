@@ -2,6 +2,9 @@
 //! credentials, fixed HTTPS egress, file grants and terminal request state.
 
 mod credential;
+mod native_review;
+#[cfg(windows)]
+mod new_file;
 mod policy;
 mod provider;
 mod workspace;
@@ -405,6 +408,24 @@ async fn send_message(
 }
 
 pub fn run() {
+    // Explicit synthetic-only diagnostic, not a model/WebView capability.
+    // No credential access, project path, network or mutation is performed.
+    let arguments: Vec<String> = std::env::args().skip(1).collect();
+    if arguments.len() == 1
+        && matches!(
+            arguments[0].as_str(),
+            "--aster-review-fixture" | "--aster-review-fixture-large"
+        )
+    {
+        let result = native_review::run_fixture(arguments[0].ends_with("-large"));
+        let (classification, exit_code) = match result {
+            Ok(true) => ("synthetic_review_confirmed_no_publication", 0),
+            Ok(false) => ("synthetic_review_denied_no_publication", 2),
+            Err(_) => ("synthetic_review_failed_closed_no_publication", 3),
+        };
+        eprintln!("aster_review_fixture={classification}");
+        std::process::exit(exit_code);
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Host::default())

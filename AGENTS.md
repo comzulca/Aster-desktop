@@ -21,4 +21,4 @@ This repository is a new Windows 11 desktop agentic harness. Follow the installe
 - Source defaults: local ephemeral conversations, no disk chat history, no project root until chosen, no external network except explicitly selected NVIDIA provider in live mode, no arbitrary external code execution. Permission to transmit project content to NVIDIA must be explicit per request.
 - Maintain a minimal locked dependency graph, CI secret checks, static analysis, license/SBOM inventory and adversarial fixtures. Any change to provider, IPC, grants, local files or persistence updates its spec, threat mapping and test evidence together.
 
-The requested Windows checkout location is user configuration, not a value to hardcode into source. The current development container is Linux and cannot prove Windows Credential Manager or native file-write behavior.
+The requested Windows checkout location is user configuration, not a value to hardcode into source. Record the actual execution identity and OS for each check; neither an isolated technical runner nor hosted Windows Server proves the owner's interactive Windows 11 acceptance.
