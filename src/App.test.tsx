@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
@@ -35,6 +35,141 @@ function fakeBridge(status: AppStatus = baseline) {
 afterEach(() => cleanup());
 
 describe('Aster UI: host boundary and user intent', () => {
+  it.each([
+    ['header', 'close button'], ['header', 'Escape'], ['header', 'backdrop'],
+    ['sidebar', 'close button'], ['sidebar', 'Escape'], ['sidebar', 'backdrop'],
+    ['banner', 'close button'], ['banner', 'Escape'], ['banner', 'backdrop'],
+  ] as const)('returns settings focus to the %s opener after %s dismissal (T-018)', async (source, dismissal) => {
+    const user = userEvent.setup();
+    const fake = fakeBridge({ ...baseline, configured: false });
+    render(<App bridge={fake.bridge}/>);
+    await screen.findByText('Clave sin configurar');
+    const settingsButtons = screen.getAllByRole('button', { name: 'Abrir ajustes' });
+    const opener = source === 'sidebar'
+      ? screen.getByRole('button', { name: /Ajustes/ })
+      : settingsButtons[source === 'header' ? 0 : 1];
+    opener.focus();
+    await user.keyboard('{Enter}');
+    const dialog = screen.getByRole('dialog', { name: 'Conexión y privacidad' });
+    const close = screen.getByRole('button', { name: 'Cerrar ajustes' });
+    expect(document.activeElement).toBe(close);
+    if (dismissal === 'close button') await user.keyboard('{Enter}');
+    else if (dismissal === 'Escape') await user.keyboard('{Escape}');
+    else fireEvent.mouseDown(dialog.parentElement!);
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(document.activeElement).toBe(opener);
+    });
+  });
+
+  it('traps settings keyboard focus and updates the opener on every opening (T-018)', async () => {
+    const user = userEvent.setup();
+    const fake = fakeBridge({ ...baseline, configured: false });
+    render(<App bridge={fake.bridge}/>);
+    await screen.findByText('Clave sin configurar');
+    const header = screen.getAllByRole('button', { name: 'Abrir ajustes' })[0];
+    const sidebar = screen.getByRole('button', { name: /Ajustes/ });
+    header.focus();
+    await user.keyboard('{Enter}');
+    const close = screen.getByRole('button', { name: 'Cerrar ajustes' });
+    const configure = screen.getByRole('button', { name: 'Configurar clave en Windows' });
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(configure);
+    await user.tab();
+    expect(document.activeElement).toBe(close);
+    fireEvent.mouseDown(screen.getByRole('dialog'));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    expect(document.activeElement).toBe(header);
+    sidebar.focus();
+    await user.keyboard(' ');
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cerrar ajustes' }));
+    await user.keyboard('{Escape}');
+    expect(document.activeElement).toBe(sidebar);
+  });
+
+  it('restores settings focus to the header if credential setup removes the banner opener (T-018)', async () => {
+    const user = userEvent.setup();
+    const fake = fakeBridge({ ...baseline, configured: false });
+    render(<App bridge={fake.bridge}/>);
+    await screen.findByText('Clave sin configurar');
+    const [header, banner] = screen.getAllByRole('button', { name: 'Abrir ajustes' });
+    await user.click(banner);
+    vi.mocked(fake.bridge.getStatus).mockResolvedValue(baseline);
+    await user.click(screen.getByRole('button', { name: 'Configurar clave en Windows' }));
+    await screen.findByText('Clave configurada · conexión no verificada');
+    expect(banner.isConnected).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Cerrar ajustes' }));
+    expect(document.activeElement).toBe(header);
+  });
+
+  it.each(['n', 'k'] as const)('blocks Ctrl+%s behind settings and resumes it after dismissal (T-018)', async (key) => {
+    const user = userEvent.setup();
+    const fake = fakeBridge();
+    render(<App bridge={fake.bridge}/>);
+    await screen.findByText('Clave configurada · conexión no verificada');
+    const composer = screen.getByRole('textbox', { name: 'Mensaje para Aster' }) as HTMLTextAreaElement;
+    await user.type(composer, 'SESSION_PROMPT');
+    await user.click(screen.getByRole('button', { name: 'Enviar mensaje' }));
+    const first = vi.mocked(fake.bridge.sendMessage).mock.calls[0][0];
+    act(() => fake.emit({ requestId: first.requestId, conversationId: first.conversationId, type: 'content', text: 'SESSION_REPLY' }));
+    act(() => fake.emit({ requestId: first.requestId, conversationId: first.conversationId, type: 'terminal', status: 'completed' }));
+    await user.type(composer, 'KEEP_DRAFT');
+    const opener = screen.getByRole('button', { name: 'Abrir ajustes' });
+    await user.click(opener);
+    const close = screen.getByRole('button', { name: 'Cerrar ajustes' });
+
+    await user.keyboard(`{Control>}${key}{/Control}`);
+    expect(screen.getByRole('dialog', { name: 'Conexión y privacidad' })).toBeTruthy();
+    expect(document.activeElement).toBe(close);
+    expect(composer.value).toBe('KEEP_DRAFT');
+    expect(screen.getByText('SESSION_PROMPT')).toBeTruthy();
+    expect(screen.getByText('SESSION_REPLY')).toBeTruthy();
+    expect(screen.queryByRole('searchbox', { name: 'Buscar mensajes en esta sesión' })).toBeNull();
+    expect(fake.bridge.sendMessage).toHaveBeenCalledTimes(1);
+
+    await user.keyboard('{Escape}');
+    expect(document.activeElement).toBe(opener);
+    await user.keyboard(`{Control>}${key}{/Control}`);
+    if (key === 'n') {
+      expect(composer.value).toBe('');
+      expect(screen.queryByText('SESSION_PROMPT')).toBeNull();
+      expect(screen.queryByText('SESSION_REPLY')).toBeNull();
+      expect(document.activeElement).toBe(composer);
+      await user.type(composer, 'NEW_SESSION');
+      await user.click(screen.getByRole('button', { name: 'Enviar mensaje' }));
+      expect(vi.mocked(fake.bridge.sendMessage).mock.calls[1][0].conversationId).not.toBe(first.conversationId);
+    } else {
+      const search = await screen.findByRole('searchbox', { name: 'Buscar mensajes en esta sesión' });
+      await waitFor(() => expect(document.activeElement).toBe(search));
+      expect(composer.value).toBe('KEEP_DRAFT');
+      expect(screen.getByText('SESSION_REPLY')).toBeTruthy();
+    }
+  });
+
+  it('does not apply a queued search-focus shortcut after settings opens (T-018)', async () => {
+    const user = userEvent.setup();
+    const fake = fakeBridge();
+    let queued: FrameRequestCallback | undefined;
+    const frame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      queued = callback;
+      return 1;
+    });
+    try {
+      render(<App bridge={fake.bridge}/>);
+      await screen.findByText('Clave configurada · conexión no verificada');
+      await user.keyboard('{Control>}k{/Control}');
+      expect(queued).toBeDefined();
+      await user.click(screen.getByRole('button', { name: 'Abrir ajustes' }));
+      const close = screen.getByRole('button', { name: 'Cerrar ajustes' });
+      act(() => queued!(0));
+      expect(document.activeElement).toBe(close);
+      expect(screen.getByRole('dialog', { name: 'Conexión y privacidad' })).toBeTruthy();
+    } finally {
+      frame.mockRestore();
+    }
+  });
+
   it('disables privileged actions if the host is missing; the default model is Nemotron', async () => {
     const fake = fakeBridge();
     vi.mocked(fake.bridge.subscribe).mockRejectedValueOnce(new Error('HOST_UNAVAILABLE'));

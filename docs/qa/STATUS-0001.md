@@ -1,5 +1,34 @@
 # STATUS-0001 — implementation evidence and release blockers
 
+## Current snapshot — 2026-09-30 UTC
+
+Latest verified `main` source: `31a82bf50fc46ea4fbb91c50c59cc02a65da4c71`. [Run 36190804857](https://github.com/comzulca/Aster-desktop/actions/runs/36190804857), run number 58, completed all four jobs **PASS** in 2,161 seconds. This section supersedes the 2026-09-24 current-status statements below without erasing their evidence. The owner selected an **unsigned engineering build** on 2026-09-30; production signing and a self-signed certificate are not requested at this stage. This choice does not waive Windows 11, native credential, live-model, license or capability safety acceptance.
+
+| Capability/gate | Current result at the source above | Remaining evidence/limit |
+| --- | --- | --- |
+| Source-policy / frontend | **PASS** on hosted Ubuntu: frozen install, typecheck, 9/9 frontend tests, build and advisory gate; zero known frontend audit vulnerabilities in this run. Node 24.21.0, TypeScript 7.0.2, Vite 8.3.0, Vitest 5.0.1, jsdom 30.1.1. | A source check is not absence-of-all-secrets proof; target UI acceptance remains **NOT RUN**. |
+| Windows Rust host | **PASS** on hosted **Windows Server 2025**, Rust 1.97.0: locked format/check/Clippy, 28/28 Rust tests, including synthetic Credential Manager and workspace/transport fixtures. | This is not Windows 11 laptop or interactive native-dialog acceptance. Real key/native-entry and target NTFS checks remain **NOT RUN**. |
+| Provider transport and exact models | Fixture/transport tests are credited to this `main` run; the 2026-09-24 PR #10 warning below is historical, not current. Owner authorized exactly two minimal live canaries, one for each exact model, with the owner entering the key directly in Windows Credential Manager. | Execution for `nvidia/nemotron-3.5-lightning-30b-a3b` and `meta/muse-glimmer-30b` is **NOT RUN**. Authorization is not a result; extra live cancel/error requests are not authorized. A model label or mock response is not live availability. |
+| RustSec / inventories | Audit **PASS** with **7 allowed warnings**, 490 scanned dependencies; Rust SBOM records 489 dependency components. Frontend and Windows evidence ZIPs were independently hashed (identities below). | Do not call this zero advisories or final license approval. The five Windows-compiled `unic-*` warnings and two Linux-only warnings require recorded owner review. Package inventory is not an exact installer-payload inventory. |
+| Dependency / notice decision | The older declared-license inspection is retained in [DEPENDENCIES-0001.md](DEPENDENCIES-0001.md). | Current-revision upstream licenses, local `UNKNOWN` declaration, notice choices and exact installer payload review remain **NOT RUN**; older counts cannot be reused for this source. No exception or distribution-license decision is inferred. |
+| Original Aster JPG | **PASS**, verified source snapshot preserves SHA-256 `b95163a411529b8608461dda4faeacab3f09c6cde090c3b1d72092bf0a7c4887`. | Rendered Windows 11 reference/compact layouts and keyboard accessibility are **NOT RUN**. |
+| Requested local source copy | **PASS** as a verified 64-file source snapshot of the exact source, with no hash mismatches and the previous local tree preserved in a backup. The snapshot has **no `.git`**. | A genuine Git clone, `origin` identity, source HEAD and current ruleset verification remain separate acceptance items; do not label the snapshot a clone. |
+| Engineering installer | Packaging/integrity **PASS**, executable `Aster Desktop_0.1.0_x64-setup.exe`, 3,527,015 bytes, SHA-256 `8175407e55838319b3553c9d6e577b5858a67bc0413903aa7178d2522f5df19e`, Authenticode `NotSigned`. | **Unsigned engineering candidate only**. Windows 11 install/uninstall, ESET behavior and target runtime acceptance **NOT RUN**. Later source changes require a new binary/hash. |
+| Native project disclosure, proposals and apply | Existing source has root selection and internal guarded-read/proposal fixtures; file-read/disclosure, proposal and publication IPC are **DISABLED**. | Issue #12 remains capability-gated: exact native consent/review and target alias, replay, race/crash/recovery evidence are required independently before each flag is enabled. Existing-file replacement remains proposal-only. |
+| Engineering acceptance / production | Owner selected unsigned engineering evaluation. Manual Windows 11 procedure is [WINDOWS11-ACCEPTANCE-0001.md](WINDOWS11-ACCEPTANCE-0001.md), initially **NOT RUN**. | Issue #11 cannot be completed by Server CI alone. Use the owner's existing administrator account, non-elevated normal app launch, unchanged Windows/ESET protections, and record actual results. Production signing/promotion is not requested and is not claimed. |
+
+Artifact identity at run `36190804857`:
+
+| Private artifact | ID | Independently verified ZIP SHA-256 |
+| --- | --- | --- |
+| Unsigned engineering installer | `10888958678` | `c6e7d67a50d438f5b2979c6a33e5fbf69ae3a20ae01e968a79baec3893880d9f` |
+| Frontend evidence | `10888680184` | `7794847f4653a9ee91d49c1778d8e5f342cac705c886c7537e4a231020e9ec0d` |
+| Windows host evidence | `10888871843` | `583d590d2fbb2c03a392b883b630d9bf512d7904fc04bbc0bd24e70cadc7abd9` |
+
+The engineering-installer ZIP hash and the executable hash identify different bytes. Each artifact is tied only to its recorded source revision. Local Cargo execution was not credited: Windows Security was left unchanged, and hosted Windows CI supplied Rust fixture evidence. No local native/laptop result, credential disclosure or live authorization is implied by these records.
+
+## Historical snapshot — 2026-09-24 19:14 UTC
+
 Evidence snapshot: 2026-09-24 19:14 UTC. Design ledger phases 0–2 refer to published source `69cd3170d60fa6b3c17d43d2596727220369a4a6`, tree `1693869e65294da0ec96deabc3a1832ef0741169`. Latest evaluated `main` source is `e35dcf743831875c782d874313d1108919502cc4`, tree `e4cdf33858ed7bd4c23e2bde3b5d4a37f055df68`: hosted source-policy, frontend, Windows host and unsigned engineering-installer jobs **PASS** in run `36043069614`. See `CI-0005.md`. Historical failures remain in `CI-0002.md` through `CI-0004.md`. This status reports actual proof; the specification describes intended product behavior. Do not infer capability merely from code presence.
 
 | Capability/gate | Current result | Required next evidence |

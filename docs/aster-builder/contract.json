@@ -96,7 +96,8 @@
       ],
       "test_ids": [
         "T-009",
-        "T-010"
+        "T-010",
+        "T-032"
       ],
       "threat_ids": [
         "TM-004",
@@ -111,7 +112,9 @@
         "SEC-005"
       ],
       "test_ids": [
-        "T-011"
+        "T-011",
+        "T-029",
+        "T-030"
       ],
       "threat_ids": [
         "TM-006"
@@ -125,7 +128,8 @@
         "SEC-006"
       ],
       "test_ids": [
-        "T-012"
+        "T-012",
+        "T-031"
       ],
       "threat_ids": [
         "TM-006",
@@ -168,7 +172,8 @@
         "SEC-001"
       ],
       "test_ids": [
-        "T-015"
+        "T-015",
+        "T-028"
       ],
       "threat_ids": [
         "TM-001",
@@ -299,7 +304,8 @@
         "SEC-005"
       ],
       "test_ids": [
-        "T-025"
+        "T-025",
+        "T-032"
       ],
       "threat_ids": [
         "TM-006"
@@ -312,7 +318,8 @@
         "SEC-006"
       ],
       "test_ids": [
-        "T-026"
+        "T-026",
+        "T-031"
       ],
       "threat_ids": [
         "TM-007"
@@ -325,7 +332,9 @@
         "SEC-007"
       ],
       "test_ids": [
-        "T-027"
+        "T-027",
+        "T-030",
+        "T-032"
       ],
       "threat_ids": [
         "TM-010"
@@ -746,6 +755,41 @@
       "id": "T-027",
       "path": "docs/aster-builder/verification-plan.md",
       "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-028",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Candidate fixtures exist; exact-revision results and owner-entered Windows GUI interoperability must be recorded separately.",
+      "status": "NOT RUN",
+      "verification_phase": 3
+    },
+    {
+      "id": "T-029",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Closed parser candidate exists; exact-revision fixture evidence pending; shipping IPC remains disabled.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-030",
+      "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
+      "reason": "Lossless document fixtures are not interactive native consent/display/accessibility proof; activation remains gated.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-031",
+      "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
+      "reason": "Internal CREATE_NEW/encrypted metadata seam exists; exact-revision fixtures, private ACLs and actual process-kill/power-loss proof remain separate gates.",
+      "status": "NOT RUN",
+      "verification_phase": 6
+    },
+    {
+      "id": "T-032",
+      "path": "docs/aster-builder/verification-plan.md",
+      "reason": "Grant and ephemeral-history candidate fixtures exist; native post-review disclosure integration is disabled pending exact-revision evidence.",
       "status": "NOT RUN",
       "verification_phase": 6
     }

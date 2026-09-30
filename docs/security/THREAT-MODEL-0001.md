@@ -52,4 +52,8 @@ The arrows cross different trust boundaries: user intent to renderer, untrusted 
 
 ## Review instructions
 
+### 2026-09-30 engineering candidate delta
+
+ADR-0004 maps T-028 to TM-001/TM-012 (bounded manual Credential Manager representation; no enumeration/secret IPC), T-029/T-030 to TM-002/TM-006/TM-009 (strict typed data and full inert host-native review), T-031 to TM-005/TM-007/TM-010 (no-clobber identity/journal/recovery and encrypted restricted metadata), and T-032 to TM-004/TM-006/TM-010 (revocation, replay, stale root and disclosure). No new runtime authority is inferred from these candidate internals. Native Windows 11 review, journal ACL/privacy, competing writers and crash points still require target evidence before any independent capability flag changes. The owner selected unsigned engineering-only artifacts; signing is not required for that classification and is not claimed.
+
 For every new provider, grant, tool, storage format or IPC command, add a threat and an adversarial test before enabling the capability. An observed FAIL remains visible; a follow-up PASS must identify the new revision and run. Human approval is authorization for the requested operation, not proof the model's proposed code is safe or correct.

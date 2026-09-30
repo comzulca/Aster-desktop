@@ -1,5 +1,6 @@
 //! Host-owned, versioned admission and per-conversation state.
-//! Only a successfully completed answer is eligible for ephemeral continuation.
+//! Only a successfully completed ordinary answer is eligible for continuation.
+//! Project-bearing requests and derived answers require fresh disclosure consent.
 
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -53,6 +54,7 @@ struct Active {
     request_id: String,
     model: Model,
     prompt: String,
+    retain_history: bool,
     cancel: watch::Sender<bool>,
     cancel_requested: bool,
     stage: Stage,
@@ -137,6 +139,30 @@ impl SessionState {
         model: Model,
         prompt: String,
     ) -> Result<Admission, AdmissionError> {
+        self.reserve_with_retention(conversation_id, request_id, model, prompt, true)
+    }
+
+    // Internal proof seam only: no renderer command or disclosure capability
+    // is enabled. A future host path must review the exact outbound request.
+    #[allow(dead_code)]
+    pub(crate) fn reserve_ephemeral(
+        &mut self,
+        conversation_id: &str,
+        request_id: &str,
+        model: Model,
+        prompt: String,
+    ) -> Result<Admission, AdmissionError> {
+        self.reserve_with_retention(conversation_id, request_id, model, prompt, false)
+    }
+
+    fn reserve_with_retention(
+        &mut self,
+        conversation_id: &str,
+        request_id: &str,
+        model: Model,
+        prompt: String,
+        retain_history: bool,
+    ) -> Result<Admission, AdmissionError> {
         if !valid_id(conversation_id) || !valid_id(request_id) || !valid_prompt(&prompt) {
             return Err(AdmissionError::InvalidInput);
         }
@@ -191,6 +217,7 @@ impl SessionState {
                 request_id: request_id.to_string(),
                 model,
                 prompt,
+                retain_history,
                 cancel,
                 cancel_requested: false,
                 stage: Stage::Reserved,
@@ -258,11 +285,13 @@ impl SessionState {
         }
         match outcome {
             TransportOutcome::Completed(answer) => {
-                let key = (conversation_id.to_string(), active.model.id());
-                self.completed.entry(key).or_default().push(CompletedTurn {
-                    prompt: active.prompt,
-                    answer,
-                });
+                if active.retain_history {
+                    let key = (conversation_id.to_string(), active.model.id());
+                    self.completed.entry(key).or_default().push(CompletedTurn {
+                        prompt: active.prompt,
+                        answer,
+                    });
+                }
                 Some(FinishDisposition::Completed)
             }
             TransportOutcome::Failed => Some(FinishDisposition::Failed),
@@ -336,6 +365,129 @@ mod tests {
                 .err(),
             Some(AdmissionError::Busy)
         );
+    }
+
+    #[test]
+    fn ephemeral_project_turn_and_derived_answer_never_enter_continuation() {
+        for model in [Model::Nemotron, Model::Muse] {
+            let mut state = SessionState::default();
+            state
+                .reserve("c", "ordinary", model, "ordinary prompt".into())
+                .unwrap();
+            assert_eq!(
+                state.finish(
+                    "c",
+                    "ordinary",
+                    TransportOutcome::Completed("ordinary answer".into())
+                ),
+                Some(FinishDisposition::Completed)
+            );
+            let project = state
+                .reserve_ephemeral("c", "project", model, "RESTRICTED_PROJECT_CONTENT".into())
+                .unwrap();
+            assert_eq!(project.messages.len(), 3);
+            assert_eq!(project.messages[0].content, "ordinary prompt");
+            assert_eq!(project.messages[1].content, "ordinary answer");
+            assert_eq!(project.messages[2].content, "RESTRICTED_PROJECT_CONTENT");
+            assert_eq!(
+                state.finish(
+                    "c",
+                    "project",
+                    TransportOutcome::Completed("DERIVED_PRIVATE_ANSWER".into())
+                ),
+                Some(FinishDisposition::Completed)
+            );
+            assert_eq!(state.active_count(), 0);
+            assert_eq!(
+                state
+                    .completed
+                    .get(&("c".to_owned(), model.id()))
+                    .unwrap()
+                    .len(),
+                1
+            );
+            let next = state
+                .reserve("c", "next", model, "ordinary follow-up".into())
+                .unwrap();
+            assert_eq!(next.messages.len(), 3);
+            assert_eq!(next.messages[0].content, "ordinary prompt");
+            assert_eq!(next.messages[1].content, "ordinary answer");
+            assert_eq!(next.messages[2].content, "ordinary follow-up");
+            assert!(next.messages.iter().all(|message| {
+                !message.content.contains("RESTRICTED_PROJECT_CONTENT")
+                    && !message.content.contains("DERIVED_PRIVATE_ANSWER")
+            }));
+        }
+    }
+
+    #[test]
+    fn ephemeral_reservations_preserve_admission_replay_and_terminal_denials() {
+        let mut state = SessionState::default();
+        assert_eq!(
+            state
+                .reserve_ephemeral("c", "invalid", Model::Nemotron, "invalid\0prompt".into())
+                .err(),
+            Some(AdmissionError::InvalidInput)
+        );
+        assert_eq!(
+            state
+                .reserve_ephemeral(
+                    "c",
+                    "oversized",
+                    Model::Nemotron,
+                    "x".repeat(MAX_MESSAGE_BYTES + 1)
+                )
+                .err(),
+            Some(AdmissionError::InvalidInput)
+        );
+        state
+            .reserve_ephemeral(
+                "c",
+                "project",
+                Model::Nemotron,
+                "RESTRICTED_PROJECT_CONTENT".into(),
+            )
+            .unwrap();
+        assert_eq!(
+            state
+                .reserve("other", "parallel", Model::Muse, "ordinary".into())
+                .err(),
+            Some(AdmissionError::Busy)
+        );
+        assert!(state.cancel("project"));
+        assert_eq!(
+            state.finish(
+                "c",
+                "project",
+                TransportOutcome::Completed("DERIVED_PRIVATE_ANSWER".into())
+            ),
+            Some(FinishDisposition::Cancelled)
+        );
+        assert_eq!(state.finish("c", "project", TransportOutcome::Failed), None);
+        assert_eq!(
+            state
+                .reserve_ephemeral("c", "project", Model::Nemotron, "replayed".into())
+                .err(),
+            Some(AdmissionError::RequestReplayed)
+        );
+        state
+            .reserve_ephemeral(
+                "c",
+                "failed",
+                Model::Nemotron,
+                "RESTRICTED_FAILED_CONTENT".into(),
+            )
+            .unwrap();
+        assert_eq!(
+            state.finish("c", "failed", TransportOutcome::Failed),
+            Some(FinishDisposition::Failed)
+        );
+        let next = state
+            .reserve("c", "next", Model::Nemotron, "ordinary".into())
+            .unwrap();
+        assert_eq!(next.messages.len(), 1);
+        assert_eq!(next.messages[0].content, "ordinary");
+        assert!(state.completed.is_empty());
     }
 
     #[test]
