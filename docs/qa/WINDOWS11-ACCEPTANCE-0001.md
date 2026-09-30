@@ -9,26 +9,26 @@ Created: **2026-09-30 UTC**. Initial status: **NOT RUN** for all target-Windows-
 - On 2026-09-30 the owner reported **personally enabling Windows Developer Mode** and requested continuation. This is an explicit owner-made baseline exception, not a setting changed by the agent, a test PASS, or authority to change anything else. Record the reported change and the observed mode state separately; configuration verification and rerun results are not assumed.
 - Keep all remaining Windows Security, Smart App Control/SmartScreen, ESET and other existing protections enabled and unchanged from that documented baseline. Do not add exclusions, change further policies, install a trust certificate, create/switch accounts, elevate the app, or bypass a block. If a step is blocked, retain the message, mark **FAIL** for that attempted step (dependent checks **NOT RUN**) and stop that dependent test.
 - Use only disposable, non-sensitive text fixtures. Do not publish key bytes, private prompts, project contents, credential-manager exports, raw Authorization headers or unredacted diagnostic files. Record classifications, counts, hashes and paths only where non-sensitive.
-- Native credential tests may alter only Aster's fixed credential after confirming it is not an existing real credential. Do not overwrite/delete an existing real key for a synthetic test. The owner will enter the real key directly in Windows Credential Manager and has authorized exactly two minimal live canaries, one per model; this is not authorization for extra live cancellation/error requests, retries or fallback. Agree on a cleanup decision without revealing the key.
+- The owner confirms an existing real NVIDIA credential **must be preserved**. Never put synthetic data at its target or use normal change/delete controls for testing. Native GUI tests use only the isolated diagnostic in ADR-0005 and CREDENTIAL-GUI-FIXTURE-0001.md after it is implemented, reviewed and packaged. Exactly two minimal live canaries remain separately authorized; no extra live cancellation/error request, retry or fallback is authorized.
 - Tests for issue #12 are independent. Do not enable gated file IPC or mutate real project files merely to complete release acceptance.
 
 ## 1. Bind the evidence to the exact candidate
 
 The newer source candidate's offline owner-context results are [LOCAL-0002.md](LOCAL-0002.md); they do not pass this manual procedure or reuse the older installer below. Developer Mode's explicit owner change is included in that evidence.
 
-For the currently verified baseline:
+For the verified **pre-diagnostic** main reference (not an artifact of the new credential diagnostic source):
 
 | Field | Expected baseline |
 | --- | --- |
 | Repository | Private `comzulca/Aster-desktop` |
-| Source | `31a82bf50fc46ea4fbb91c50c59cc02a65da4c71` |
-| CI | [Run 36190804857](https://github.com/comzulca/Aster-desktop/actions/runs/36190804857), all four jobs PASS |
-| ZIP | Artifact `10888958678`, SHA-256 `c6e7d67a50d438f5b2979c6a33e5fbf69ae3a20ae01e968a79baec3893880d9f` |
-| EXE | `Aster Desktop_0.1.0_x64-setup.exe`, 3,527,015 bytes |
-| EXE SHA-256 | `8175407e55838319b3553c9d6e577b5858a67bc0413903aa7178d2522f5df19e` |
+| Source | `4e4cd6c6208d955782d8cbe8aea2df6aada3d8c7` |
+| CI | [Run 36752590834](https://github.com/comzulca/Aster-desktop/actions/runs/36752590834), all four jobs PASS |
+| ZIP | Artifact `11117506071`, SHA-256 `734ffd95656633057c556155c1b46175a9b534c97724f1e8ebae3240c42c387c` |
+| EXE | `Aster Desktop_0.1.0_x64-setup.exe`, 3,540,127 bytes |
+| EXE SHA-256 | `b2750db4b00b786a49b12f8c488ee746592174a6d84cd8433725d8a2b77f107e` |
 | Authenticode | `NotSigned` (expected for engineering evaluation) |
 
-If issue #12 changes runtime behavior, **select the newly successful main run and replace every identity field in the result record with that run's source and artifact hashes**. Never use the baseline binary to certify new code. A filename/version alone is insufficient.
+After any runtime change, including ADR-0005 or issue #12 integration, **select the newly successful main run and replace every identity field in the result record with that run's source and artifact hashes**. Run 62 does not contain `--aster-credential-gui-fixture` and cannot certify it. A filename/version alone is insufficient.
 
 In normal PowerShell, record UTC and the OS identity:
 
@@ -43,15 +43,19 @@ Historical native-fixture evidence includes a non-elevated symlink-creation **FA
 
 In GitHub, verify the repository is private, the intended source revision is `main`, and all expected workflow jobs passed for **that revision**. Inspect the active `main` ruleset and the owner's repository role; record the ruleset name, enabled status and required checks without changing permissions. Existing historical repository-visibility evidence is not a new ruleset inspection.
 
-The requested local folder currently contains a verified source snapshot, not `.git` metadata. Check it without overwriting it:
+On 2026-09-30 at 21:41 UTC, the requested local folder was independently verified as a genuine clean checkout of main `4e4cd6c6208d955782d8cbe8aea2df6aada3d8c7`, tree `400027f758b85e5f8118a8851b729ee5b0e4d724`; all 71 tracked file blobs matched the authenticated GitHub tree. The owner performed the directory renames after closing Codex. This is actual clone provenance, not an installer/UI PASS. Check the current state without overwriting it:
 
 ```powershell
 $asterSource = Join-Path $env:USERPROFILE 'Documents\comzulca\aster-desktop'
 Test-Path -LiteralPath (Join-Path $asterSource '.git')
+$asterGit = 'C:\Program Files\Git\cmd\git.exe'
+& $asterGit -C $asterSource remote get-url origin
+& $asterGit -C $asterSource rev-parse HEAD
+& $asterGit -C $asterSource status --short
 Get-FileHash -LiteralPath (Join-Path $asterSource 'public\assets\Aster_UI2.jpg') -Algorithm SHA256
 ```
 
-Expected JPG SHA-256: `b95163a411529b8608461dda4faeacab3f09c6cde090c3b1d72092bf0a7c4887`. A `False` `.git` result is consistent with a snapshot; it is not a failed source hash and must not be recorded as a successful clone. If a true clone is required at this same location, arrange a separately reviewed preservation/migration of the existing snapshot first. After an actual clone exists, record `git remote -v`, `git rev-parse HEAD`, and `git status --short`; do not fabricate those outputs for the snapshot.
+Expected JPG SHA-256: `b95163a411529b8608461dda4faeacab3f09c6cde090c3b1d72092bf0a7c4887`. Origin must be `https://github.com/comzulca/Aster-desktop.git`, `.git` must exist, and current source/status must be recorded. No global safe.directory exception is needed when checks run under the owner rather than the isolated technical sandbox. The owner expressly declined another backup: after verifying both trees and absence of unique files/reparse entries, only the 71-file duplicate `aster-desktop.snapshot-temporal` was removed at 21:43:21 UTC. Active checkout and historical backups were untouched; no security/ACL change was made.
 
 ## 2. Download and check the unsigned installer
 
@@ -73,35 +77,35 @@ Get-Content -LiteralPath $asterManifest -Raw | ConvertFrom-Json |
         built_at_utc
 ```
 
-Compare ZIP digest with GitHub's artifact digest; compare EXE digest/length and every manifest identity with the selected run. The baseline values above apply only to baseline source `31a82bf...`. Expected signature status is `NotSigned`; do not treat it as proof of public trust or production readiness. Any mismatch is **FAIL** and blocks install. Keep hashes and the non-secret manifest as evidence.
+Compare ZIP digest with GitHub's artifact digest; compare EXE digest/length and every manifest identity with the selected run. The reference values above apply only to source `4e4cd6c...` before the new diagnostic. Expected signature status is `NotSigned`; do not treat it as proof of public trust or production readiness. Any mismatch is **FAIL** and blocks install. Keep hashes and the non-secret manifest as evidence.
 
 ## 3. Install, launch and uninstall under the documented owner baseline
 
 1. Record UTC before starting and confirm the installer hash just checked is the executable being launched.
 2. Launch the installer normally. Record any Windows/ESET prompt and whether UAC was required. If protection blocks it, record the block and stop; do not disable protection or bypass it under this procedure.
 3. If installation succeeds, launch Aster normally from the installed entry. Record its version and installed executable path/hash. Verify the expected empty session and honest credential/project status. Do not infer the source hash from the displayed `v0.1.0` alone; retain the installer manifest binding.
-4. Perform sections 4–6 while that exact candidate is installed. If a real credential is added later, agree with the owner whether to retain or explicitly remove it; never delete it silently as part of uninstall.
+4. Perform sections 4–6 while that exact candidate is installed. The existing real credential must remain unchanged throughout install, diagnostics and uninstall; no cleanup decision may silently override the owner's preservation requirement.
 5. Close Aster and uninstall using Windows **Settings > Apps > Installed apps**. Record successful removal of the installed app entry and launch entry, any remaining app files, any running Aster process, and whether UAC occurred. Do not remove unrelated files or assume uninstall deletes Credential Manager secrets.
 
 Record install, normal launch and uninstall independently. A blocked install leaves runtime checks **NOT RUN**, not PASS. The resulting artifact remains an unsigned engineering candidate even if these checks pass.
 
 ## 4. Native credentials and secret-boundary checks
 
-Related requirements: FR-011 / SEC-001, SEC-002; AC-013, AC-020; T-015, T-022.
+Related requirements: FR-011, FR-013 / SEC-001, SEC-002, SEC-010; AC-013, AC-020, AC-026; T-015, T-022, T-028, T-033, T-034.
 
-1. Inspect Aster's initial status and the fixed target in Windows Credential Manager. If a credential already exists, stop the synthetic fixed-target test and ask the owner to choose a safe plan; never overwrite the real credential. The baseline host at `31a82bf...` expects UTF-8 credential blobs. Manual Windows Credential Manager entry may store UTF-16LE; therefore use the newly reviewed, tested compatible candidate for that path, not an unsupported older binary. Encoding compatibility must have its own source/tests/evidence.
-2. With no existing Aster key, open Windows **Control Panel > Credential Manager > Windows Credentials > Add a generic credential** in the existing account. Set the Internet/network address to exactly `comzulca/aster-desktop/nvidia/integrate.api.nvidia.com`, username to `nvidia-api`, and password to deliberately fake non-secret `synthetic-fixture-key-123`. Keep this within the native Windows interface. Do not send a chat request using this fake value.
-3. Start/restart the compatible candidate normally. Verify a truthful configured state and that only a Boolean crosses renderer IPC, never token bytes. Presence alone is not a byte-for-byte host-read proof. Retain independent host decoding/credential round-trip test evidence. Do not reveal the stored value or export the credential.
-4. Select **Eliminar clave** in Aster, reject the native deletion confirmation once, and verify the credential remains configured. Repeat and accept the exact deletion; verify it is unconfigured and only the fixed Aster target was removed. Separately open **Ajustes > Configurar clave en Windows** and cancel the native Aster/NVIDIA entry dialog; verify that cancellation does not create a credential. If the app-native entry route is also tested, use the same synthetic non-secret value and explicitly delete it afterwards; do not replace a real credential.
-5. The interactive steps prove manual/native entry, state and deletion, not by themselves the host's byte-for-byte read round trip. From a reviewed genuine checkout, with locked dependencies and fixture-only execution, run the disposable-target test below on Windows 11 and the new manual-entry decoding fixtures for the selected candidate. The round-trip test creates a uniquely named synthetic target and cleans up that target, not a production credential. Record exact source, command, UTC, result and sanitized test summary. If local compilation is blocked by Windows Security, do not change security; mark this target check **NOT RUN** and retain the separate hosted-Server PASS.
+The owner already has a real NVIDIA credential and expressly requires preservation. Do not overwrite it with a fake key, use normal configure/change/delete controls, display its password, export credentials or re-enter the real key for this procedure. Ordinary configured-state observation is a Boolean, not a secret-read proof.
+
+1. Obtain the **new** reviewed diagnostic candidate, not run 62. Follow [CREDENTIAL-GUI-FIXTURE-0001.md](CREDENTIAL-GUI-FIXTURE-0001.md) under the existing owner account/non-elevated token. It generates one distinct synthetic target, asks for manual Control Panel fake entry/read/remove, then exercises shared native prompt cancel/entry/read and separate default-cancel deletion denial/confirmation. Supply no target/key override. No production credential operation, network or normal host initialization occurs in that diagnostic.
+2. Record actual GUI representation and native observations separately from the T-033 fake-backend tests and T-028 API/decoder fixtures. No automated GUI consent is acceptance. Wrong/malformed/pre-existing/foreign state fails closed; there is no blind cleanup on error or exit. If blocked by Windows Security, retain the block and mark dependent GUI checks NOT RUN without changing protections.
+3. From reviewed source with locked dependencies and fixture-only execution, the existing disposable API round-trip test may be run separately. It uses a unique synthetic target, not the production credential. Record source, command, UTC, environment and sanitized summary:
 
 ```powershell
 cargo test --manifest-path src-tauri/Cargo.toml --locked synthetic_credential_round_trip_uses_a_disposable_target
 ```
 
-6. Independently inspect bounded renderer IPC/status, source/configuration and the app-created file/log locations for the **synthetic** fixture value. Do not enable request/header/body logging, dump Credential Manager, or search/export an actual key. Record the inspected locations and whether the fixture was found without publishing private file contents. Source review and synthetic observations are separate from a real-key assurance claim. If inspection cannot be completed safely, mark it **NOT RUN**.
+4. Independently inspect bounded renderer IPC/status, source/configuration and app-created file/log locations using only synthetic fixtures. Do not enable raw request/header/body logging, dump Credential Manager or search/export the real key. Record inspected locations/results without private contents. If capture cannot safely be completed, mark it NOT RUN. A standalone native diagnostic does not prove the complete production Tauri deletion handler or renderer capture boundary.
 
-After synthetic cleanup and compatibility verification, the **owner alone** enters the real NVIDIA key directly in Windows Credential Manager at that same fixed target and username, using the Windows native interface. Never send it through chat, WebView inputs, a shell command, an environment file or CI. Record only success/failure and configured state. Another process running as this same Windows user may access generic credentials; this test does not prove isolation against that user.
+Retain the existing real credential unchanged for the two separately authorized final plain-text canaries. Another process under the same Windows user can access Generic Credentials; no app-exclusive custody guarantee is claimed. Removing the isolated fixture is not authorization to remove the production credential.
 
 ## 5. Rendered UI, honest scope and ephemeral session
 
@@ -117,7 +121,7 @@ Related requirements: UX-001, UX-002 / SEC-008; AC-006, AC-007, AC-012, AC-015, 
 
 Related requirements: FR-001–FR-003 / SEC-003, SEC-007; AC-003–AC-005, AC-021, AC-025; T-003–T-006, T-023, T-027.
 
-**Initial status: NOT RUN.** The owner has separately authorized **exactly two minimal live canaries: one request per exact model below**. The unsigned-build choice alone did not provide that authority, and authorization is not execution evidence. The owner enters the key directly in the Windows Credential Manager native interface as described above. Use a short non-sensitive synthetic prompt, include no files, and keep each request within the app's fixed ceilings. Do not log credentials or raw private payloads. There is no authority for automatic/manual retries, a third request, live cancellation/error cases, fallback, or a different model.
+**Initial status: NOT RUN.** The owner has separately authorized **exactly two minimal live canaries: one request per exact model below**. Authorization is not execution evidence. The existing real key remains in Windows Credential Manager and must be preserved; no re-entry/export is required. Reserve these calls for the final reviewed exact candidate. Use a short non-sensitive synthetic prompt, include no files, and keep each request within fixed ceilings. Do not log credentials or raw private payloads. There is no authority for retries, a third request, live cancellation/error cases, fallback or another model.
 
 For **each model independently**, select its exact registered ID:
 
@@ -132,7 +136,7 @@ An unavailable/denied model is a retained **FAIL** for that model's attempted ca
 
 Related requirement: SEC-009 / NFR-003; AC-019; T-021.
 
-Review the selected run's frontend and Rust license inventories/SBOM separately from the actual installer payload. The baseline audit has seven allowed warnings, including five Windows-compiled unmaintained `unic-*` packages and two Linux-only warnings; audit exit 0 does not eliminate them. The older [DEPENDENCIES-0001.md](DEPENDENCIES-0001.md) names local `UNKNOWN`, MPL and `r-efi` license issues for its own revision, not a clearance for the new binary. Record current upstream-license/notice decisions, exact redistributed files and any owner's scoped exception, without inventing legal approval. If these decisions are not made, mark **NOT RUN** and state the release limitation.
+Review the selected run's inventories/SBOM separately from the actual installer payload. Run 62 has eight allowed warnings: five Windows-compiled unmaintained `unic-*`, two Linux-only warnings and Windows compile-time yanked `yoke-derive 0.8.3`. Audit exit 0 is not risk acceptance. The owner LICENSE is now in main; it does not clear third-party payload obligations. The older [DEPENDENCIES-0001.md](DEPENDENCIES-0001.md) records issues for its own revision, not approval of a new binary. Record current upstream-license/notice decisions, exact redistributed files and any owner's scoped exception. If incomplete, retain NOT RUN and the release limitation.
 
 Record an explicit **unsigned-engineering evaluation decision** against the exact source/EXE hash, scope and residual risks. Do not mark signed/public-production promotion PASS or close issue #11 merely because signing was deliberately excluded. Actual Windows 11 and separately scoped acceptance evidence must exist; any issue-body adjustment to the engineering-only scope must preserve the remaining checks and the owner's dated choice.
 

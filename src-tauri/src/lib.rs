@@ -2,6 +2,7 @@
 //! credentials, fixed HTTPS egress, file grants and terminal request state.
 
 mod credential;
+mod credential_fixture;
 mod native_review;
 #[cfg(windows)]
 mod new_file;
@@ -407,24 +408,77 @@ async fn send_message(
     })
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum LaunchMode {
+    Normal,
+    ReviewFixture { large: bool },
+    CredentialFixture,
+    Invalid,
+}
+
+fn launch_mode(arguments: &[String]) -> LaunchMode {
+    if arguments.is_empty() {
+        return LaunchMode::Normal;
+    }
+    match credential_fixture::invocation(arguments) {
+        credential_fixture::Invocation::Requested => return LaunchMode::CredentialFixture,
+        credential_fixture::Invocation::Invalid => return LaunchMode::Invalid,
+        credential_fixture::Invocation::NotRequested => (),
+    }
+    if arguments.len() != 1 {
+        return LaunchMode::Invalid;
+    }
+    match arguments[0].as_str() {
+        "--aster-review-fixture" => LaunchMode::ReviewFixture { large: false },
+        "--aster-review-fixture-large" => LaunchMode::ReviewFixture { large: true },
+        _ => LaunchMode::Invalid,
+    }
+}
+
+fn launch_mode_os(arguments: impl IntoIterator<Item = std::ffi::OsString>) -> LaunchMode {
+    let mut converted = Vec::new();
+    for argument in arguments {
+        // Only zero or one exact argument is admitted. Do not panic on invalid
+        // Unicode or print rejected OS argument bytes through a panic hook.
+        if !converted.is_empty() {
+            return LaunchMode::Invalid;
+        }
+        match argument.into_string() {
+            Ok(value) => converted.push(value),
+            Err(_) => return LaunchMode::Invalid,
+        }
+    }
+    launch_mode(&converted)
+}
+
 pub fn run() {
-    // Explicit synthetic-only diagnostic, not a model/WebView capability.
-    // No credential access, project path, network or mutation is performed.
-    let arguments: Vec<String> = std::env::args().skip(1).collect();
-    if arguments.len() == 1
-        && matches!(
-            arguments[0].as_str(),
-            "--aster-review-fixture" | "--aster-review-fixture-large"
-        )
-    {
-        let result = native_review::run_fixture(arguments[0].ends_with("-large"));
-        let (classification, exit_code) = match result {
-            Ok(true) => ("synthetic_review_confirmed_no_publication", 0),
-            Ok(false) => ("synthetic_review_denied_no_publication", 2),
-            Err(_) => ("synthetic_review_failed_closed_no_publication", 3),
-        };
-        eprintln!("aster_review_fixture={classification}");
-        std::process::exit(exit_code);
+    // No supported arbitrary user CLI arguments exist. Every nonempty
+    // invocation must select one exact synthetic diagnostic or exit before
+    // Host/Tauri/provider initialization (including malformed fixture flags).
+    match launch_mode_os(std::env::args_os().skip(1)) {
+        LaunchMode::Normal => (),
+        LaunchMode::Invalid => {
+            eprintln!("aster_startup=invalid_arguments");
+            std::process::exit(3);
+        }
+        LaunchMode::CredentialFixture => {
+            let (classification, exit_code) = std::panic::catch_unwind(credential_fixture::run)
+                .unwrap_or(("synthetic_gui_failed_closed", 3));
+            eprintln!("aster_credential_fixture={classification}");
+            // Every diagnostic outcome exits before normal host/provider
+            // initialization; it cannot query the production credential.
+            std::process::exit(exit_code);
+        }
+        LaunchMode::ReviewFixture { large } => {
+            let result = native_review::run_fixture(large);
+            let (classification, exit_code) = match result {
+                Ok(true) => ("synthetic_review_confirmed_no_publication", 0),
+                Ok(false) => ("synthetic_review_denied_no_publication", 2),
+                Err(_) => ("synthetic_review_failed_closed_no_publication", 3),
+            };
+            eprintln!("aster_review_fixture={classification}");
+            std::process::exit(exit_code);
+        }
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -444,6 +498,86 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn os_launch_arguments_are_bounded_and_invalid_unicode_fails_closed() {
+        use std::ffi::OsString;
+        assert_eq!(launch_mode_os([]), LaunchMode::Normal);
+        assert_eq!(
+            launch_mode_os([OsString::from(credential_fixture::FLAG)]),
+            LaunchMode::CredentialFixture
+        );
+        assert_eq!(
+            launch_mode_os([
+                OsString::from(credential_fixture::FLAG),
+                OsString::from("extra")
+            ]),
+            LaunchMode::Invalid
+        );
+        #[cfg(windows)]
+        {
+            use std::os::windows::ffi::OsStringExt;
+            assert_eq!(
+                launch_mode_os([OsString::from_wide(&[0xd800])]),
+                LaunchMode::Invalid
+            );
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStringExt;
+            assert_eq!(
+                launch_mode_os([OsString::from_vec(vec![0xff])]),
+                LaunchMode::Invalid
+            );
+        }
+    }
+
+    #[test]
+    fn closed_launch_selector_never_starts_normal_host_for_nonempty_arguments() {
+        let args = |values: &[&str]| {
+            values
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(launch_mode(&[]), LaunchMode::Normal);
+        assert_eq!(
+            launch_mode(&args(&[credential_fixture::FLAG])),
+            LaunchMode::CredentialFixture
+        );
+        assert_eq!(
+            launch_mode(&args(&["--aster-review-fixture"])),
+            LaunchMode::ReviewFixture { large: false }
+        );
+        assert_eq!(
+            launch_mode(&args(&["--aster-review-fixture-large"])),
+            LaunchMode::ReviewFixture { large: true }
+        );
+        let mut normal_host_starts = 0;
+        let mut diagnostic_starts = 0;
+        for values in [
+            vec!["--aster-credential"],
+            vec!["--ASTER-CREDENTIAL-GUI-FIXTURE"],
+            vec!["--aster-credential-gui-fixtur"],
+            vec!["--aster-credential-gui-fixture=target"],
+            vec![credential_fixture::FLAG, "extra"],
+            vec!["--aster-review-fixture", "extra"],
+            vec!["--aster-review-fixture-large=path"],
+            vec!["--target=anything"],
+            vec!["--password=anything"],
+            vec!["--url=anything"],
+            vec!["anything"],
+        ] {
+            match launch_mode(&args(&values)) {
+                LaunchMode::Normal => normal_host_starts += 1,
+                LaunchMode::CredentialFixture | LaunchMode::ReviewFixture { .. } => {
+                    diagnostic_starts += 1
+                }
+                LaunchMode::Invalid => (),
+            }
+        }
+        assert_eq!((normal_host_starts, diagnostic_starts), (0, 0));
+    }
 
     #[test]
     fn send_intent_rejects_hidden_disclosure_and_url_overrides() {
