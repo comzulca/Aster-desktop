@@ -4,6 +4,8 @@ Date: 2026-09-30 UTC. Related: issue #12, ADR-0004, AC-008–AC-011, AC-022–AC
 
 ## What the candidate does and does not enable
 
+Exact-source owner-context fixture results are in [LOCAL-0002.md](LOCAL-0002.md), including the retained error 1314 and independently successful rerun. The manual gates below remain separate.
+
 The candidate contains a closed edit parser, a lossless native read-only review window, request-bound post-review disclosure revalidation, retained root/ancestor pins, and a Windows-only new-file CREATE_NEW/encrypted-metadata-journal proof seam. Existing-file replacement remains proposal-only. All shipping file-read/disclosure, proposal and apply capability flags stay **false**; the six-command IPC allowlist is unchanged. No renderer/model approval Boolean, general write endpoint, shell, arbitrary URL or tool loop is added.
 
 The internal `reserve_ephemeral` proof seam excludes a project-bearing request and its derived answer from continuation history. This is candidate behavior, not an active shipping file-upload route: shipping `send_message` still uses ordinary `reserve`, and host-file upload/disclosure capabilities remain disabled. Disclosure candidates bind the exact serialized outbound bytes, fixed NVIDIA destination, conversation/request, selected root, file identity/hash and nonce. Finalization consumes its dispatch chance and native approval before revalidation; root/file drift, expiry or replay denies. No network integration is activated by this seam.

@@ -1,5 +1,11 @@
 # STATUS-0001 — implementation evidence and release blockers
 
+## Issue #11/#12 candidate — 2026-09-30 UTC
+
+Tested source `198db2111907d7ea548ccb365f4d0b42c80ea50a` adds bounded credential decoding, settings focus/shortcut corrections and disabled native workspace proof seams. Final non-elevated tests in the owner's existing Windows 11 administrator account passed **59/59 Rust fixtures and 23/23 frontend tests**, formatting/check/Clippy, renderer build and the local secret guard. Developer Mode was enabled personally by the owner; the earlier symlink error 1314 is preserved, not erased. Exact commands, UTC, hashes, authority and limits are in [LOCAL-0002.md](LOCAL-0002.md). These results supersede only the local-execution statement in the older baseline section below.
+
+This is not a successful current-head GitHub CI/main installer record or completed manual acceptance. All shipping workspace flags stay false; existing-file replacement stays proposal-only. Native display/consent, manual Credential Manager interoperability, target installation/UI/restart, independent journal ACL/process-kill/power-loss proof, current payload/license decisions and both live NVIDIA canaries remain **NOT RUN**. Use the new exact-head CI/artifact identities when available; do not certify this source with the older baseline binary. Issues #11/#12 remain independently gated.
+
 ## Current snapshot — 2026-09-30 UTC
 
 Latest verified `main` source: `31a82bf50fc46ea4fbb91c50c59cc02a65da4c71`. [Run 36190804857](https://github.com/comzulca/Aster-desktop/actions/runs/36190804857), run number 58, completed all four jobs **PASS** in 2,161 seconds. This section supersedes the 2026-09-24 current-status statements below without erasing their evidence. The owner selected an **unsigned engineering build** on 2026-09-30; production signing and a self-signed certificate are not requested at this stage. This choice does not waive Windows 11, native credential, live-model, license or capability safety acceptance.

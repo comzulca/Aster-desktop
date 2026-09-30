@@ -14,6 +14,8 @@ Created: **2026-09-30 UTC**. Initial status: **NOT RUN** for all target-Windows-
 
 ## 1. Bind the evidence to the exact candidate
 
+The newer source candidate's offline owner-context results are [LOCAL-0002.md](LOCAL-0002.md); they do not pass this manual procedure or reuse the older installer below. Developer Mode's explicit owner change is included in that evidence.
+
 For the currently verified baseline:
 
 | Field | Expected baseline |
