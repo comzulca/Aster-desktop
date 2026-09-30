@@ -352,18 +352,30 @@
   "gates": [
     {
       "phase": 0,
-      "reason": "New diagnostic candidate requires immutable source binding and fresh inventory review; historical LOCAL-0002 evidence is retained, not transferred.",
-      "status": "NOT RUN"
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; installed Git 2.56.0; static source/inventory review, not interactive acceptance.",
+      "command": "git ls-tree -r -l HEAD and per-file git hash-object --no-filters; scope/spec/threat source review recorded in LOCAL-0003",
+      "run_at_utc": "2026-09-30T22:10:14.2635473Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md"],
+      "status": "PASS"
     },
     {
       "phase": 1,
-      "reason": "FR-013/SEC-010/AC-026 candidate trace exists; immutable-source specification validation pending.",
-      "status": "NOT RUN"
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; source-bound static specification review, not GUI acceptance.",
+      "command": "Independent root/source review of SPEC-0001 and FR-013/SEC-010/AC-026 to separate T-033/T-034; source binding recorded in LOCAL-0003",
+      "run_at_utc": "2026-09-30T22:10:14.2635473Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md", "docs/specs/SPEC-0001.md", "docs/aster-builder/verification-plan.md"],
+      "status": "PASS"
     },
     {
       "phase": 2,
-      "reason": "TM-013/ADR-0005 candidate boundaries exist; final source review and source-bound validation pending.",
-      "status": "NOT RUN"
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; independent read-only source/threat review, no GUI or OS credential access by reviewer.",
+      "command": "Independent root/source audit of TM-013/ADR-0005 and typed credential diagnostic boundaries; source binding recorded in LOCAL-0003",
+      "run_at_utc": "2026-09-30T22:10:14.2635473Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md", "docs/security/THREAT-MODEL-0001.md", "docs/adr/ADR-0005.md"],
+      "status": "PASS"
     },
     {
       "phase": 3,
@@ -415,7 +427,7 @@
     "name": "Aster-desktop",
     "platform": "Windows-11",
     "release_class": "development",
-    "source_revision": "UNPINNED"
+    "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e"
   },
   "providers": [
     {
@@ -759,9 +771,13 @@
     {
       "id": "T-029",
       "path": "docs/aster-builder/verification-plan.md",
-      "status": "NOT RUN",
+      "status": "PASS",
       "verification_phase": 6,
-      "reason": "Historical parser fixture PASS remains in LOCAL-0002; full new candidate source-bound rerun pending. Native consent is separate."
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; Rust 1.97.0; ASTER_DISABLE_LIVE=1; internal fixture only",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
+      "run_at_utc": "2026-09-30T22:06:40.4284964Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md"]
     },
     {
       "id": "T-030",
@@ -780,16 +796,24 @@
     {
       "id": "T-032",
       "path": "docs/aster-builder/verification-plan.md",
-      "status": "NOT RUN",
+      "status": "PASS",
       "verification_phase": 6,
-      "reason": "Historical dormant disclosure fixture PASS remains in LOCAL-0002; full new candidate source-bound rerun pending. Shipping disclosure stays disabled."
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; Rust 1.97.0; ASTER_DISABLE_LIVE=1; dormant internal disclosure fixture only",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
+      "run_at_utc": "2026-09-30T22:06:40.4284964Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md"]
     },
     {
       "id": "T-033",
       "path": "docs/aster-builder/verification-plan.md",
-      "reason": "New isolated diagnostic automated boundary/lifecycle fixtures require exact new source execution; historical credential fixtures are not this test.",
-      "status": "NOT RUN",
-      "verification_phase": 3
+      "status": "PASS",
+      "verification_phase": 3,
+      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
+      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; Rust 1.97.0; ASTER_DISABLE_LIVE=1; 21 new pure diagnostic tests, no native GUI/live calls",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
+      "run_at_utc": "2026-09-30T22:06:40.4284964Z",
+      "evidence_paths": ["docs/qa/LOCAL-0003.md"]
     },
     {
       "id": "T-034",
