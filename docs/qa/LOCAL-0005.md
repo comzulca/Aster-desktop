@@ -1,48 +1,48 @@
-# LOCAL-0005 — protocol-2 working-tree validation
+# LOCAL-0005 — protocol-2 exact-source validation
 
-Observed 2026-10-01 UTC. Current classification: **latest unpinned Rust format/Clippy/test observation PASS; complete frozen-source aggregate pending**. An initial 100-test observation completed before `16:01:33Z` (native tool output `60695b`). Independent review then enforced an explicit 32-KiB project-composer boundary with exact-limit/+1 coverage and pending-state revocation on early project-send guard/compose/reservation errors. A complete post-fix native rerun passed from `2026-10-01T16:11:08.9529732Z` through `2026-10-01T16:11:12.9313913Z` (output `ec32f1`). Other rows below were observed before the last Rust edits and must also be repeated after source freeze. No observation may be attached to a later commit by assertion.
+Observed 2026-10-01 UTC. Current classification: **post-freeze local source/frontend/native gates PASS for immutable runtime source `c718e2c75a6c94a77020eb7e047c07503945b388`, tree `24e48836a421e099c47d94593b49409749096088`; hosted CI/package/manual gates remain independent**. The evidence-only documentation that cites this source may be a later commit; it does not change or re-identify the tested runtime bytes.
 
 ## Environments and authority
 
-- Native Windows execution: `QUARK2\Rene Nehru Alvarez`, Windows NT `10.0.26300.0`, normal existing owner environment. No Windows or ESET protection was disabled and no live provider request or real-credential read was part of this run.
+- Native Windows execution: `QUARK2\Rene Nehru Alvarez`, Windows NT `10.0.26300.0`, normal existing owner environment. A process-local `git -c safe.directory=<exact checkout>` was used only for provenance checks; no global Git, Windows or ESET setting changed. No live provider request or real-credential read was part of this run.
 - Frontend execution: `QUARK2\CodexSandboxOffline` on the same Windows version, bundled Node `24.19` and pnpm `11.19`, with live provider access disabled.
-- Source under test: the integrated protocol-2 working tree. It was still changed/uncommitted at this checkpoint, so a Git commit/tree, raw-blob manifest and exact-source rerun remain required before these observations can identify release bytes.
+- Source under test: commit `c718e2c75a6c94a77020eb7e047c07503945b388`, tree `24e48836a421e099c47d94593b49409749096088`. `git rev-parse HEAD`, the Git tree and the authenticated GitHub commit/tree matched; `git status --porcelain --untracked-files=all` was empty after every successful aggregate.
 
-## Earlier integrated working-tree results
+## Exact post-freeze results
 
-| Area | Local observation |
+| Area | Result and boundary |
 | --- | --- |
-| Rust quality | Before the final two Rust edits, `cargo fmt` check, locked `cargo check` and locked all-target Clippy with warnings denied: **PASS**. The later scoped rerun is recorded below. |
-| Rust suite | **100/100 library tests PASS**, with empty main and documentation harnesses passing. The suite includes exact reviewed-body dispatch, one-use/revalidation/revocation behavior, strict proposal/new-file journal behavior, independent-process termination/restart recovery and the journal-container-as-project containment regression. |
-| Frontend | Frozen install, typecheck, **25/25 tests PASS** and production build PASS. Protocol-2 renderer tests include metadata-only project receipts and denial of forged receipts. |
-| Source policy | **84 UTF-8 files scanned; zero likely-secret findings**. |
-| Dependency compatibility | **73/73 pure T-037 fixtures PASS** and the actual configured Tauri minor-pair comparison PASS. |
-| Frontend advisory scan | Exit success with zero known npm vulnerabilities in the installed dependency graph. |
-| RustSec | Exit success with exactly three allowed warnings: unmaintained `proc-macro-error 1.0.4` / RUSTSEC-2024-0370; unmaintained and unsound `glib 0.18.5` / RUSTSEC-2024-0429; yanked `yoke-derive 0.8.3`. Target-graph review excludes the first two from the packaged Windows closure and retains `yoke-derive` as a build-time procedural macro; the full current Rust suite passed. Retaining this locked graph is acceptable only for the private engineering test classification, not a zero-warning, owner/legal-risk or production claim. |
-| Notices | The current dual-metadata generator exited successfully: schema 2, 575 total/291 required, 45 direct missing, 10 peer-covered, four overlay-covered, 31 non-required missing, zero required missing/unknown; output 4,577,083 bytes, SHA-256 `b181b1e7d4aa59018bd23a828112a72adbc9a2b8d76764132159ba924bcb1c92`. This unpinned source-graph observation is not packaged-payload or legal evidence. |
+| Native aggregate | **PASS**, `2026-10-01T16:46:46.2806428Z`–`16:46:49.2001051Z`, output `9f332a`: `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`; `cargo check --manifest-path src-tauri/Cargo.toml --locked --offline --all-targets`; `cargo clippy --manifest-path src-tauri/Cargo.toml --locked --offline --all-targets -- -D warnings`; `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline`. Result: 100/100 library tests, empty main and documentation harnesses, all exit 0. |
+| Frontend aggregate | **PASS**, `2026-10-01T16:44:37.8958197Z`–`16:44:48.6676378Z`, outputs `a031df` and `b54ee4`: exact-SHA checks, `pnpm typecheck`, `pnpm test` (**25/25**) and `pnpm build`. This post-freeze aggregate did not perform a new dependency resolution. |
+| Source, compatibility, notice self-test and npm audit | **PASS**, `2026-10-01T16:47:20.2940425Z`–`16:47:21.6228521Z`, output `72d5cb`: Python `-I -B` secret-guard self-test/scan (**90 UTF-8 files, zero likely-secret findings**), T-037 self-test and actual locked pair (**73/73 fixtures plus actual comparison**), notice-generator negative self-test, and `pnpm audit --audit-level moderate` with zero known vulnerabilities. This aggregate did not generate the canonical notice output. |
+| Canonical notice observation | Earlier output `6f7658` used the lock/script inputs later frozen in `c718e2c`: schema 2, 575 total/291 required, 45 direct missing, 10 peer-covered, four overlay-covered, 31 non-required missing, zero required missing and zero required unknown. `THIRD-PARTY-NOTICES.txt`: 4,577,083 bytes, SHA-256 `b181b1e7d4aa59018bd23a828112a72adbc9a2b8d76764132159ba924bcb1c92`. This was not rerun in post-freeze aggregate `72d5cb`; the hosted package job must reproduce it. It is source-graph evidence, not extracted installer-payload or legal evidence. |
+| Original Aster JPG | **PASS** byte check at `2026-10-01T16:57:58Z`, output `75839e`: `public/assets/Aster_UI2.jpg` SHA-256 `b95163a411529b8608461dda4faeacab3f09c6cde090c3b1d72092bf0a7c4887`. Rendering/layout/accessibility remain manual. |
+| RustSec disposition | Exactly three allowed warnings remain: unmaintained `proc-macro-error 1.0.4` / RUSTSEC-2024-0370; unmaintained and unsound `glib 0.18.5` / RUSTSEC-2024-0429; yanked `yoke-derive 0.8.3`. Target-graph review excludes the first two from the packaged Windows closure and retains `yoke-derive` as a build-time procedural macro; the full exact-source Rust suite passed. Retaining this locked graph is acceptable only for the private engineering test classification, not a zero-warning, owner/legal-risk or production claim. |
 
-The post-fix automatic fixtures support the code-level portions of T-038 through T-040 on the latest observed working tree, but do not transfer to later changed bytes and do not substitute for normal installed-app native dialog observation. In particular, no result here claims that the owner saw the exact disclosure in the final packaged application, that a real provider accepted it, or that the setup behaves acceptably on the test laptop.
+The suite covers the exact 32-KiB/+1 project-composer boundary, early pending-state revocation, metadata-only receipts, exact reviewed-body dispatch, one-use/revalidation behavior, ephemeral continuation, strict proposal parsing, private journal/new-file behavior, independent helper-process termination/restart recovery and the journal-container-as-project containment regression. It supports the code-level portions of T-038 through T-040 but does not substitute for normal installed-app native dialog observation. T-039 and T-040 remain aggregate `NOT RUN` in the ledger where their full procedures require installed owner-HWND interaction; T-031 also retains physical power-loss work.
 
-## Post-review native rerun
+## Retained failed aggregate attempt
 
-The latest source retains **100/100 library tests**—the exact 32-KiB/+1 case extends an existing test rather than adding a new test function. Rust formatting, all-target Clippy with warnings denied, the full library suite and the empty main/documentation harnesses all completed with exit 0 in output `ec32f1`. This rerun covers the later project-boundary and early-revocation edits. An exact command transcript and commit/tree will be recorded with the frozen-source rerun; no `cargo check` claim is newly inferred from this output.
+The first post-freeze wrapper attempts, outputs `dcde1c` and `d1f7e6`, are retained as **FAIL at the wrapper provenance gate**: the repository ownership check rejected Git access before a process-local exact-checkout `safe.directory` argument was supplied. Their 100 native tests happened to pass, but the aggregate cannot be relabeled PASS because its provenance precondition failed. No global safe-directory entry or other protection change was made. The corrected complete aggregate is `9f332a` above.
 
-## Engineering handoff boundary
+## Engineering build and pre-delivery boundary
 
-After the integrated bytes are frozen, rerun and record their commit/tree and exact command timestamps; do not rebind the uncommitted observation by assertion. Engineering handoff additionally requires fresh hosted CI, schema-2 notice/SBOM evidence with zero required missing/unknown entries, reproduction of the bounded private-engineering RustSec disposition, plus the five-entry unsigned package and independent verifier extraction/hash of both bundle resources. These structural checks do not approve external distribution, owner/legal risk acceptance or production suitability.
+Fresh GitHub PR run [36894176872](https://github.com/comzulca/Aster-desktop/actions/runs/36894176872) checked synthetic merge `f0c432f4f882e065932fb453d79663f1ee60058b`, as shown by source-policy logs. Git API verification confirmed that merge has exact tree `24e48836a421e099c47d94593b49409749096088`, identical to local source `c718e2c`. At this checkpoint the run was still in progress; tree equality and partial job success are not an aggregate hosted PASS and no installer identity is inferred. Internal test readiness additionally requires all required hosted jobs, schema-2/SBOM outputs, the five-entry unsigned package and independent verifier extraction/hash of both bundle resources.
 
-The following are deliberately **post-handoff owner-laptop acceptance**, not prerequisites that can be fabricated before delivering the engineering setup: normal Windows 11 install/launch, interactive credential/native-review/secret-boundary checks, accessibility, restart/no-history, T-041 performance observations, uninstall and the two separately authorized live plain-text canaries. Existing-file replacement remains proposal-only with `applyExistingFile=false`; safe publication proof remains unresolved. Issues #11/#12 therefore remain open.
+After internal artifact verification and before final delivery, execute every feasible manual row on this current primary Windows 11 laptop under the owner's existing principal account only; do not create/use a guest/new account. This includes normal install/launch, credential/native-review/secret-boundary checks, accessibility, restart/no-history, feasible T-041 observations, uninstall and the two separately authorized live plain-text canaries. The shipping app has no fake-provider or proposal-injection diagnostic; installed steps requiring those test-only seams remain `NOT RUN` and are supported only by exact-source fixtures unless a separately reviewed diagnostic is added. Existing-file replacement remains proposal-only with `applyExistingFile=false`; safe publication proof remains unresolved. Issues #11/#12 therefore remain open.
 
-## Evidence fields to complete after source freeze
+## Evidence fields
 
 | Field | Current value |
 | --- | --- |
-| Source commit/tree | UNBOUND working tree; do not attach a later commit without rerun |
-| Exact UTC command window | Post-fix native rerun `2026-10-01T16:11:08.9529732Z`–`16:11:12.9313913Z`; frozen-source window PENDING |
-| Raw command/output references | Initial native aggregate `60695b`; post-fix native rerun `ec32f1`; remaining exact references PENDING |
-| Current post-review Rust aggregate | PASS on working tree: 100 library, 0 main, 0 documentation failures |
-| Hosted workflow run/attempt | NOT RUN for this snapshot |
-| Installer ZIP/manifest/setup hashes | NOT RUN for this snapshot |
+| Runtime source commit/tree | `c718e2c75a6c94a77020eb7e047c07503945b388` / `24e48836a421e099c47d94593b49409749096088` |
+| Native command window/output | `2026-10-01T16:46:46.2806428Z`–`16:46:49.2001051Z`; `9f332a`; PASS, 100 library/0 main/0 documentation failures |
+| Frontend command window/output | `2026-10-01T16:44:37.8958197Z`–`16:44:48.6676378Z`; `a031df`, `b54ee4`; PASS, 25/25 |
+| Policy/compatibility/notice-self-test/audit window/output | `2026-10-01T16:47:20.2940425Z`–`16:47:21.6228521Z`; `72d5cb`; PASS |
+| Canonical pre-freeze notice output | `6f7658`; 4,577,083 bytes; SHA-256 `b181b1e7d4aa59018bd23a828112a72adbc9a2b8d76764132159ba924bcb1c92`; hosted reproduction pending |
+| Retained failed attempt | `dcde1c`, `d1f7e6`; FAIL at wrapper provenance gate, superseded only by the complete corrected aggregate |
+| Hosted workflow run | `36894176872`; synthetic PR merge `f0c432f4f882e065932fb453d79663f1ee60058b`; tree `24e48836a421e099c47d94593b49409749096088` verified identical; IN PROGRESS, not credited as PASS |
+| Installer ZIP/manifest/setup hashes | NOT RUN at this checkpoint |
 | Owner-laptop acceptance and live calls | NOT RUN |
 
-Do not silently replace a PENDING/NOT RUN field with evidence from historical run 85 or any earlier candidate.
+Do not silently replace a pending/NOT RUN field with evidence from historical run 85 or any earlier candidate.

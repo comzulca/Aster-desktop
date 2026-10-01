@@ -1,6 +1,6 @@
 # Aster Desktop v0.1.0 — verification procedures
 
-Status: procedure catalog reconciled 2026-10-01 UTC. Actual status belongs in the source-bound contract ledger and dated QA records. Historical tests passed only at their recorded revisions. `LOCAL-0005.md` records changed-working-tree automatic T-038–T-040 portions as PASS, but the ledger retains NOT RUN until those bytes are immutable and bound; T-041 and all installed/manual gates remain **NOT RUN**. For each run record source SHA, exact command/manual steps, UTC, Windows version when relevant, fixture ID, PASS/FAIL/NOT RUN, output path and artifact hash. Keep credentials synthetic. A fake-server test does not prove a live NVIDIA call; hosted Windows Server does not prove installed Windows 11 behavior.
+Status: procedure catalog reconciled 2026-10-01 UTC. Actual status belongs in the source-bound contract ledger and dated QA records. Historical tests passed only at their recorded revisions. `LOCAL-0005.md` binds automatic protocol-2 portions to immutable source `c718e2c75a6c94a77020eb7e047c07503945b388`; full T-039/T-040 installed-native procedures, T-041 and all other installed/manual gates remain **NOT RUN**. For each run record source SHA, exact command/manual steps, UTC, Windows version when relevant, fixture ID, PASS/FAIL/NOT RUN, output path and artifact hash. Keep credentials synthetic. A fake-server test does not prove a live NVIDIA call; hosted Windows Server does not prove installed Windows 11 behavior.
 
 | ID | Procedure and expected observation |
 | --- | --- |

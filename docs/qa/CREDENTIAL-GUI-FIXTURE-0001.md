@@ -1,6 +1,6 @@
 # CREDENTIAL-GUI-FIXTURE-0001 — owner-run isolated native credential proof
 
-Date: 2026-09-30 UTC; reconciled 2026-10-01 UTC. Status: the isolated diagnostic and automated T-033 boundary fixtures are retained and pass in the current local aggregate suite, but immutable-source binding and owner-installed GUI execution T-034 remain pending for the protocol-2 candidate. Trace: ADR-0005, FR-013, SEC-010, TM-013, AC-026, T-033/T-034. Run this procedure only after the exact new candidate passes CI/package review; no earlier installer certifies the changed source.
+Date: 2026-09-30 UTC; reconciled 2026-10-01 UTC. Status: the isolated diagnostic and automated T-033 boundary fixtures pass locally at immutable source `c718e2c75a6c94a77020eb7e047c07503945b388`, but owner-installed GUI execution T-034 and package binding remain pending for the protocol-2 candidate. Trace: ADR-0005, FR-013, SEC-010, TM-013, AC-026, T-033/T-034. Run this procedure only after the exact new candidate passes CI/package review; no earlier installer certifies the changed source.
 
 ## Preconditions
 
