@@ -1,6 +1,6 @@
 # JOURNAL-PRIVACY-0001 — planned dormant native privacy fixtures
 
-Procedure written: 2026-09-30 UTC, before behavioral implementation. Latest observation: 2026-10-01 UTC, **PASS for the repaired original-owner offline privacy fixtures, immutable source binding pending**; initial native FAIL remains in [LOCAL-0004.md](LOCAL-0004.md). Trace: ADR-0006 / FR-014 / SEC-011 / TM-014 / AC-027 / T-035. This is only the privacy subsection of T-031, not the whole capability gate. The steps below remain the bounded procedure, not a claim of GUI/process-kill/power-loss acceptance.
+Procedure written: 2026-09-30 UTC, before behavioral implementation. Latest observation: 2026-10-01 UTC, **PASS for the repaired original-owner offline privacy fixtures, source `fc88d94b63b5d80d91a77f68796a2ba83b23a896`**; exact-byte binding and initial native FAIL remain in [LOCAL-0004.md](LOCAL-0004.md). Trace: ADR-0006 / FR-014 / SEC-011 / TM-014 / AC-027 / T-035. This is only the privacy subsection of T-031, not the whole capability gate. The steps below remain the bounded procedure, not a claim of GUI/process-kill/power-loss acceptance.
 
 ## Fixture authority and execution boundary
 

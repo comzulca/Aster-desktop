@@ -104,7 +104,7 @@ The owner already has a real NVIDIA credential and expressly requires preservati
 3. From reviewed source with locked dependencies and fixture-only execution, the existing disposable API round-trip test may be run separately. It uses a unique synthetic target, not the production credential. Record source, command, UTC, environment and sanitized summary:
 
 ```powershell
-cargo test --manifest-path src-tauri/Cargo.toml --locked synthetic_credential_round_trip_uses_a_disposable_target
+cargo test --manifest-path src-tauri/Cargo.toml --locked --offline synthetic_credential_round_trip_uses_a_disposable_target
 ```
 
 4. Independently inspect bounded renderer IPC/status, source/configuration and app-created file/log locations using only synthetic fixtures. Do not enable raw request/header/body logging, dump Credential Manager or search/export the real key. Record inspected locations/results without private contents. If capture cannot safely be completed, mark it NOT RUN. A standalone native diagnostic does not prove the complete production Tauri deletion handler or renderer capture boundary.

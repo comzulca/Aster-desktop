@@ -375,22 +375,34 @@
   "gates": [
     {
       "phase": 0,
-      "status": "NOT RUN",
-      "reason": "New private-journal DACL candidate requires immutable source binding and fresh source-bound inventory/spec/threat validation; historical LOCAL-0003 evidence is retained, not transferred."
+      "status": "PASS",
+      "source_revision": "fc88d94b63b5d80d91a77f68796a2ba83b23a896",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows 11 Pro 10.0.26300; local Git 2.56.0.windows.1; read-only inventory.",
+      "command": "git rev-parse HEAD/HEAD^{tree}; git status --porcelain; git ls-tree -r -l HEAD; independently compare all 79 raw Git blob hashes in actual clone and tested development copy.",
+      "run_at_utc": "2026-10-01T09:58:03.3471540Z",
+      "evidence_paths": ["docs/qa/LOCAL-0004.md"]
     },
     {
       "phase": 1,
-      "status": "NOT RUN",
-      "reason": "New private-journal DACL candidate requires immutable source binding and fresh source-bound inventory/spec/threat validation; historical LOCAL-0003 evidence is retained, not transferred."
+      "status": "PASS",
+      "source_revision": "fc88d94b63b5d80d91a77f68796a2ba83b23a896",
+      "environment": "Read-only source/specification review on Windows 11; no GUI or live execution.",
+      "command": "Review SPEC-0001, verification-plan, FR-014/SEC-011/AC-027/T-035 and stable trace mappings against the pinned 79-file source tree; separate dormant privacy fixtures from aggregate and interactive acceptance.",
+      "run_at_utc": "2026-10-01T09:58:35Z",
+      "evidence_paths": ["docs/specs/SPEC-0001.md", "docs/aster-builder/verification-plan.md", "docs/qa/LOCAL-0004.md"]
     },
     {
       "phase": 2,
-      "status": "NOT RUN",
-      "reason": "New private-journal DACL candidate requires immutable source binding and fresh source-bound inventory/spec/threat validation; historical LOCAL-0003 evidence is retained, not transferred."
+      "status": "PASS",
+      "source_revision": "fc88d94b63b5d80d91a77f68796a2ba83b23a896",
+      "environment": "Read-only threat/authority review on Windows 11; source-bound descriptor design and retained failure/pass records.",
+      "command": "Review THREAT-MODEL-0001 TM-014, ADR-0006, journal_privacy/new_file/workspace/lib authority delta and LOCAL-0004 failure/repair/native evidence; verify all four workspace flags remain false and same-user/power-loss residuals remain explicit.",
+      "run_at_utc": "2026-10-01T09:58:35Z",
+      "evidence_paths": ["docs/security/THREAT-MODEL-0001.md", "docs/adr/ADR-0006.md", "docs/qa/LOCAL-0004.md"]
     },
     {
       "phase": 3,
-      "reason": "Chat host/UI source candidate exists; Windows native and renderer gate evidence on pinned revision pending.",
+      "reason": "Source-bound offline Rust/frontend fixtures PASS (LOCAL-0004); actual owner GUI/renderer secret-boundary/accessibility acceptance on a new verified artifact remains NOT RUN.",
       "status": "NOT RUN"
     },
     {
@@ -405,7 +417,7 @@
     },
     {
       "phase": 6,
-      "reason": "Internal workspace fixtures passed, but normal-app owner HWND/disclosure/proposal/new-file routes, journal DACL and independent-process recovery implementation/evidence remain missing. File IPC/apply stay disabled.",
+      "reason": "Source-bound dormant journal privacy and internal workspace fixtures PASS (LOCAL-0004/T-035); normal-app owner HWND/disclosure/proposal/new-file routes, independent-process recovery, existing replacement and power-loss gates remain missing. File IPC/apply stay disabled.",
       "status": "NOT RUN"
     },
     {
@@ -415,7 +427,7 @@
     },
     {
       "phase": 8,
-      "reason": "Historical LOCAL-0003 offline 80 Rust/23 frontend fixtures passed at its source; new DACL candidate requires fresh owner checks, exact-head hosted CI/audit/SBOM/license review and packaging. Interactive acceptance remains independent.",
+      "reason": "Fresh source-bound owner fmt/check/Clippy/90 Rust and typecheck/23 frontend/build fixtures PASS (LOCAL-0004); exact-head hosted CI/audit/SBOM/license review and new artifact verification remain pending. Interactive acceptance is independent.",
       "status": "NOT RUN"
     },
     {
@@ -438,7 +450,7 @@
     "name": "Aster-desktop",
     "platform": "Windows-11",
     "release_class": "development",
-    "source_revision": "UNPINNED"
+    "source_revision": "fc88d94b63b5d80d91a77f68796a2ba83b23a896"
   },
   "providers": [
     {
@@ -791,8 +803,12 @@
       "id": "T-029",
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
-      "status": "NOT RUN",
-      "reason": "Historical LOCAL-0003 fixture PASS is retained; new private-journal candidate requires a full exact-source owner rerun before current credit."
+      "status": "PASS",
+      "source_revision": "fc88d94b63b5d80d91a77f68796a2ba83b23a896",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows 11 Pro 10.0.26300, local NTFS, Rust 1.97.0, ASTER_DISABLE_LIVE=1, locked/offline fixtures.",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; 90 PASS, 0 failed/ignored/filtered, including strict typed parser fixtures; no native human consent claimed.",
+      "run_at_utc": "2026-10-01T09:47:05.1365348Z",
+      "evidence_paths": ["docs/qa/LOCAL-0004.md"]
     },
     {
       "id": "T-030",
@@ -804,7 +820,7 @@
     {
       "id": "T-031",
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "reason": "Exact-source CREATE_NEW/DPAPI/journal/interruption-state fixtures passed (LOCAL-0002); private ACLs, competing-process and actual process-kill/power-loss proof remain NOT RUN.",
+      "reason": "Source-bound CREATE_NEW/DPAPI/sampled interruption and private owner-only journal fixtures PASS (LOCAL-0004/T-035); independent competing-process and actual process-kill/restart/power-loss proof remain NOT RUN. Privacy fixtures do not clear this aggregate gate.",
       "status": "NOT RUN",
       "verification_phase": 6
     },
@@ -812,15 +828,23 @@
       "id": "T-032",
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
-      "status": "NOT RUN",
-      "reason": "Historical LOCAL-0003 fixture PASS is retained; new private-journal candidate requires a full exact-source owner rerun before current credit."
+      "status": "PASS",
+      "source_revision": "fc88d94b63b5d80d91a77f68796a2ba83b23a896",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows 11 Pro 10.0.26300, local NTFS, Rust 1.97.0, ASTER_DISABLE_LIVE=1, locked/offline fixtures.",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; 90 PASS, 0 failed/ignored/filtered, including internal disclosure/grant/history invalidation fixtures; no shipping endpoint or actual native GUI consent claimed.",
+      "run_at_utc": "2026-10-01T09:47:05.1365348Z",
+      "evidence_paths": ["docs/qa/LOCAL-0004.md"]
     },
     {
       "id": "T-033",
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 3,
-      "status": "NOT RUN",
-      "reason": "Historical LOCAL-0003 fixture PASS is retained; new private-journal candidate requires a full exact-source owner rerun before current credit."
+      "status": "PASS",
+      "source_revision": "fc88d94b63b5d80d91a77f68796a2ba83b23a896",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows 11 Pro 10.0.26300, Rust 1.97.0, ASTER_DISABLE_LIVE=1, locked/offline synthetic fixtures.",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; 90 PASS, 0 failed/ignored/filtered, including pure/fake-backend credential diagnostic isolation fixtures; no actual GUI, real credential or live provider access.",
+      "run_at_utc": "2026-10-01T09:47:05.1365348Z",
+      "evidence_paths": ["docs/qa/LOCAL-0004.md"]
     },
     {
       "id": "T-034",
@@ -833,8 +857,12 @@
       "id": "T-035",
       "path": "docs/qa/JOURNAL-PRIVACY-0001.md",
       "verification_phase": 6,
-      "status": "NOT RUN",
-      "reason": "New dormant private-journal descriptor/pin implementation and exact-source pure/original-owner native privacy fixtures pending; aggregate T-031 remains independently NOT RUN."
+      "status": "PASS",
+      "source_revision": "fc88d94b63b5d80d91a77f68796a2ba83b23a896",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows 11 Pro 10.0.26300, local NTFS, Rust 1.97.0, ASTER_DISABLE_LIVE=1, locked/offline generated synthetic objects only.",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; full 90 PASS, 0 failed/ignored/filtered, including four pure and six native privacy fixtures after reviewed test-only repair. Prior 89 PASS/1 FAIL retained. Aggregate T-031, GUI, external-process termination and power-loss are not claimed.",
+      "run_at_utc": "2026-10-01T09:47:05.1365348Z",
+      "evidence_paths": ["docs/qa/LOCAL-0004.md", "docs/qa/JOURNAL-PRIVACY-0001.md"]
     }
   ],
   "threats": [
