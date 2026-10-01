@@ -378,7 +378,7 @@
       "phase": 0,
       "status": "PASS",
       "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300; local NTFS; read-only inventory/specification/threat review and independent source audit.",
+      "environment": "Owner inventory/native checks: QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300 at12:45:09Z-12:47:38Z. Independent QUARK2\\CodexSandboxOffline technical sandbox performed read-only82blob/source/specification/threat audit at12:48:00Z; no technical fixture result is credited as owner acceptance.",
       "command": "Original-owner Git tree/raw hash and size binding of all82 tracked files before/after complete checks; independent82/main79 manifest comparison, exactly11 deltas/71unchanged files. Six generated untracked permission files excluded.",
       "run_at_utc": "2026-10-01T12:48:00.4670635Z",
       "evidence_paths": [
@@ -389,7 +389,7 @@
       "phase": 1,
       "status": "PASS",
       "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300; local NTFS; read-only inventory/specification/threat review and independent source audit.",
+      "environment": "Owner inventory/native checks: QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300 at12:45:09Z-12:47:38Z. Independent QUARK2\\CodexSandboxOffline technical sandbox performed read-only82blob/source/specification/threat audit at12:48:00Z; no technical fixture result is credited as owner acceptance.",
       "command": "Complete SPEC0001/verification-plan/ADR0008 review: NFR003/SEC009/TM011/AC019/T037 version-alignment prerequisite, T037phase9 matching AC019/T021; preserve privacy FR014/SEC011/AC027/T035 and separate actual-target gates.",
       "run_at_utc": "2026-10-01T12:48:00.4670635Z",
       "evidence_paths": [
@@ -400,7 +400,7 @@
       "phase": 2,
       "status": "PASS",
       "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300; local NTFS; read-only inventory/specification/threat review and independent source audit.",
+      "environment": "Owner inventory/native checks: QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300 at12:45:09Z-12:47:38Z. Independent QUARK2\\CodexSandboxOffline technical sandbox performed read-only82blob/source/specification/threat audit at12:48:00Z; no technical fixture result is credited as owner acceptance.",
       "command": "Complete THREAT-MODEL0001/ADR0008/TM011 review: frozen/locked inputs, no version bypass, independent static/raw82blob review no actionable finding; runtime/credential/provider/config/capability payload unchanged, four shipping fileflags false and process candidate excluded.",
       "run_at_utc": "2026-10-01T12:48:00.4670635Z",
       "evidence_paths": [
