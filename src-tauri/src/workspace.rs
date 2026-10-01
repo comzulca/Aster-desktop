@@ -810,7 +810,12 @@ impl Workspace {
             return Err(WorkspaceError::Denied);
         }
         let journal_root = windows_fs::select_root(journal_directory)?;
-        let journal = crate::new_file::Journal::in_pinned_directory(&journal_root.path);
+        let journal = crate::new_file::Journal::in_pinned_directory(
+            &journal_root.path,
+            &journal_root.anchor,
+            &journal_root.ancestor_pins,
+            windows_fs::record_identity(journal_root.id),
+        )?;
         let _journal_pins =
             windows_fs::pin_creation_parent(&journal_root, &["journal-guard".into()])?;
         // Conservative gate: every prior journal must verify against this
@@ -942,7 +947,12 @@ impl Workspace {
         windows_fs::check_root(&pending.journal_root)?;
         let _journal_pins =
             windows_fs::pin_creation_parent(&pending.journal_root, &["journal-guard".into()])?;
-        let journal = crate::new_file::Journal::in_pinned_directory(&pending.journal_root.path);
+        let journal = crate::new_file::Journal::in_pinned_directory(
+            &pending.journal_root.path,
+            &pending.journal_root.anchor,
+            &pending.journal_root.ancestor_pins,
+            windows_fs::record_identity(pending.journal_root.id),
+        )?;
         if !windows_fs::journal_is_resolved(root, &journal).unwrap_or(false) {
             return Err(WorkspaceError::AttentionRequired);
         }
@@ -974,6 +984,8 @@ impl Workspace {
         let publish = (|| {
             journal.persist(proposal_id, "intent", &intent)?;
             stage(CreationStage::Intent)?;
+            journal.revalidate()?;
+            journal.nonces()?;
             let mut target = windows_fs::create_new_exclusive(&parent.target_path)?;
             stage(CreationStage::Created)?;
             let target_id = crate::new_file::identity(&target)?;
@@ -988,6 +1000,8 @@ impl Workspace {
             )?;
             stage(CreationStage::IdentityRecorded)?;
             use std::io::Write as _;
+            journal.revalidate()?;
+            journal.nonces()?;
             target
                 .write_all(pending.new_content.as_bytes())
                 .map_err(|_| WorkspaceError::Io)?;
@@ -1012,6 +1026,8 @@ impl Workspace {
                 },
             )?;
             stage(CreationStage::Complete)?;
+            journal.revalidate()?;
+            journal.nonces()?; // Recheck every immutable record's privacy before success.
             Ok::<(), WorkspaceError>(())
         })();
         Ok(if publish.is_ok() {
@@ -1030,7 +1046,15 @@ impl Workspace {
         let journal_root = windows_fs::select_root(journal_directory)?;
         let state = self.state.lock().map_err(|_| WorkspaceError::Unavailable)?;
         let root = state.root.as_ref().ok_or(WorkspaceError::Denied)?;
-        let journal = crate::new_file::Journal::in_pinned_directory(&journal_root.path);
+        let journal = match crate::new_file::Journal::in_pinned_directory(
+            &journal_root.path,
+            &journal_root.anchor,
+            &journal_root.ancestor_pins,
+            windows_fs::record_identity(journal_root.id),
+        ) {
+            Ok(journal) => journal,
+            Err(_) => return Ok(CreationOutcome::AttentionRequired),
+        };
         let _journal_pins =
             windows_fs::pin_creation_parent(&journal_root, &["journal-guard".into()])?;
         Ok(
@@ -1616,7 +1640,7 @@ mod windows_fs {
 
     pub(super) fn journal_is_resolved(
         root: &Root,
-        journal: &crate::new_file::Journal,
+        journal: &crate::new_file::Journal<'_>,
     ) -> Result<bool, WorkspaceError> {
         for nonce in journal.nonces()? {
             let intent: crate::new_file::Intent = journal.read(&nonce, "intent")?;
@@ -1651,6 +1675,8 @@ mod windows_fs {
                 return Ok(false);
             }
         }
+        journal.revalidate()?;
+        journal.nonces()?;
         Ok(true)
     }
 
@@ -2385,8 +2411,7 @@ mod tests {
         content: &str,
         journal_name: &str,
     ) -> (ProposalReview, PathBuf) {
-        let journal = fixture.dir.join(journal_name);
-        std::fs::create_dir(&journal).unwrap();
+        let journal = private_journal_fixture(fixture, journal_name);
         let json = serde_json::json!({
             "version": 1, "operation": "create_new",
             "relativePath": relative_path, "expectedOldSha256": null,
@@ -2402,11 +2427,400 @@ mod tests {
     }
 
     #[cfg(windows)]
+    fn private_journal_fixture(fixture: &NativeFixture, name: &str) -> PathBuf {
+        let components = parse_relative_path(name).unwrap();
+        assert_eq!(components.len(), 1);
+        let state = fixture.workspace.state.lock().unwrap();
+        let root = state.root.as_ref().unwrap();
+        // Only a new synthetic child; the exact production parent/ancestor
+        // pins stay alive through creation and admission. No existing ACL repair.
+        let parent = windows_fs::pin_creation_parent(root, &components).unwrap();
+        windows_fs::require_absent(&parent.target_path).unwrap();
+        crate::journal_privacy::create_directory_exact(&parent.target_path).unwrap();
+        let selected = windows_fs::select_root(parent.target_path.clone()).unwrap();
+        let journal = crate::new_file::Journal::in_pinned_directory(
+            &selected.path,
+            &selected.anchor,
+            &selected.ancestor_pins,
+            windows_fs::record_identity(selected.id),
+        )
+        .unwrap();
+        assert_eq!(journal.nonces().unwrap().len(), 0);
+        selected.path.clone()
+    }
+
+    #[cfg(windows)]
     fn synthetic_approval(proposal: &ProposalReview) -> crate::native_review::NativeApproval {
         let review = crate::native_review::ReviewDocument::proposal(&proposal.diff).unwrap();
         // This bypasses native UI ONLY in cfg(test). It proves protocol shape,
         // never owner consent or Windows 11 UI acceptance.
         crate::native_review::NativeApproval::for_fixture(review.binding_sha256())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn journal_privacy_rejects_weak_existing_objects_and_preserves_creation_collisions() {
+        use crate::journal_privacy::{self, ObjectKind};
+        use std::io::Write;
+        let fixture = NativeFixture::new();
+        let weak = fixture.dir.join("weak-journal");
+        journal_privacy::create_directory_exact(&weak).unwrap();
+        let acl = journal_privacy::fixture_acl_handle(&weak, ObjectKind::Directory).unwrap();
+        let owner = journal_privacy::OwnerSid::current_process().unwrap();
+        owner.validate_handle(&acl, ObjectKind::Directory).unwrap();
+        // Deliberately weaken only the freshly owned disposable object.
+        journal_privacy::fixture_set_private(&acl, ObjectKind::Directory, false).unwrap();
+        // SetSecurityInfo propagates the parent's current inheritance model
+        // to existing children. Create the sentinel only after that setup,
+        // with an explicit protected descriptor at CREATE_NEW; never repair
+        // an inherited child ACL after a failed preservation assertion.
+        let sentinel_path = weak.join("sentinel.txt");
+        let mut sentinel = journal_privacy::create_record_exact(&sentinel_path, &owner).unwrap();
+        sentinel.write_all(b"unchanged synthetic marker").unwrap();
+        sentinel.sync_all().unwrap();
+        drop(sentinel);
+        let sentinel_acl =
+            journal_privacy::fixture_acl_handle(&sentinel_path, ObjectKind::Record).unwrap();
+        let sentinel_before = journal_privacy::fixture_descriptor(&sentinel_acl).unwrap();
+        let sentinel_identity =
+            journal_privacy::object_identity(&sentinel_acl, ObjectKind::Record).unwrap();
+        let sentinel_content = std::fs::read_to_string(&sentinel_path).unwrap();
+        assert_eq!(sentinel_content, "unchanged synthetic marker");
+        let before = journal_privacy::fixture_descriptor(&acl).unwrap();
+        let identity = journal_privacy::object_identity(&acl, ObjectKind::Directory).unwrap();
+        let selected = windows_fs::select_root(weak.clone()).unwrap();
+        assert!(crate::new_file::Journal::in_pinned_directory(
+            &selected.path,
+            &selected.anchor,
+            &selected.ancestor_pins,
+            windows_fs::record_identity(selected.id),
+        )
+        .is_err());
+        assert!(journal_privacy::create_directory_exact(&weak).is_err());
+        assert_eq!(journal_privacy::fixture_descriptor(&acl).unwrap(), before);
+        assert_eq!(
+            journal_privacy::object_identity(&acl, ObjectKind::Directory).unwrap(),
+            identity
+        );
+        assert_eq!(
+            journal_privacy::fixture_descriptor(&sentinel_acl).unwrap(),
+            sentinel_before
+        );
+        assert_eq!(
+            journal_privacy::object_identity(&sentinel_acl, ObjectKind::Record).unwrap(),
+            sentinel_identity
+        );
+        assert_eq!(
+            std::fs::read_to_string(&sentinel_path).unwrap(),
+            sentinel_content
+        );
+
+        let private = private_journal_fixture(&fixture, "private-journal");
+        let acl = journal_privacy::fixture_acl_handle(&private, ObjectKind::Directory).unwrap();
+        let before = journal_privacy::fixture_descriptor(&acl).unwrap();
+        let identity = journal_privacy::object_identity(&acl, ObjectKind::Directory).unwrap();
+        assert!(journal_privacy::create_directory_exact(&private).is_err());
+        assert_eq!(journal_privacy::fixture_descriptor(&acl).unwrap(), before);
+        assert_eq!(
+            journal_privacy::object_identity(&acl, ObjectKind::Directory).unwrap(),
+            identity
+        );
+        assert_eq!(std::fs::read_dir(private).unwrap().count(), 0);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn journal_privacy_binds_path_identity_and_retains_directory_lifetime_pins() {
+        let fixture = NativeFixture::new();
+        let first = private_journal_fixture(&fixture, "first-journal");
+        let second = private_journal_fixture(&fixture, "second-journal");
+        let root = windows_fs::select_root(first.clone()).unwrap();
+        assert!(crate::new_file::Journal::in_pinned_directory(
+            &second,
+            &root.anchor,
+            &root.ancestor_pins,
+            windows_fs::record_identity(root.id),
+        )
+        .is_err());
+        let mut wrong = windows_fs::record_identity(root.id);
+        wrong.index ^= 1;
+        assert!(crate::new_file::Journal::in_pinned_directory(
+            &first,
+            &root.anchor,
+            &root.ancestor_pins,
+            wrong,
+        )
+        .is_err());
+        let journal = crate::new_file::Journal::in_pinned_directory(
+            &first,
+            &root.anchor,
+            &root.ancestor_pins,
+            windows_fs::record_identity(root.id),
+        )
+        .unwrap();
+        assert!(std::fs::rename(&first, fixture.dir.join("renamed-journal")).is_err());
+        assert!(journal.nonces().unwrap().is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn journal_privacy_directory_drift_denies_before_intent_without_target_or_records() {
+        use crate::journal_privacy::{self, ObjectKind};
+        let fixture = NativeFixture::new();
+        let journal = private_journal_fixture(&fixture, "journal");
+        let acl = journal_privacy::fixture_acl_handle(&journal, ObjectKind::Directory).unwrap();
+        journal_privacy::fixture_set_private(&acl, ObjectKind::Directory, false).unwrap();
+        let before = journal_privacy::fixture_descriptor(&acl).unwrap();
+        let json = serde_json::json!({"version":1,"operation":"create_new","relativePath":"untouched.txt","expectedOldSha256":null,"newContent":"synthetic"});
+        assert!(fixture
+            .workspace
+            .prepare_new_file_proposal("conv", "req", &json.to_string(), journal.clone())
+            .is_err());
+        assert!(!fixture.dir.join("untouched.txt").exists());
+        assert_eq!(std::fs::read_dir(&journal).unwrap().count(), 0);
+        assert_eq!(journal_privacy::fixture_descriptor(&acl).unwrap(), before);
+        assert_eq!(
+            fixture
+                .workspace
+                .inspect_creation_recovery(journal)
+                .unwrap(),
+            CreationOutcome::AttentionRequired
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn journal_privacy_record_drift_blocks_read_recovery_and_followup_without_repair() {
+        use crate::journal_privacy::{self, ObjectKind};
+        let fixture = NativeFixture::new();
+        let (proposal, directory) =
+            new_file_fixture(&fixture, "created.txt", "synthetic content", "journal");
+        assert_eq!(
+            fixture
+                .workspace
+                .apply_new_file_candidate(&proposal.proposal_id, synthetic_approval(&proposal))
+                .unwrap(),
+            CreationOutcome::Verified
+        );
+        let path = directory.join(format!("{}.intent", proposal.proposal_id));
+        let acl = journal_privacy::fixture_acl_handle(&path, ObjectKind::Record).unwrap();
+        let content = std::fs::read(&path).unwrap();
+        journal_privacy::fixture_set_private(&acl, ObjectKind::Record, false).unwrap();
+        let before = journal_privacy::fixture_descriptor(&acl).unwrap();
+        let selected = windows_fs::select_root(directory.clone()).unwrap();
+        let journal = crate::new_file::Journal::in_pinned_directory(
+            &selected.path,
+            &selected.anchor,
+            &selected.ancestor_pins,
+            windows_fs::record_identity(selected.id),
+        )
+        .unwrap();
+        assert!(journal
+            .read::<crate::new_file::Intent>(&proposal.proposal_id, "intent")
+            .is_err());
+        assert!(journal.nonces().is_err());
+        assert_eq!(
+            fixture
+                .workspace
+                .inspect_creation_recovery(directory.clone())
+                .unwrap(),
+            CreationOutcome::AttentionRequired
+        );
+        let json = serde_json::json!({"version":1,"operation":"create_new","relativePath":"blocked.txt","expectedOldSha256":null,"newContent":"another"});
+        assert_eq!(
+            fixture
+                .workspace
+                .prepare_new_file_proposal("conv", "newreq", &json.to_string(), directory)
+                .unwrap_err(),
+            WorkspaceError::AttentionRequired
+        );
+        assert!(!fixture.dir.join("blocked.txt").exists());
+        assert_eq!(std::fs::read(&path).unwrap(), content);
+        assert_eq!(journal_privacy::fixture_descriptor(&acl).unwrap(), before);
+        assert_eq!(
+            std::fs::read_to_string(fixture.dir.join("created.txt")).unwrap(),
+            "synthetic content"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn journal_privacy_drift_after_intent_or_creation_preserves_ambiguity_and_denies_followup() {
+        use crate::journal_privacy::{self, ObjectKind};
+        for boundary in [
+            CreationStage::Intent,
+            CreationStage::Created,
+            CreationStage::IdentityRecorded,
+            CreationStage::Complete,
+        ] {
+            let fixture = NativeFixture::new();
+            let (proposal, directory) =
+                new_file_fixture(&fixture, "interrupted.txt", "synthetic content", "journal");
+            let acl =
+                journal_privacy::fixture_acl_handle(&directory, ObjectKind::Directory).unwrap();
+            let outcome = fixture
+                .workspace
+                .apply_new_file_with_stage(
+                    &proposal.proposal_id,
+                    synthetic_approval(&proposal),
+                    |stage| {
+                        if stage == boundary {
+                            journal_privacy::fixture_set_private(
+                                &acl,
+                                ObjectKind::Directory,
+                                false,
+                            )?;
+                        }
+                        Ok(())
+                    },
+                )
+                .unwrap();
+            assert_eq!(outcome, CreationOutcome::AttentionRequired);
+            assert_eq!(
+                fixture.dir.join("interrupted.txt").exists(),
+                boundary != CreationStage::Intent
+            );
+            let count = std::fs::read_dir(&directory).unwrap().count();
+            assert!(count > 0);
+            let records_before = synthetic_journal_snapshot(&directory);
+            let target_before = std::fs::read(fixture.dir.join("interrupted.txt")).ok();
+            let descriptor_before = journal_privacy::fixture_descriptor(&acl).unwrap();
+            assert_eq!(
+                fixture
+                    .workspace
+                    .inspect_creation_recovery(directory.clone())
+                    .unwrap(),
+                CreationOutcome::AttentionRequired
+            );
+            let json = serde_json::json!({"version":1,"operation":"create_new","relativePath":"followup.txt","expectedOldSha256":null,"newContent":"another synthetic file"});
+            assert!(fixture
+                .workspace
+                .prepare_new_file_proposal("conv", "followup", &json.to_string(), directory.clone())
+                .is_err());
+            assert!(!fixture.dir.join("followup.txt").exists());
+            assert_eq!(std::fs::read_dir(&directory).unwrap().count(), count);
+            assert_eq!(synthetic_journal_snapshot(&directory), records_before);
+            assert_eq!(
+                std::fs::read(fixture.dir.join("interrupted.txt")).ok(),
+                target_before
+            );
+            assert_eq!(
+                journal_privacy::fixture_descriptor(&acl).unwrap(),
+                descriptor_before
+            );
+        }
+    }
+
+    #[cfg(windows)]
+    type SyntheticJournalSnapshot = std::collections::BTreeMap<String, (Vec<u8>, Vec<u8>)>;
+
+    #[cfg(windows)]
+    fn synthetic_journal_snapshot(directory: &std::path::Path) -> SyntheticJournalSnapshot {
+        use crate::journal_privacy::{self, ObjectKind};
+        std::fs::read_dir(directory)
+            .unwrap()
+            .map(|entry| {
+                let entry = entry.unwrap();
+                let handle =
+                    journal_privacy::fixture_acl_handle(&entry.path(), ObjectKind::Record).unwrap();
+                (
+                    entry.file_name().into_string().unwrap(),
+                    (
+                        std::fs::read(entry.path()).unwrap(),
+                        journal_privacy::fixture_descriptor(&handle).unwrap(),
+                    ),
+                )
+            })
+            .collect()
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn journal_privacy_intent_record_drift_denies_target_creation_or_content_and_followup() {
+        use crate::journal_privacy::{self, ObjectKind};
+        for boundary in [CreationStage::Intent, CreationStage::IdentityRecorded] {
+            let fixture = NativeFixture::new();
+            let (proposal, directory) =
+                new_file_fixture(&fixture, "unchanged.txt", "must not be written", "journal");
+            let intent_path = directory.join(format!("{}.intent", proposal.proposal_id));
+            let mut retained_intent = None;
+            let outcome = fixture
+                .workspace
+                .apply_new_file_with_stage(
+                    &proposal.proposal_id,
+                    synthetic_approval(&proposal),
+                    |stage| {
+                        if stage == boundary {
+                            let handle = journal_privacy::fixture_acl_handle(
+                                &intent_path,
+                                ObjectKind::Record,
+                            )?;
+                            let ciphertext = std::fs::read(&intent_path).unwrap();
+                            journal_privacy::fixture_set_private(
+                                &handle,
+                                ObjectKind::Record,
+                                false,
+                            )?;
+                            retained_intent =
+                                Some((ciphertext, journal_privacy::fixture_descriptor(&handle)?));
+                        }
+                        Ok(())
+                    },
+                )
+                .unwrap();
+            assert_eq!(outcome, CreationOutcome::AttentionRequired);
+            let target_before = std::fs::read(fixture.dir.join("unchanged.txt")).ok();
+            if boundary == CreationStage::Intent {
+                assert_eq!(target_before, None);
+                assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
+            } else {
+                assert_eq!(target_before, Some(Vec::new()));
+                assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 2);
+            }
+            assert!(!directory
+                .join(format!("{}.complete", proposal.proposal_id))
+                .exists());
+            let records_before = synthetic_journal_snapshot(&directory);
+            let (intent_ciphertext, intent_descriptor) = retained_intent.unwrap();
+            assert_eq!(std::fs::read(&intent_path).unwrap(), intent_ciphertext);
+            let handle =
+                journal_privacy::fixture_acl_handle(&intent_path, ObjectKind::Record).unwrap();
+            assert_eq!(
+                journal_privacy::fixture_descriptor(&handle).unwrap(),
+                intent_descriptor
+            );
+            assert_eq!(
+                fixture
+                    .workspace
+                    .inspect_creation_recovery(directory.clone())
+                    .unwrap(),
+                CreationOutcome::AttentionRequired
+            );
+            let json = serde_json::json!({"version":1,"operation":"create_new","relativePath":"followup.txt","expectedOldSha256":null,"newContent":"another synthetic file"});
+            assert_eq!(
+                fixture
+                    .workspace
+                    .prepare_new_file_proposal(
+                        "conv",
+                        "followup",
+                        &json.to_string(),
+                        directory.clone()
+                    )
+                    .unwrap_err(),
+                WorkspaceError::AttentionRequired
+            );
+            assert!(!fixture.dir.join("followup.txt").exists());
+            assert_eq!(synthetic_journal_snapshot(&directory), records_before);
+            assert_eq!(
+                std::fs::read(fixture.dir.join("unchanged.txt")).ok(),
+                target_before
+            );
+            assert_eq!(std::fs::read(&intent_path).unwrap(), intent_ciphertext);
+            assert_eq!(
+                journal_privacy::fixture_descriptor(&handle).unwrap(),
+                intent_descriptor
+            );
+        }
     }
 
     #[cfg(windows)]
@@ -2543,8 +2957,7 @@ mod tests {
     #[test]
     fn creation_cannot_publish_into_its_own_journal_directory_even_through_case_alias() {
         let fixture = NativeFixture::new();
-        let journal = fixture.dir.join("journal");
-        std::fs::create_dir(&journal).unwrap();
+        let journal = private_journal_fixture(&fixture, "journal");
         for relative in ["journal/new.txt", "JOURNAL/new.txt"] {
             let json = serde_json::json!({"version":1, "operation":"create_new", "relativePath":relative, "expectedOldSha256":null, "newContent":"content"});
             assert_eq!(

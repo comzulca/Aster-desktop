@@ -9,6 +9,7 @@
 
 #[cfg(windows)]
 mod windows {
+    use crate::journal_privacy::{self, ObjectKind, OwnerSid};
     use crate::workspace::WorkspaceError;
     use serde::{de::DeserializeOwned, Deserialize, Serialize};
     use sha2::{Digest, Sha256};
@@ -127,8 +128,13 @@ mod windows {
         pub content_bytes: usize,
     }
 
-    pub(crate) struct Journal {
-        directory: PathBuf,
+    pub(crate) struct Journal<'a> {
+        directory: &'a Path,
+        anchor: &'a File,
+        ancestors: &'a [File],
+        ancestor_identities: Vec<Identity>,
+        expected_identity: Identity,
+        owner: OwnerSid,
     }
 
     #[derive(Deserialize, Serialize)]
@@ -162,14 +168,55 @@ mod windows {
         Ok(payload)
     }
 
-    impl Journal {
+    impl<'a> Journal<'a> {
         /// The workspace service must pin/check this native host-selected
         /// directory and its ancestors throughout use. This constructor is
-        /// not an ACL proof and is never a renderer-facing path admission.
-        pub fn in_pinned_directory(directory: &Path) -> Self {
-            Self {
-                directory: directory.to_owned(),
+        /// never a renderer-facing path admission. Borrowed pins cannot be
+        /// dropped before this journal's operations finish.
+        pub fn in_pinned_directory(
+            directory: &'a Path,
+            anchor: &'a File,
+            ancestors: &'a [File],
+            expected_identity: Identity,
+        ) -> Result<Self, WorkspaceError> {
+            journal_privacy::eligible_ntfs(directory)?;
+            let owner = OwnerSid::current_process()?;
+            let ancestor_identities = ancestors
+                .iter()
+                .map(|file| journal_privacy::object_identity(file, ObjectKind::Directory))
+                .collect::<Result<Vec<_>, _>>()?;
+            let journal = Self {
+                directory,
+                anchor,
+                ancestors,
+                ancestor_identities,
+                expected_identity,
+                owner,
+            };
+            journal.revalidate()?;
+            Ok(journal)
+        }
+
+        pub(crate) fn revalidate(&self) -> Result<(), WorkspaceError> {
+            for (file, expected) in self.ancestors.iter().zip(&self.ancestor_identities) {
+                if journal_privacy::object_identity(file, ObjectKind::Directory)? != *expected {
+                    return Err(WorkspaceError::Conflict);
+                }
             }
+            if journal_privacy::object_identity(self.anchor, ObjectKind::Directory)?
+                != self.expected_identity
+            {
+                return Err(WorkspaceError::Conflict);
+            }
+            self.owner
+                .validate_handle(self.anchor, ObjectKind::Directory)?;
+            let current = journal_privacy::open_directory(self.directory)?;
+            if journal_privacy::object_identity(&current, ObjectKind::Directory)?
+                != self.expected_identity
+            {
+                return Err(WorkspaceError::Conflict);
+            }
+            self.owner.validate_handle(&current, ObjectKind::Directory)
         }
 
         fn path(&self, nonce: &str, kind: &str) -> Result<PathBuf, WorkspaceError> {
@@ -190,6 +237,10 @@ mod windows {
             kind: &str,
             record: &T,
         ) -> Result<(), WorkspaceError> {
+            self.revalidate()?;
+            // Admit every already-existing immutable record before creating
+            // another one. The new exclusive-share record does not exist yet.
+            self.nonces()?;
             let plaintext = Zeroizing::new(
                 serde_json::to_vec(record).map_err(|_| WorkspaceError::Unavailable)?,
             );
@@ -210,20 +261,18 @@ mod windows {
             let _clear_payload = Zeroizing::new(envelope.payload);
             let encoded = Zeroizing::new(encoded_result.map_err(|_| WorkspaceError::Unavailable)?);
             let encrypted = crypt(&encoded, false)?;
-            let mut file = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create_new(true)
-                .share_mode(0)
-                .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
-                .open(self.path(nonce, kind)?)
-                .map_err(|_| WorkspaceError::Io)?;
+            let mut file =
+                journal_privacy::create_record_exact(&self.path(nonce, kind)?, &self.owner)?;
             let id = identity(&file)?;
+            self.revalidate()?;
+            self.owner.validate_handle(&file, ObjectKind::Record)?;
             file.write_all(&encrypted).map_err(|_| WorkspaceError::Io)?;
             file.sync_all().map_err(|_| WorkspaceError::Io)?;
             if identity(&file)? != id {
                 return Err(WorkspaceError::Conflict);
             }
+            self.owner.validate_handle(&file, ObjectKind::Record)?;
+            self.revalidate()?;
             Ok(())
         }
 
@@ -232,6 +281,7 @@ mod windows {
             nonce: &str,
             kind: &str,
         ) -> Result<T, WorkspaceError> {
+            self.revalidate()?;
             let mut file = OpenOptions::new()
                 .read(true)
                 .share_mode(1) // Deny writers/deleters while reading metadata.
@@ -239,6 +289,7 @@ mod windows {
                 .open(self.path(nonce, kind)?)
                 .map_err(|_| WorkspaceError::Io)?;
             let id = identity(&file)?;
+            self.owner.validate_handle(&file, ObjectKind::Record)?;
             if file.metadata().map_err(|_| WorkspaceError::Io)?.len() > MAX_CIPHERTEXT_BYTES {
                 return Err(WorkspaceError::TooLarge);
             }
@@ -250,17 +301,27 @@ mod windows {
             if encrypted.len() as u64 > MAX_CIPHERTEXT_BYTES || identity(&file)? != id {
                 return Err(WorkspaceError::Conflict);
             }
+            self.owner.validate_handle(&file, ObjectKind::Record)?;
+            self.revalidate()?;
             let plaintext = crypt(&encrypted, true)?;
             let payload = decode_envelope(&plaintext)?;
-            serde_json::from_str(&payload).map_err(|_| WorkspaceError::Denied)
+            let value = serde_json::from_str(&payload).map_err(|_| WorkspaceError::Denied)?;
+            self.owner.validate_handle(&file, ObjectKind::Record)?;
+            self.revalidate()?;
+            if identity(&file)? != id {
+                return Err(WorkspaceError::Conflict);
+            }
+            Ok(value)
         }
 
         /// Do not ignore sidecars or unfamiliar objects: an interrupted,
         /// malformed or foreign record blocks dependent candidate writes.
         pub fn nonces(&self) -> Result<Vec<String>, WorkspaceError> {
+            self.revalidate()?;
             let mut nonces = std::collections::BTreeSet::new();
+            let mut retained_records = Vec::new();
             let mut entries = 0;
-            for entry in std::fs::read_dir(&self.directory).map_err(|_| WorkspaceError::Io)? {
+            for entry in std::fs::read_dir(self.directory).map_err(|_| WorkspaceError::Io)? {
                 entries += 1;
                 if entries > 192 {
                     return Err(WorkspaceError::TooLarge);
@@ -270,7 +331,23 @@ mod windows {
                 let name = name.to_str().ok_or(WorkspaceError::Denied)?;
                 let (nonce, kind) = name.split_once('.').ok_or(WorkspaceError::Denied)?;
                 self.path(nonce, kind)?;
+                let record = OpenOptions::new()
+                    .read(true)
+                    .share_mode(1)
+                    .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+                    .open(entry.path())
+                    .map_err(|_| WorkspaceError::Io)?;
+                let record_identity = identity(&record)?;
+                self.owner.validate_handle(&record, ObjectKind::Record)?;
+                retained_records.push((record, record_identity));
                 nonces.insert(nonce.to_owned());
+            }
+            self.revalidate()?;
+            for (record, expected) in retained_records {
+                self.owner.validate_handle(&record, ObjectKind::Record)?;
+                if identity(&record)? != expected {
+                    return Err(WorkspaceError::Conflict);
+                }
             }
             Ok(nonces.into_iter().collect())
         }
