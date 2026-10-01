@@ -4,29 +4,33 @@ Created 2026-09-30 UTC; reconciled 2026-10-01 UTC for protocol 2 and the owner's
 
 ## Authority and environment
 
+The owner's latest workflow is manual installation of the verified final engineering build, followed by non-sensitive screenshots and explicit observations for each evaluated element. Computer Use setup is no longer requested. Screenshots alone do not prove keyboard actions, timing, provider identity or hidden network/secret boundaries; retain observed steps and the source/fixture evidence separately.
+
 - Use only the owner's existing principal account `QUARK2\Rene Nehru Alvarez`; launch PowerShell and Aster Desktop normally/non-elevated. Read-only baseline `e6418f` at `2026-10-01T17:03:47.5227862Z` recorded SID ending `1001`, `ElevatedAdministrator=false`, Windows 11 Pro 64-bit `10.0.26300`. Accept installer UAC only if required and record it. Do not create/use a guest or new account.
 - The owner reports personally enabling Developer Mode on 2026-09-30. Record that as an owner-made baseline exception, not an agent change, a PASS or authority for another security change.
 - Leave all remaining Windows Security, SmartScreen/Smart App Control, ESET, account, trust and policy settings unchanged. Do not add exclusions, bypass a block, install a certificate, create/switch accounts or elevate the app. A protection block is a retained FAIL for the attempted step; dependent steps stay NOT RUN.
 - Use disposable non-sensitive text only. Do not capture credentials, private prompts/project text, Authorization headers, raw request bodies or unrelated Credential Manager entries.
 - Preserve the owner's existing NVIDIA credential. Never replace, export, display or delete it. Use only the isolated synthetic credential diagnostic. Exactly two minimal live requests—one per exact model—are authorized; no retries, extra live error/cancellation case, fallback or project upload is authorized.
-- Baseline `e6418f` found a separate existing **Aster 0.10.0** installation: HKCU uninstall entry `Aster`, publisher `aster`, installed at `C:\Users\Rene Nehru Alvarez\AppData\Local\Aster`, executable product name `Aster 0.10.0`; the new `Aster Desktop` directory did not exist. The owner has chosen to uninstall the older product manually. Do not perform or assume that uninstall: block candidate installation until the owner reports completion and a read-only preflight confirms the old entry/directory/processes are absent. Preserve the NVIDIA credential. The candidate must still use the distinct `Aster Desktop` product identity/path; any attempt to target the old location is FAIL.
+- Baseline `e6418f` found a separate existing **Aster 0.10.0** installation. The owner then removed it manually. Read-only preflight `f72ce7` at `2026-10-01T17:19:53.8091386Z` confirmed zero old uninstall entries, old executable/directory/processes absent and no new `Aster Desktop` directory. That check installed or launched nothing and did not inspect/export the NVIDIA credential. Preserve the credential; the final engineering build must use the distinct `Aster Desktop` product identity/path, and any attempt to target the old location is FAIL. External preflight record: `C:\Users\Rene Nehru Alvarez\Documents\aster-desktop-premium\engineering-tools\PRIMARY-LAPTOP-PREFLIGHT-20261001.md`.
 
 Historical local/CI results remain in `LOCAL-0002.md` through `LOCAL-0004.md` and `CI-0002.md` through `CI-0006.md`. In particular, run 85 and its `b0610c5` installer predate protocol 2 and are not the candidate for this procedure.
 
-## 1. Bind one immutable candidate
+Use the reviewed `Aster-desktop-work2` checkout above for verifier and source-identity commands; do not relocate source or substitute the older checkout. The external passive sampler is `C:\Users\Rene Nehru Alvarez\Documents\aster-desktop-premium\engineering-tools\Measure-AsterEngineeringProcess.ps1`, SHA-256 `292a2fa642a738d776e8f985383430fedaecb97109700e55c5244fd2d38b9a3d`. Only its parser/denial/self-process fixtures have passed; no Aster process has been sampled, and it measures bounded process CPU/memory rather than UI latency.
 
-Select the newly successful CI run for the protocol-2 source. Do not use a filename or version string as provenance. Record repository privacy, intended `main` revision/tree, ruleset/required-check state, run/attempt, manifest and artifact identity without changing permissions.
+## 1. Bind one immutable final engineering build
+
+Select only a newly successful `main`-branch `push` or `workflow_dispatch` run after all required jobs pass. Its manifest classification must be `unsigned-engineering-build`, with `workflow_ref=refs/heads/main` and the exact source revision/run/attempt. Reject every PR `unsigned-engineering-candidate`; it is never installed. Do not use a filename or version string as provenance. Record repository privacy, intended `main` revision/tree, ruleset/required-check state, run/attempt, manifest and artifact identity without changing permissions.
 
 In normal PowerShell:
 
 ```powershell
 (Get-Date).ToUniversalTime().ToString('o')
 Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber
-$asterSource = Join-Path $env:USERPROFILE 'Documents\comzulca\aster-desktop'
+$asterSource = 'C:\Users\Rene Nehru Alvarez\Documents\aster-desktop-premium\Aster-desktop-work2'
 $asterGit = 'C:\Program Files\Git\cmd\git.exe'
-& $asterGit -C $asterSource remote get-url origin
-& $asterGit -C $asterSource rev-parse HEAD
-& $asterGit -C $asterSource status --short
+& $asterGit -c "safe.directory=$asterSource" -C $asterSource remote get-url origin
+& $asterGit -c "safe.directory=$asterSource" -C $asterSource rev-parse HEAD
+& $asterGit -c "safe.directory=$asterSource" -C $asterSource status --short
 Get-FileHash -LiteralPath (Join-Path $asterSource 'public\assets\Aster_UI2.jpg') -Algorithm SHA256
 ```
 
@@ -65,7 +69,7 @@ Get-AuthenticodeSignature -LiteralPath $asterExe | Select-Object Status
 Get-Content -LiteralPath $asterManifest -Raw | ConvertFrom-Json
 ```
 
-Compare GitHub artifact digest, manifest fields, ZIP/EXE/alias byte counts and hashes. Verify `NotSigned`. Any mismatch is FAIL and blocks installation. Also inspect the schema-2 notice inventory and require zero `requiredMissingTextCount`/`requiredUnknownLicenseCount`; inspect the `verified-extracted-nsis-payload` listing and manifest `bundle_resource_sha256` for installed-root `THIRD-PARTY-NOTICES.txt` and `LICENSE.txt`. These structural results are not legal approval.
+Compare GitHub artifact digest, manifest fields, ZIP/EXE/alias byte counts and hashes. Require classification `unsigned-engineering-build`, `workflow_ref=refs/heads/main`, event `push` or `workflow_dispatch`, and the externally recorded exact source/run/attempt. Verify `NotSigned`. Any mismatch—or any PR/candidate artifact—is FAIL and blocks installation. Also inspect the schema-2 notice inventory and require zero `requiredMissingTextCount`/`requiredUnknownLicenseCount`; inspect the `verified-extracted-nsis-payload` listing and manifest `bundle_resource_sha256` for installed-root `THIRD-PARTY-NOTICES.txt` and `LICENSE.txt`. These structural results are not legal approval.
 
 Prefer the repository verifier before creating the alias; substitute the recorded values and a new absolute destination:
 
@@ -136,7 +140,7 @@ Make exactly one streaming request to each model, two requests total. Record UTC
 
 Review current SBOM/inventories against the independently extracted resource evidence. Expected schema-2 counts are 575 installed source packages, 291 target-required, 45 without package-owned text, 10 peer-covered, four reviewed-overlay-covered, 31 non-required missing, zero required missing and zero required unknown. The 31 are 30 other-target/build Cargo packages plus npm dev `saxes@6.0.0`; they are not proof that those packages ship. Inspect every peer/official overlay's provenance/hash. Confirm generated notices/license hashes, review all current RustSec warnings and record the owner's scoped internal-engineering notice/risk decision. This does not grant external distribution or constitute legal advice; any incomplete review must appear in the handoff limitations.
 
-Record an explicit unsigned-engineering decision against the exact source/setup hash and residual risks. Then close and uninstall **Aster Desktop v0.1.0 only** through Settings > Apps > Installed apps. Record removal of its app/launch entry, remaining app-created files and running processes. Do not select, modify or remove the separate `Aster 0.10.0` entry/directory, unrelated files or the production credential; uninstall is not expected to remove the credential automatically.
+Record an explicit unsigned-engineering decision against the exact source/setup hash and residual risks. Then close and uninstall **Aster Desktop v0.1.0 only** through Settings > Apps > Installed apps. Record removal of its app/launch entry, remaining app-created files and running processes. Do not modify any remnant of the previously removed Aster 0.10.0 product, unrelated files or the production credential; uninstall is not expected to remove the credential automatically.
 
 ## Result record — complete only after execution
 

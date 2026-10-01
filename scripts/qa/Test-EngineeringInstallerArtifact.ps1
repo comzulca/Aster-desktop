@@ -57,6 +57,7 @@ $parent = Get-Item -LiteralPath (Split-Path -Parent $destinationFull) -Force
 if (-not $parent.PSIsContainer -or ($parent.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Destination parent is not a normal directory.' }
 $zipItem = Get-Item -LiteralPath $zipFull -Force
 if ($zipItem.PSIsContainer -or ($zipItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Artifact ZIP must be a normal file.' }
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zipStream = [System.IO.File]::Open($zipFull, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
 $archive = $null
@@ -97,7 +98,9 @@ try {
 } finally { if ($null -ne $archive) { $archive.Dispose() } else { $zipStream.Dispose() } }
 $strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
 $manifest = $strictUtf8.GetString($manifestBytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
-if ($manifest.classification -cne 'unsigned-engineering-candidate' -or
+if ($manifest.classification -cne 'unsigned-engineering-build' -or
+    $manifest.workflow_ref -cne 'refs/heads/main' -or
+    $manifest.workflow_event -cnotin @('push', 'workflow_dispatch') -or
     $manifest.source_revision -cne $ExpectedSourceRevision -or
     [string]$manifest.workflow_run_id -cne $ExpectedRunId -or
     [string]$manifest.workflow_run_attempt -cne $ExpectedRunAttempt -or

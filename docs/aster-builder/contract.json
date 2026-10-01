@@ -441,60 +441,60 @@
     {
       "phase": 0,
       "status": "PASS",
-      "source_revision": "c718e2c75a6c94a77020eb7e047c07503945b388",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
       "environment": "Private comzulca/Aster-desktop repository plus exact Windows checkout; authenticated repository-scoped connector and process-local Git safe.directory only",
       "command": "git -c safe.directory='C:/Users/Rene Nehru Alvarez/Documents/aster-desktop-premium/Aster-desktop-work2' rev-parse HEAD; git -c safe.directory='C:/Users/Rene Nehru Alvarez/Documents/aster-desktop-premium/Aster-desktop-work2' status --porcelain --untracked-files=all; compare authenticated GitHub commit/tree",
-      "run_at_utc": "2026-10-01T16:47:21.6228521Z",
+      "run_at_utc": "2026-10-01T17:44:42.1338226Z",
       "evidence_paths": [
         "docs/aster-builder/phase-0-inventory.md",
-        "docs/qa/LOCAL-0005.md",
+        "docs/qa/LOCAL-0006.md",
         "https://github.com/comzulca/Aster-desktop/pull/24"
       ]
     },
     {
       "phase": 1,
       "status": "PASS",
-      "source_revision": "c718e2c75a6c94a77020eb7e047c07503945b388",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
       "environment": "Read-only exact-source specification and traceability review on Windows NT 10.0.26300.0",
       "command": "python C:/Users/Rene Nehru Alvarez/.agents/skills/aster-builder/scripts/harness_gate.py check --root . --through-phase 2",
-      "run_at_utc": "2026-10-01T17:06:58.9512994Z",
+      "run_at_utc": "2026-10-01T18:08:50.4737466Z",
       "evidence_paths": [
         "docs/specs/SPEC-0001.md",
         "docs/aster-builder/verification-plan.md",
-        "docs/qa/LOCAL-0005.md"
+        "docs/qa/LOCAL-0006.md"
       ]
     },
     {
       "phase": 2,
       "status": "PASS",
-      "source_revision": "c718e2c75a6c94a77020eb7e047c07503945b388",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
       "environment": "Read-only exact-source threat/ADR/ledger review on Windows NT 10.0.26300.0",
       "command": "python C:/Users/Rene Nehru Alvarez/.agents/skills/aster-builder/scripts/harness_gate.py check --root . --through-phase 2",
-      "run_at_utc": "2026-10-01T17:06:58.9512994Z",
+      "run_at_utc": "2026-10-01T18:08:50.4737466Z",
       "evidence_paths": [
         "docs/security/THREAT-MODEL-0001.md",
         "docs/adr/ADR-0009.md",
-        "docs/qa/LOCAL-0005.md"
+        "docs/qa/LOCAL-0006.md"
       ]
     },
     {
       "phase": 3,
-      "reason": "Exact-source local 25-test renderer and automatic credential-boundary fixtures pass at c718e2c75a6c94a77020eb7e047c07503945b388, but completed hosted CI/package binding and installed accessibility/native GUI evidence are incomplete.",
+      "reason": "Exact-source local 25-test renderer and automatic credential-boundary fixtures pass at runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but the later packaging/evidence source, completed main-branch CI/package binding and installed accessibility/native GUI evidence are incomplete.",
       "status": "NOT RUN"
     },
     {
       "phase": 4,
-      "reason": "Protocol-2 transport/exact-body fixtures pass locally at immutable source c718e2c75a6c94a77020eb7e047c07503945b388, but completed hosted CI/package binding remains pending; exactly two final-artifact live canaries on the current principal laptop/account remain pre-delivery NOT RUN.",
+      "reason": "Protocol-2 transport/exact-body fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but final main-branch CI/package binding remains pending; exactly two final-artifact live canaries on the current principal laptop/account remain pre-delivery NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 5,
-      "reason": "Private-journal integration and restart fixtures pass locally at immutable source c718e2c75a6c94a77020eb7e047c07503945b388, but completed hosted CI/package binding remains pending; owner Credential Manager GUI, installed secret-boundary and no-history acceptance on the current principal laptop/account are pre-delivery NOT RUN.",
+      "reason": "Private-journal integration and restart fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but final main-branch CI/package binding remains pending; owner Credential Manager GUI, installed secret-boundary and no-history acceptance on the current principal laptop/account are pre-delivery NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 6,
-      "reason": "Exact-source automatic T-038 through T-040 portions, including independent-process termination/restart, pass locally at c718e2c75a6c94a77020eb7e047c07503945b388. Full T-039/T-040 remain NOT RUN because installed owner-HWND positive journeys have not executed and no loopback/proposal-injection seam ships; existing replacement is intentionally proposal-only.",
+      "reason": "Exact-source automatic T-038 through T-040 portions, including independent-process termination/restart, pass locally at runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3. Full T-039/T-040 remain NOT RUN because installed owner-HWND positive journeys have not executed and no loopback/proposal-injection seam ships; existing replacement is intentionally proposal-only.",
       "status": "NOT RUN"
     },
     {
@@ -504,12 +504,12 @@
     },
     {
       "phase": 8,
-      "reason": "Exact-source local typecheck/25 frontend tests/build/audit, 100 Rust tests, 90-file source guard, T-037 73 cases plus actual comparison and notice-generator self-test passed. Canonical pre-freeze lock-graph generation is recorded separately. Hosted PR run 36894176872 checks synthetic merge f0c432f4f882e065932fb453d79663f1ee60058b whose tree 24e48836a421e099c47d94593b49409749096088 is verified identical; aggregate completion, SBOM/package reproduction and independently extracted bundle-resource evidence remain incomplete. Structural evidence is not legal approval and principal-laptop T-041 performance is pre-delivery NOT RUN.",
+      "reason": "Runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3 passes local typecheck/25 frontend tests/build/audit, 100 Rust tests, 90-file source guard, T-037 73 cases plus actual comparison, offline metadata/notices/SBOM and complete audit. PR run 36901019822 is still incomplete and any PR package is a non-installable candidate. The later packaging/evidence source requires a fresh complete main-branch run, reproducible notices/SBOM and independently extracted bundle-resource evidence. Structural evidence is not legal approval and principal-laptop T-041 performance is pre-delivery NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 9,
-      "reason": "Runtime source is pinned and locally validated, but the protocol-2 unsigned artifact and manifest/supplemental/ZIP/EXE/delivery-alias hashes are pending. Feasible Windows 11 manual acceptance on the current primary laptop/principal account is required before final delivery and remains NOT RUN; unavailable shipping-seam rows stay disclosed NOT RUN and production promotion is not claimed.",
+      "reason": "Runtime source is pinned and locally validated, but the later final packaging/evidence revision and main-branch unsigned-engineering-build manifest/supplemental/ZIP/EXE/delivery-alias hashes are pending. PR unsigned-engineering-candidate artifacts are never installed. Feasible Windows 11 manual acceptance on the current primary laptop/principal account is required before final delivery and remains NOT RUN; unavailable shipping-seam rows stay disclosed NOT RUN and production promotion is not claimed.",
       "status": "NOT RUN"
     }
   ],
@@ -527,7 +527,7 @@
     "name": "Aster Desktop",
     "platform": "Windows-11",
     "release_class": "source_candidate",
-    "source_revision": "c718e2c75a6c94a77020eb7e047c07503945b388"
+    "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3"
   },
   "providers": [
     {
@@ -927,23 +927,23 @@
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
       "status": "PASS",
-      "source_revision": "c718e2c75a6c94a77020eb7e047c07503945b388",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
       "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; Rust 1.97.0; offline locked graph",
       "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-10-01T16:46:49.2001051Z",
-      "evidence_paths": ["docs/qa/LOCAL-0005.md"]
+      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md"]
     },
     {
       "id": "T-030",
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "reason": "Lossless/bounds/encoding fixtures pass locally at immutable source c718e2c75a6c94a77020eb7e047c07503945b388; interactive native display/consent/accessibility and normal-app owner HWND integration remain NOT RUN.",
+      "reason": "Lossless/bounds/encoding fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3; interactive native display/consent/accessibility and normal-app owner HWND integration remain NOT RUN.",
       "status": "NOT RUN",
       "verification_phase": 6
     },
     {
       "id": "T-031",
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "reason": "CREATE_NEW/DPAPI/private-journal, competition and independent-process termination/restart fixtures pass locally at immutable source c718e2c75a6c94a77020eb7e047c07503945b388; physical power-loss proof and installed native consent remain pending.",
+      "reason": "CREATE_NEW/DPAPI/private-journal, competition and independent-process termination/restart fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3; physical power-loss proof and installed native consent remain pending.",
       "status": "NOT RUN",
       "verification_phase": 6
     },
@@ -952,22 +952,22 @@
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
       "status": "PASS",
-      "source_revision": "c718e2c75a6c94a77020eb7e047c07503945b388",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
       "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; Rust 1.97.0; offline locked graph",
       "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-10-01T16:46:49.2001051Z",
-      "evidence_paths": ["docs/qa/LOCAL-0005.md"]
+      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md"]
     },
     {
       "id": "T-033",
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 3,
       "status": "PASS",
-      "source_revision": "c718e2c75a6c94a77020eb7e047c07503945b388",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
       "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; Rust 1.97.0; offline locked graph; no real credential or GUI",
       "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-10-01T16:46:49.2001051Z",
-      "evidence_paths": ["docs/qa/LOCAL-0005.md", "docs/qa/CREDENTIAL-GUI-FIXTURE-0001.md"]
+      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md", "docs/qa/CREDENTIAL-GUI-FIXTURE-0001.md"]
     },
     {
       "id": "T-034",
@@ -981,47 +981,47 @@
       "path": "docs/qa/JOURNAL-PRIVACY-0001.md",
       "verification_phase": 6,
       "status": "PASS",
-      "source_revision": "c718e2c75a6c94a77020eb7e047c07503945b388",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
       "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; normal owner token; Rust 1.97.0; offline locked graph",
       "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-10-01T16:46:49.2001051Z",
-      "evidence_paths": ["docs/qa/LOCAL-0005.md", "docs/qa/JOURNAL-PRIVACY-0001.md"]
+      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md", "docs/qa/JOURNAL-PRIVACY-0001.md"]
     },
     {
       "id": "T-037",
       "path": "docs/qa/DEPENDENCY-ALIGNMENT-0001.md",
       "verification_phase": 9,
       "status": "PASS",
-      "source_revision": "c718e2c75a6c94a77020eb7e047c07503945b388",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
       "environment": "Windows NT 10.0.26300.0; isolated bundled Python; exact locked source inputs",
       "command": "python -I -B scripts/ci/check_tauri_versions.py --self-test; python -I -B scripts/ci/check_tauri_versions.py --root .",
-      "run_at_utc": "2026-10-01T16:47:21.6228521Z",
-      "evidence_paths": ["docs/qa/LOCAL-0005.md", "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"]
+      "run_at_utc": "2026-10-01T17:44:42.1338226Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md", "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"]
     },
     {
       "id": "T-038",
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
       "status": "PASS",
-      "source_revision": "c718e2c75a6c94a77020eb7e047c07503945b388",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
       "environment": "Windows NT 10.0.26300.0; Rust under QUARK2\\Rene Nehru Alvarez and frontend under QUARK2\\CodexSandboxOffline",
       "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; pnpm test",
-      "run_at_utc": "2026-10-01T16:46:49.2001051Z",
-      "evidence_paths": ["docs/qa/LOCAL-0005.md"]
+      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md"]
     },
     {
       "id": "T-039",
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
       "verification_phase": 6,
       "status": "NOT RUN",
-      "reason": "Metadata-only IPC, owner-HWND exact-body one-use dispatch and ephemeral continuation fixtures pass locally at immutable source c718e2c75a6c94a77020eb7e047c07503945b388, but the full procedure requires installed owner-HWND observation. The shipping app has no loopback seam and no real/private project upload is authorized."
+      "reason": "Metadata-only IPC, owner-HWND exact-body one-use dispatch and ephemeral continuation fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but the full procedure requires installed owner-HWND observation. The shipping app has no loopback seam and no real/private project upload is authorized."
     },
     {
       "id": "T-040",
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
       "verification_phase": 6,
       "status": "NOT RUN",
-      "reason": "Integrated proposal/new-file/private-journal, independent helper-process termination/restart and proposal-only existing-replacement fixtures pass locally at immutable source c718e2c75a6c94a77020eb7e047c07503945b388. The full procedure remains NOT RUN because installed owner-HWND positive proposal journeys have not executed, no proposal-injection seam ships and physical power-loss proof remains pending."
+      "reason": "Integrated proposal/new-file/private-journal, independent helper-process termination/restart and proposal-only existing-replacement fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3. The full procedure remains NOT RUN because installed owner-HWND positive proposal journeys have not executed, no proposal-injection seam ships and physical power-loss proof remains pending."
     },
     {
       "id": "T-041",

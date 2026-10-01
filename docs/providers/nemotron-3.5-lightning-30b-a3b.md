@@ -2,7 +2,7 @@
 
 **Registry key:** `nvidia/nemotron-3.5-lightning-30b-a3b`
 
-**Status:** implemented fixture contract; protocol-2 automatic loopback/exact-body fixtures pass locally at immutable source `c718e2c75a6c94a77020eb7e047c07503945b388`, while completed hosted CI/package binding and the one authorized final-artifact live canary remain `NOT RUN` as of this evidence checkpoint on 2026-10-01 UTC.
+**Status:** implemented fixture contract; protocol-2 automatic loopback/exact-body fixtures pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`, while the later packaging/evidence source, completed main-branch CI/package binding and the one authorized final-artifact live canary remain `NOT RUN` as of this evidence checkpoint on 2026-10-01 UTC.
 
 **Default selection:** yes.
 
