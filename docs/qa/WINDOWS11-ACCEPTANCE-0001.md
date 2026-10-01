@@ -61,6 +61,8 @@ At `2026-09-30T22:49:06.1532939Z`, authenticated owner non-elevated checks verif
 
 On 2026-10-01 UTC, all four main run64 jobs were observed PASS and its intermediate installer was independently verified without execution: artifact `11131148289`, ZIP SHA256 `dba8fd3f16dde4e460e872310bd33d540aec2d74a2d859b8830f84b751c0e268`, EXE 3,551,847 bytes / SHA256 `752928d145ca7a7e78150266a04c0bf9c8fd057efcbf544a56f1fe9d866348c7`, Authenticode `NotSigned`, verified `2026-10-01T09:34:37.7459336Z`. Classification is VERIFIED_NOT_INSTALLED. It includes the PR15 diagnostic but **not** the later journal-privacy change; it is not a final artifact for that changed source and consumes no live acceptance budget.
 
+PR23's journal head `6732385efabbac62f6e458414d6e991625ef89f4` passed local90 Rust/23 frontend but hosted run72 `36847000590` retained Windows **89 PASS / 1 FAIL** and SKIPPED installer. A second reviewed test-only fresh-directory owner setup repair is source `649c4a13e5b1f8b74c660752095d82e841e3604e`; original-owner non-elevated fmt/check/Clippy/full90 Rust PASS at `2026-10-01T10:39:55.1647977Z`–`10:40:40.0485755Z`. Technical filtered execution had been blocked before launch by Windows4551; no protections were changed. Fresh exact-head hosted checks and later main packaging must pass independently; no PR23 installer, GUI/manual acceptance or live request is credited. See LOCAL-0004 for all retained outcomes.
+
 ## 2. Download and check the unsigned installer
 
 Download the installer artifact from the exact successful private Actions run. Check that it is still available (14-day retention). Keep its ZIP intact and extract into a new empty evaluation folder. Do not replace an older candidate or mix `manifest.json` files from different runs.
