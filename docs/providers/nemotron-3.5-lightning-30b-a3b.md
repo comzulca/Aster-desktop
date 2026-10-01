@@ -2,7 +2,7 @@
 
 **Registry key:** `nvidia/nemotron-3.5-lightning-30b-a3b`
 
-**Status:** design/fixture contract; live canary `NOT RUN` as of 2026-09-24 UTC.
+**Status:** implemented fixture contract; protocol-2 automatic loopback/exact-body fixtures pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`, while the later packaging/evidence source, completed main-branch CI/package binding and the one authorized final-artifact live canary remain `NOT RUN` as of this evidence checkpoint on 2026-10-01 UTC.
 
 **Default selection:** yes.
 
@@ -36,4 +36,4 @@ Fixture checks specific to this pair: request byte-level JSON structure, thinkin
 ## Provenance
 
 - User-provided `01-nemotron-3.5-lightning-30b-a3b.txt`, SHA-256 `826261f2c1ae3ebba7f365b7ad8a865ad46f2e0b3ecb347a35c1e22482db63dc`.
-- NVIDIA [hosted model example](https://build.nvidia.com/nvidia/nemotron-3.5-lightning-30b-a3b), [endpoint-specific schema](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer), reviewed 2026-09-24 UTC. These show `stream=true`, the exact ID, 16,384-token sample budget, and SSE completion with `data: [DONE]`.
+- NVIDIA [hosted model example](https://build.nvidia.com/nvidia/nemotron-3.5-lightning-30b-a3b), [endpoint-specific schema](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer), rechecked 2026-10-01 UTC. These show `stream=true`, the exact ID, 16,384-token sample budget, and SSE completion with `data: [DONE]`.

@@ -371,75 +371,145 @@
         "TM-014"
       ],
       "verification_phase": 6
+    },
+    {
+      "id": "AC-028",
+      "requirement_ids": [
+        "FR-015",
+        "SEC-013"
+      ],
+      "test_ids": [
+        "T-038"
+      ],
+      "threat_ids": [
+        "TM-002",
+        "TM-015"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-029",
+      "requirement_ids": [
+        "FR-016",
+        "SEC-012"
+      ],
+      "test_ids": [
+        "T-039"
+      ],
+      "threat_ids": [
+        "TM-004",
+        "TM-010",
+        "TM-015"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-030",
+      "requirement_ids": [
+        "FR-008",
+        "FR-017",
+        "SEC-006",
+        "SEC-012",
+        "SEC-013"
+      ],
+      "test_ids": [
+        "T-040"
+      ],
+      "threat_ids": [
+        "TM-006",
+        "TM-007",
+        "TM-014",
+        "TM-015"
+      ],
+      "verification_phase": 6
+    },
+    {
+      "id": "AC-031",
+      "requirement_ids": [
+        "NFR-004"
+      ],
+      "test_ids": [
+        "T-041"
+      ],
+      "threat_ids": [
+        "TM-009"
+      ],
+      "verification_phase": 8
     }
   ],
   "gates": [
     {
       "phase": 0,
       "status": "PASS",
-      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Owner inventory/native checks: QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300 at12:45:09Z-12:47:38Z. Independent QUARK2\\CodexSandboxOffline technical sandbox performed read-only82blob/source/specification/threat audit at12:48:00Z; no technical fixture result is credited as owner acceptance.",
-      "command": "Original-owner Git tree/raw hash and size binding of all82 tracked files before/after complete checks; independent82/main79 manifest comparison, exactly11 deltas/71unchanged files. Six generated untracked permission files excluded.",
-      "run_at_utc": "2026-10-01T12:48:00.4670635Z",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
+      "environment": "Private comzulca/Aster-desktop repository plus exact Windows checkout; authenticated repository-scoped connector and process-local Git safe.directory only",
+      "command": "git -c safe.directory='C:/Users/Rene Nehru Alvarez/Documents/aster-desktop-premium/Aster-desktop-work2' rev-parse HEAD; git -c safe.directory='C:/Users/Rene Nehru Alvarez/Documents/aster-desktop-premium/Aster-desktop-work2' status --porcelain --untracked-files=all; compare authenticated GitHub commit/tree",
+      "run_at_utc": "2026-10-01T17:44:42.1338226Z",
       "evidence_paths": [
-        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
+        "docs/aster-builder/phase-0-inventory.md",
+        "docs/qa/LOCAL-0006.md",
+        "https://github.com/comzulca/Aster-desktop/pull/24"
       ]
     },
     {
       "phase": 1,
       "status": "PASS",
-      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Owner inventory/native checks: QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300 at12:45:09Z-12:47:38Z. Independent QUARK2\\CodexSandboxOffline technical sandbox performed read-only82blob/source/specification/threat audit at12:48:00Z; no technical fixture result is credited as owner acceptance.",
-      "command": "Complete SPEC0001/verification-plan/ADR0008 review: NFR003/SEC009/TM011/AC019/T037 version-alignment prerequisite, T037phase9 matching AC019/T021; preserve privacy FR014/SEC011/AC027/T035 and separate actual-target gates.",
-      "run_at_utc": "2026-10-01T12:48:00.4670635Z",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
+      "environment": "Read-only exact-source specification and traceability review on Windows NT 10.0.26300.0",
+      "command": "python C:/Users/Rene Nehru Alvarez/.agents/skills/aster-builder/scripts/harness_gate.py check --root . --through-phase 2",
+      "run_at_utc": "2026-10-01T18:08:50.4737466Z",
       "evidence_paths": [
-        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
+        "docs/specs/SPEC-0001.md",
+        "docs/aster-builder/verification-plan.md",
+        "docs/qa/LOCAL-0006.md"
       ]
     },
     {
       "phase": 2,
       "status": "PASS",
-      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Owner inventory/native checks: QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300 at12:45:09Z-12:47:38Z. Independent QUARK2\\CodexSandboxOffline technical sandbox performed read-only82blob/source/specification/threat audit at12:48:00Z; no technical fixture result is credited as owner acceptance.",
-      "command": "Complete THREAT-MODEL0001/ADR0008/TM011 review: frozen/locked inputs, no version bypass, independent static/raw82blob review no actionable finding; runtime/credential/provider/config/capability payload unchanged, four shipping fileflags false and process candidate excluded.",
-      "run_at_utc": "2026-10-01T12:48:00.4670635Z",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
+      "environment": "Read-only exact-source threat/ADR/ledger review on Windows NT 10.0.26300.0",
+      "command": "python C:/Users/Rene Nehru Alvarez/.agents/skills/aster-builder/scripts/harness_gate.py check --root . --through-phase 2",
+      "run_at_utc": "2026-10-01T18:08:50.4737466Z",
       "evidence_paths": [
-        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
+        "docs/security/THREAT-MODEL-0001.md",
+        "docs/adr/ADR-0009.md",
+        "docs/qa/LOCAL-0006.md"
       ]
     },
     {
       "phase": 3,
-      "reason": "Source-bound owner90Rust/23frontend and guard fixtures PASS; actual owner GUI/renderer secret-boundary/accessibility acceptance remains NOT RUN.",
+      "reason": "Exact-source local 25-test renderer and automatic credential-boundary fixtures pass at runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but the later packaging/evidence source, completed main-branch CI/package binding and installed accessibility/native GUI evidence are incomplete.",
       "status": "NOT RUN"
     },
     {
       "phase": 4,
-      "reason": "Source-bound closed-registry/loopback transport fixtures PASS; final two live NVIDIA canaries and normal-app secret-boundary acceptance remain NOT RUN.",
+      "reason": "Protocol-2 transport/exact-body fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but final main-branch CI/package binding remains pending; exactly two final-artifact live canaries on the current principal laptop/account remain pre-delivery NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 5,
-      "reason": "Source-bound synthetic Windows Credential Manager/DPAPI fixtures PASS; actual native/Control Panel GUI, renderer secret-boundary and no-history restart acceptance remain NOT RUN.",
+      "reason": "Private-journal integration and restart fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but final main-branch CI/package binding remains pending; owner Credential Manager GUI, installed secret-boundary and no-history acceptance on the current principal laptop/account are pre-delivery NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 6,
-      "reason": "Source-bound dormant journal privacy/internal workspace fixtures PASS; normal owner-HWND/disclosure/proposal/new-file routes, independent-process source integration, existing replacement and power-loss remain missing. Four shipping fileflags false.",
+      "reason": "Exact-source automatic T-038 through T-040 portions, including independent-process termination/restart, pass locally at runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3. Full T-039/T-040 remain NOT RUN because installed owner-HWND positive journeys have not executed and no loopback/proposal-injection seam ships; existing replacement is intentionally proposal-only.",
       "status": "NOT RUN"
     },
     {
       "phase": 7,
-      "reason": "Capability not implemented and not verified.",
+      "reason": "Optional web/MCP is intentionally disabled by policy and not requested for v0.1.0; no activation claim is made.",
       "status": "NOT RUN"
     },
     {
       "phase": 8,
-      "reason": "Original-owner frozen frontend/typecheck23tests/build and locked fmt/check/Clippy/full90Rust PASS; guard73/secret0/frontend audit/RustSec3allowedwarnings observed. Fresh exact-head hostedCI/SBOM/declared-license/payload/unsigned packaging pending; structural and fixture PASS is not artifact/manual acceptance.",
+      "reason": "Runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3 passes local typecheck/25 frontend tests/build/audit, 100 Rust tests, 90-file source guard, T-037 73 cases plus actual comparison, offline metadata/notices/SBOM and complete audit. PR run 36901019822 is still incomplete and any PR package is a non-installable candidate. The later packaging/evidence source requires a fresh complete main-branch run, reproducible notices/SBOM and independently extracted bundle-resource evidence. Structural evidence is not legal approval and principal-laptop T-041 performance is pre-delivery NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 9,
-      "reason": "New-source unsigned engineering artifact verification and manual acceptance pending; signed/public production promotion not requested or claimed.",
+      "reason": "Runtime source is pinned and locally validated, but the later final packaging/evidence revision and main-branch unsigned-engineering-build manifest/supplemental/ZIP/EXE/delivery-alias hashes are pending. PR unsigned-engineering-candidate artifacts are never installed. Feasible Windows 11 manual acceptance on the current primary laptop/principal account is required before final delivery and remains NOT RUN; unavailable shipping-seam rows stay disclosed NOT RUN and production promotion is not claimed.",
       "status": "NOT RUN"
     }
   ],
@@ -450,23 +520,45 @@
     "human_confirms_mutations": true,
     "model_may_commit": false,
     "secrets_in_renderer": false,
-    "storage_enabled": false,
+    "storage_enabled": true,
     "web_enabled": false
   },
   "project": {
-    "name": "Aster-desktop",
+    "name": "Aster Desktop",
     "platform": "Windows-11",
-    "release_class": "development",
-    "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d"
+    "release_class": "source_candidate",
+    "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3"
   },
   "providers": [
     {
-      "enabled": false,
-      "id": "nvidia-nemotron-3.5-lightning-30b-a3b"
+      "enabled": true,
+      "id": "nvidia-nemotron-3.5-lightning-30b-a3b",
+      "model_id": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "origin": "https://integrate.api.nvidia.com",
+      "protocol": "POST /v1/chat/completions; data-only SSE ending in data: [DONE]",
+      "official_source": "https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer",
+      "verified_on": "2026-10-01",
+      "contract_fixture": "docs/providers/nemotron-3.5-lightning-30b-a3b.md",
+      "bounds": {
+        "connect_timeout_ms": 10000,
+        "total_timeout_ms": 900000,
+        "max_response_bytes": 8388608
+      }
     },
     {
-      "enabled": false,
-      "id": "nvidia-muse-glimmer-30b"
+      "enabled": true,
+      "id": "nvidia-muse-glimmer-30b",
+      "model_id": "meta/muse-glimmer-30b",
+      "origin": "https://integrate.api.nvidia.com",
+      "protocol": "POST /v1/chat/completions; data-only SSE ending in data: [DONE]",
+      "official_source": "https://docs.api.nvidia.com/nim/reference/meta-muse-glimmer-30b-infer",
+      "verified_on": "2026-10-01",
+      "contract_fixture": "docs/providers/muse-glimmer-30b.md",
+      "bounds": {
+        "connect_timeout_ms": 10000,
+        "total_timeout_ms": 900000,
+        "max_response_bytes": 8388608
+      }
     }
   ],
   "release": {
@@ -517,7 +609,7 @@
     },
     {
       "id": "FR-008",
-      "text": "After separate exact confirmation, support conflict-checked new-file creation only when native Windows safety/recovery is proven."
+      "text": "After separate exact confirmation, support guarded conflict-checked new-file creation on the Windows engineering candidate; delivery credit still requires source-bound safety/recovery evidence."
     },
     {
       "id": "FR-009",
@@ -601,11 +693,35 @@
     },
     {
       "id": "FR-014",
-      "text": "Admit the dormant creation journal through retained NTFS pins and creation-time explicit current-process-user private directory/record descriptors."
+      "text": "Admit the creation journal through retained NTFS pins and creation-time explicit current-process-user private directory/record descriptors."
     },
     {
       "id": "SEC-011",
       "text": "Revalidate bounded owner/protected owner-only journal DACLs by retained handles before use/success; reject weak/foreign/drifting objects unchanged, without privilege or unrelated ACL changes."
+    },
+    {
+      "id": "FR-015",
+      "text": "Protocol 2 reports exactly four Boolean project capabilities; applyExistingFile remains false and an unknown or incompatible status shape denies."
+    },
+    {
+      "id": "FR-016",
+      "text": "Native file selection exposes metadata only to the renderer; project disclosure reviews and transmits one exact serialized body once, outside continuation history."
+    },
+    {
+      "id": "FR-017",
+      "text": "Parse one strict typed proposal; permit guarded new-file CREATE_NEW only after native approval/private journal recovery, while existing replacement remains proposal-only."
+    },
+    {
+      "id": "NFR-004",
+      "text": "Measure launch, idle resource use, input/cancel responsiveness and a bounded synthetic session on the exact installed Windows 11 engineering artifact."
+    },
+    {
+      "id": "SEC-012",
+      "text": "Project plaintext never crosses renderer IPC; owner-HWND review binds the exact provider bytes to a move-only one-use approval and the host revalidates immediately before transmission or publication."
+    },
+    {
+      "id": "SEC-013",
+      "text": "Capability reporting is host-owned, closed and versioned; renderer/model content cannot enable a capability and existing-file apply is unrepresentable as ready in protocol 2."
     }
   ],
   "schema_version": 1,
@@ -811,25 +927,23 @@
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
       "status": "PASS",
-      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
-      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
-      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
-      "evidence_paths": [
-        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
-      ]
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
+      "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; Rust 1.97.0; offline locked graph",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
+      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md"]
     },
     {
       "id": "T-030",
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "reason": "Exact-source lossless/bounds/encoding fixtures passed (LOCAL-0002); interactive native display/consent/accessibility and normal-app owner HWND integration remain NOT RUN.",
+      "reason": "Lossless/bounds/encoding fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3; interactive native display/consent/accessibility and normal-app owner HWND integration remain NOT RUN.",
       "status": "NOT RUN",
       "verification_phase": 6
     },
     {
       "id": "T-031",
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "reason": "Source-bound CREATE_NEW/DPAPI/sampled interruption and private owner-only journal fixtures PASS (LOCAL-0004/T-035); independent competing-process and actual process-kill/restart/power-loss proof remain NOT RUN. Privacy fixtures do not clear this aggregate gate.",
+      "reason": "CREATE_NEW/DPAPI/private-journal, competition and independent-process termination/restart fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3; physical power-loss proof and installed native consent remain pending.",
       "status": "NOT RUN",
       "verification_phase": 6
     },
@@ -838,26 +952,22 @@
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
       "status": "PASS",
-      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
-      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
-      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
-      "evidence_paths": [
-        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
-      ]
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
+      "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; Rust 1.97.0; offline locked graph",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
+      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md"]
     },
     {
       "id": "T-033",
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 3,
       "status": "PASS",
-      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
-      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
-      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
-      "evidence_paths": [
-        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
-      ]
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
+      "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; Rust 1.97.0; offline locked graph; no real credential or GUI",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
+      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md", "docs/qa/CREDENTIAL-GUI-FIXTURE-0001.md"]
     },
     {
       "id": "T-034",
@@ -871,27 +981,54 @@
       "path": "docs/qa/JOURNAL-PRIVACY-0001.md",
       "verification_phase": 6,
       "status": "PASS",
-      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
-      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
-      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
-      "evidence_paths": [
-        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md",
-        "docs/qa/JOURNAL-PRIVACY-0001.md"
-      ]
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
+      "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; normal owner token; Rust 1.97.0; offline locked graph",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
+      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md", "docs/qa/JOURNAL-PRIVACY-0001.md"]
     },
     {
       "id": "T-037",
       "path": "docs/qa/DEPENDENCY-ALIGNMENT-0001.md",
       "verification_phase": 9,
       "status": "PASS",
-      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
-      "environment": "Original owner Windows11 normal token; Python3.12.14 -I -B; exact candidate guard and four fixed dependency inputs.",
-      "command": "python -I -B scripts/ci/check_tauri_versions.py --self-test; --root .;73purefixtures PASS and locked Rust2.12.1/API2.12.0 major/minor PASS. Structural source check only; install/audit/SBOM/payload/packaging/manual gates independent.",
-      "run_at_utc": "2026-10-01T12:51:36.4068599Z",
-      "evidence_paths": [
-        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
-      ]
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
+      "environment": "Windows NT 10.0.26300.0; isolated bundled Python; exact locked source inputs",
+      "command": "python -I -B scripts/ci/check_tauri_versions.py --self-test; python -I -B scripts/ci/check_tauri_versions.py --root .",
+      "run_at_utc": "2026-10-01T17:44:42.1338226Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md", "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"]
+    },
+    {
+      "id": "T-038",
+      "path": "docs/aster-builder/verification-plan.md",
+      "verification_phase": 6,
+      "status": "PASS",
+      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
+      "environment": "Windows NT 10.0.26300.0; Rust under QUARK2\\Rene Nehru Alvarez and frontend under QUARK2\\CodexSandboxOffline",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; pnpm test",
+      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
+      "evidence_paths": ["docs/qa/LOCAL-0006.md"]
+    },
+    {
+      "id": "T-039",
+      "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
+      "verification_phase": 6,
+      "status": "NOT RUN",
+      "reason": "Metadata-only IPC, owner-HWND exact-body one-use dispatch and ephemeral continuation fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but the full procedure requires installed owner-HWND observation. The shipping app has no loopback seam and no real/private project upload is authorized."
+    },
+    {
+      "id": "T-040",
+      "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
+      "verification_phase": 6,
+      "status": "NOT RUN",
+      "reason": "Integrated proposal/new-file/private-journal, independent helper-process termination/restart and proposal-only existing-replacement fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3. The full procedure remains NOT RUN because installed owner-HWND positive proposal journeys have not executed, no proposal-injection seam ships and physical power-loss proof remains pending."
+    },
+    {
+      "id": "T-041",
+      "path": "docs/qa/WINDOWS11-ACCEPTANCE-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Exact installed Windows 11 artifact launch/resource/responsiveness/cancellation/bounded-session observations are owner-run and not yet executed."
     }
   ],
   "threats": [
@@ -906,7 +1043,8 @@
       "id": "TM-002",
       "requirement_ids": [
         "SEC-002",
-        "FR-012"
+        "FR-012",
+        "SEC-013"
       ]
     },
     {
@@ -922,7 +1060,8 @@
       "requirement_ids": [
         "SEC-004",
         "FR-005",
-        "FR-006"
+        "FR-006",
+        "SEC-012"
       ]
     },
     {
@@ -965,7 +1104,8 @@
       "id": "TM-010",
       "requirement_ids": [
         "SEC-007",
-        "SEC-008"
+        "SEC-008",
+        "SEC-012"
       ]
     },
     {
@@ -992,23 +1132,71 @@
       "id": "TM-014",
       "requirement_ids": [
         "FR-014",
+        "FR-017",
         "SEC-011",
         "SEC-006"
+      ]
+    },
+    {
+      "id": "TM-015",
+      "requirement_ids": [
+        "FR-015",
+        "FR-016",
+        "FR-017",
+        "SEC-012",
+        "SEC-013"
       ]
     }
   ],
   "tools": [
     {
-      "enabled": false,
-      "id": "read_project_text"
+      "enabled": true,
+      "id": "read_project_text",
+      "schema_path": "docs/specs/SPEC-0001.md",
+      "max_calls": 1,
+      "grant_scope": [
+        "conversation",
+        "resource",
+        "operation",
+        "expiry",
+        "uses"
+      ],
+      "mutating": false,
+      "requires_human_confirmation": true
     },
     {
-      "enabled": false,
-      "id": "propose_project_change"
+      "enabled": true,
+      "id": "propose_project_change",
+      "schema_path": "docs/specs/SPEC-0001.md",
+      "max_calls": 1,
+      "grant_scope": [
+        "conversation",
+        "resource",
+        "operation",
+        "expiry",
+        "uses"
+      ],
+      "mutating": false,
+      "requires_human_confirmation": true
     },
     {
       "enabled": false,
       "id": "apply_approved_change"
+    },
+    {
+      "enabled": true,
+      "id": "apply_new_file",
+      "schema_path": "docs/specs/SPEC-0001.md",
+      "max_calls": 1,
+      "grant_scope": [
+        "conversation",
+        "resource",
+        "operation",
+        "expiry",
+        "uses"
+      ],
+      "mutating": true,
+      "requires_human_confirmation": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { nativeBridge } from './bridge';
-import { MODELS, validStatus, validStreamEvent } from './policy';
-import { DEFAULT_MODEL, MUSE_MODEL, type AppStatus, type Bridge, type ModelId, type StreamEvent } from './types';
+import { MODELS, safeRelativePath, validStatus, validStreamEvent } from './policy';
+import { DEFAULT_MODEL, MUSE_MODEL, type AppStatus, type Bridge, type FileReceipt, type ModelId, type StreamEvent } from './types';
 
 type Entry = {
   id: string;
@@ -10,6 +10,8 @@ type Entry = {
   model?: ModelId;
   requestId?: string;
   state?: 'streaming' | 'completed' | 'failed' | 'cancelled';
+  attachmentPath?: string;
+  proposalReviewed?: boolean;
 };
 
 const newId = () => crypto.randomUUID();
@@ -48,6 +50,8 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [secretBusy, setSecretBusy] = useState(false);
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [attachment, setAttachment] = useState<FileReceipt | null>(null);
   const draftRef = useRef<HTMLTextAreaElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -144,6 +148,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     setConversationId(id);
     setEntries([]);
     setDraft('');
+    setAttachment(null);
     setModel(DEFAULT_MODEL);
     setNotice(null);
     setSidebarOpen(false);
@@ -173,30 +178,72 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
 
   async function selectProject() {
-    if (!status || activeRef.current) return;
+    if (!status || activeRef.current || workspaceBusy) return;
+    setWorkspaceBusy(true);
     setNotice(null);
     try {
       await bridge.selectProject();
+      setAttachment(null);
       await refreshStatus();
     } catch { setNotice('No se seleccionó un proyecto.'); }
+    finally { setWorkspaceBusy(false); }
+  }
+
+  async function attachFile() {
+    if (!status?.projectSelected || !status.capabilities.projectRead || activeRef.current || workspaceBusy) return;
+    setWorkspaceBusy(true);
+    setNotice(null);
+    try {
+      const requestId = newId();
+      const selected = await bridge.selectProjectFile({ conversationId, requestId });
+      if (selected && (selected.requestId !== requestId || !safeRelativePath(selected.relativePath) ||
+          !/^[a-f0-9]{64}$/.test(selected.sha256) || !Number.isSafeInteger(selected.byteCount) ||
+          selected.byteCount < 1 || selected.byteCount > 1024 * 1024)) throw new Error('INVALID_FILE_RECEIPT');
+      setAttachment(selected);
+    } catch { setAttachment(null); setNotice('No se pudo adjuntar el archivo. Elige un archivo de texto dentro del proyecto.'); }
+    finally { setWorkspaceBusy(false); }
+  }
+
+  async function reviewProposal(entry: Entry) {
+    if (!status?.projectSelected || !status.capabilities.proposals || !entry.requestId ||
+        entry.state !== 'completed' || activeRef.current || workspaceBusy || entry.proposalReviewed) return;
+    setWorkspaceBusy(true);
+    setNotice(null);
+    try {
+      const result = await bridge.reviewProjectProposal({ conversationId, requestId: entry.requestId, proposalJson: entry.content });
+      setEntries((current) => current.map((item) => item.id === entry.id ? { ...item, proposalReviewed: true } : item));
+      const notices = {
+        verified: `Archivo creado y verificado: ${result.relativePath}`,
+        attention_required: 'La operación necesita revisión. Comprueba el archivo antes de continuar; Aster conserva el registro de recuperación.',
+        denied: 'Propuesta cancelada en la revisión nativa.',
+        proposal_only: 'Reemplazo revisado. La aplicación de cambios a archivos existentes aún no está disponible.',
+      };
+      setNotice(notices[result.status] ?? 'Resultado de propuesta no reconocido.');
+    } catch { setNotice('No se pudo revisar la propuesta. La respuesta debe ser un único JSON de cambio permitido; el archivo o la selección pueden haber caducado.'); }
+    finally { setWorkspaceBusy(false); }
   }
 
   async function send() {
     const message = draft.trim();
     if (!status?.configured || connection !== 'ready' || !message || activeRef.current ||
-        !MODELS.some((item) => item.id === model) || message.length > 32_768) return;
-    const requestId = newId();
+        workspaceBusy || secretBusy || !MODELS.some((item) => item.id === model) || message.length > 32_768) return;
+    const selectedFile = attachment;
+    const requestId = selectedFile?.requestId ?? newId();
     terminalRef.current.delete(requestId);
     activeRef.current = requestId;
     setActiveRequest(requestId);
     setNotice(null);
     setEntries((current) => [...current,
-      { id: newId(), role: 'user', content: message },
+      { id: newId(), role: 'user', content: message, attachmentPath: selectedFile?.relativePath },
       { id: newId(), role: 'assistant', content: '', model, requestId, state: 'streaming' },
     ]);
     setDraft('');
+    setAttachment(null);
     try {
-      const result = await bridge.sendMessage({ conversationId, requestId, modelId: model, message });
+      const intent = { conversationId, requestId, modelId: model, message };
+      const result = selectedFile
+        ? await bridge.sendProjectMessage({ ...intent, relativePath: selectedFile.relativePath, expectedSha256: selectedFile.sha256 })
+        : await bridge.sendMessage(intent);
       if (result.requestId !== requestId || !result.accepted) throw new Error('REQUEST_DENIED');
     } catch {
       if (activeRef.current !== requestId) return; // Terminal event already won the race.
@@ -254,7 +301,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     connection === 'unavailable' ? 'Anfitrión no disponible' :
       !status?.configured ? 'Clave sin configurar' : 'Clave configurada · conexión no verificada';
   const canSend = connection === 'ready' && Boolean(status?.configured) && !status?.activeRequest && Boolean(draft.trim()) &&
-    draft.length <= 32_768 && !activeRequest;
+    draft.length <= 32_768 && !activeRequest && !workspaceBusy && !secretBusy;
   const filtered = searchTerm ? entries.filter((entry) => entry.content.toLocaleLowerCase('es').includes(searchTerm.toLocaleLowerCase('es'))) : entries;
 
   return <div className="app-shell">
@@ -276,7 +323,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       <div className="session-list" aria-live="off">{entries.length ? <div className="session-row"><Icon name="compose" size={16}/><span>Sesión actual</span></div> : <p className="muted-line">Todavía no hay mensajes</p>}</div>
       <div className="sidebar-divider" />
       <div className="section-label"><span>PROYECTO</span></div>
-      <button className="nav-link project-button" onClick={() => void selectProject()} disabled={!status || Boolean(activeRequest)}><Icon name="folder" /><span>Seleccionar carpeta</span><Icon name="plus" size={15}/></button>
+      <button className="nav-link project-button" onClick={() => void selectProject()} disabled={!status || Boolean(activeRequest) || workspaceBusy}><Icon name="folder" /><span>Seleccionar carpeta</span><Icon name="plus" size={15}/></button>
       <p className="project-label" title={status?.projectLabel ?? undefined}>{status?.projectSelected ? status.projectLabel : 'Sin proyecto seleccionado'}</p>
       <div className="sidebar-bottom">
         <div className="sidebar-tip"><Icon name="shield" size={21}/><span><strong>Control local</strong><small>Sin historial guardado en disco.</small></span></div>
@@ -301,10 +348,11 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
             <div className="message-avatar" aria-hidden="true">{entry.role === 'assistant' ? 'A' : 'T'}</div>
             <div className="message-body"><div className="message-meta"><strong>{entry.role === 'user' ? 'Tú' : 'Aster'}</strong>{entry.model && <span>{MODELS.find((item) => item.id === entry.model)?.label}</span>}</div>
               <div className="message-text">{entry.content || (entry.state === 'streaming' ? 'Esperando respuesta…' : '')}</div>
+              {entry.attachmentPath && <p className="inline-state">Archivo enviado tras revisión nativa: {entry.attachmentPath}</p>}
               {entry.role === 'assistant' && <span className="visually-hidden" role="status" aria-live="polite">{entry.state === 'streaming' ? 'Recibiendo respuesta' : entry.state === 'completed' ? 'Respuesta completada' : entry.state === 'cancelled' ? 'Respuesta cancelada' : 'Respuesta fallida'}</span>}
               {entry.role === 'assistant' && entry.state === 'failed' && <p className="inline-state" role="status">La respuesta terminó con un error; podría estar incompleta.</p>}
               {entry.role === 'assistant' && entry.state === 'cancelled' && <p className="inline-state" role="status">Solicitud cancelada. El texto mostrado podría estar incompleto.</p>}
-              {entry.role === 'assistant' && entry.state === 'completed' && entry.content && <button className="text-action" disabled title="Propuestas pendientes de visor seguro y verificación nativa"><Icon name="file" size={15}/> Proponer cambio (no disponible)</button>}
+              {entry.role === 'assistant' && entry.state === 'completed' && entry.content && <button className="text-action" onClick={() => void reviewProposal(entry)} disabled={!status?.projectSelected || !status.capabilities.proposals || workspaceBusy || Boolean(activeRequest) || entry.proposalReviewed} title="Revisar un único JSON de propuesta en la ventana nativa"><Icon name="file" size={15}/> {entry.proposalReviewed ? 'Propuesta revisada' : 'Revisar propuesta'}</button>}
             </div>
           </article>) : <p className="empty-search">No hay mensajes que coincidan con la búsqueda.</p>}
           <div ref={bottomRef} />
@@ -314,12 +362,13 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       <div className="composer-zone">
         {notice && <div className="notice" role="status"><span>{notice}</span><button className="icon-button" onClick={() => setNotice(null)} aria-label="Cerrar aviso"><Icon name="close" size={16}/></button></div>}
         {!status?.configured && <div className="connect-banner"><Icon name="key"/><div><strong>{connection === 'unavailable' ? 'Abre la app de escritorio para conectarte' : 'Configura NVIDIA para enviar'}</strong><small>{connection === 'unavailable' ? 'La vista web no tiene acceso al anfitrión de Windows.' : 'La clave se introduce en una ventana nativa de Windows.'}</small></div><button onClick={(event) => openSettings(event.currentTarget)} disabled={connection === 'unavailable'}>Abrir ajustes</button></div>}
-        {status?.projectSelected && <div className="project-context"><span><Icon name="folder" size={16}/>{status.projectLabel}</span><small>Lectura y cambios de archivos: pendientes de visor seguro y pruebas nativas</small></div>}
+        {status?.projectSelected && <div className="project-context"><span><Icon name="folder" size={16}/>{status.projectLabel}</span><small>{status.capabilities.projectRead ? 'Adjunta un archivo de texto; cada envío requiere revisión nativa' : 'Acceso a archivos no disponible en este anfitrión'}</small></div>}
+        {attachment && <div className="project-context"><span><Icon name="file" size={16}/>{attachment.relativePath} · {attachment.byteCount.toLocaleString('es')} bytes</span><button className="icon-button" aria-label="Quitar archivo adjunto" onClick={() => setAttachment(null)} disabled={Boolean(activeRequest)}><Icon name="close" size={16}/></button></div>}
         <div className="composer"><label htmlFor="message-input" className="visually-hidden">Mensaje para Aster</label><textarea ref={draftRef} id="message-input" placeholder="Pregúntale a Aster lo que necesites" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onComposerKeyDown} maxLength={32_768} rows={2} disabled={Boolean(activeRequest)} aria-describedby="composer-hint" />
-          <div className="composer-controls"><button className="composer-add" type="button" aria-label="Adjuntar archivo (no disponible)" disabled title="Envío de archivos a NVIDIA: pendiente de revisión nativa segura"><Icon name="plus" size={20}/></button><label htmlFor="model-select" className="visually-hidden">Modelo</label><select id="model-select" value={model} onChange={(event) => { const next = event.target.value; if (next === DEFAULT_MODEL || next === MUSE_MODEL) setModel(next); }} disabled={!status || Boolean(activeRequest)}>{MODELS.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select><span className="stream-indicator"><Icon name="bolt" size={15}/> Streaming</span><span className="composer-spacer"/>{activeRequest ? <button className="send-button cancel-button" aria-label="Cancelar solicitud" onClick={() => void cancel()} disabled={cancelling}><Icon name="stop" size={18}/></button> : <button className="send-button" aria-label="Enviar mensaje" onClick={() => void send()} disabled={!canSend}><Icon name="send" size={19}/></button>}</div>
+          <div className="composer-controls"><button className="composer-add" type="button" aria-label="Adjuntar archivo" onClick={() => void attachFile()} disabled={!status?.projectSelected || !status.capabilities.projectRead || Boolean(activeRequest) || workspaceBusy} title="Seleccionar un archivo de texto del proyecto"><Icon name="plus" size={20}/></button><label htmlFor="model-select" className="visually-hidden">Modelo</label><select id="model-select" value={model} onChange={(event) => { const next = event.target.value; if (next === DEFAULT_MODEL || next === MUSE_MODEL) setModel(next); }} disabled={!status || Boolean(activeRequest) || workspaceBusy}>{MODELS.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select><span className="stream-indicator"><Icon name="bolt" size={15}/> Streaming</span><span className="composer-spacer"/>{activeRequest ? <button className="send-button cancel-button" aria-label="Cancelar solicitud" onClick={() => void cancel()} disabled={cancelling}><Icon name="stop" size={18}/></button> : <button className="send-button" aria-label="Enviar mensaje" onClick={() => void send()} disabled={!canSend}><Icon name="send" size={19}/></button>}</div>
         </div>
         <p id="composer-hint" className="composer-hint">Enter envía · Mayús+Enter añade una línea · El mensaje se transmite a NVIDIA cuando lo envías</p>
-        <p className="footer-note">Sesión temporal · sin herramientas web, terminal o acceso a archivos</p>
+        <p className="footer-note">Sesión temporal · archivos bajo tu control · sin web ni terminal</p>
       </div>
     </main>
 
@@ -327,7 +376,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       <div className="settings-row"><Icon name="key"/><div><strong>Credencial de NVIDIA</strong><p>{status?.configured ? 'Configurada para esta cuenta de Windows. Conexión aún sin verificar.' : 'Sin configurar. La clave solo se introduce en la ventana nativa.'}</p></div></div>
       <div className="settings-actions"><button className="primary-action" disabled={!status || secretBusy} onClick={() => void configureCredential()}>{status?.configured ? 'Cambiar clave en Windows' : 'Configurar clave en Windows'}</button>{status?.configured && <button className="secondary-action" disabled={secretBusy || Boolean(activeRequest)} onClick={() => void removeCredential()}>Eliminar clave</button>}</div>
       <div className="privacy-note"><Icon name="shield"/><p>El historial de chat no se guarda en disco. Windows Credential Manager protege la clave bajo tu cuenta; otros procesos ejecutados con esa misma cuenta pueden acceder a credenciales genéricas.</p></div>
-      <p className="hint">Lectura, divulgación y cambios de archivos pendientes de visor seguro y verificación nativa de Windows. Seleccionar una carpeta no habilita el acceso a su contenido.</p>
+      <p className="hint">Seleccionar una carpeta permite elegir archivos concretos. Cada envío de su contenido y cada creación requieren revisión nativa. Los reemplazos de archivos existentes quedan como propuestas.</p>
     </section></div>}
   </div>;
 }

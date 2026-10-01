@@ -109,6 +109,18 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo --version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Generate locked source notices for bundle resources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force reports | Out-Null
+          python scripts/ci/third_party_notices.py --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --locked | Set-Content reports/packaging-metadata.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --locked --filter-platform x86_64-pc-windows-msvc | Set-Content reports/packaging-metadata-windows.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/ci/third_party_notices.py reports/packaging-metadata.json reports/packaging-metadata-windows.json . reports/THIRD-PARTY-NOTICES.txt reports/third-party-notice-inventory.json x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Inspect fixture drive eligibility
         shell: pwsh
         run: |
@@ -196,24 +208,104 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           rustup default 1.97.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build unsigned NSIS engineering candidate
+      - name: Build unsigned NSIS engineering package
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force reports | Out-Null
+          python scripts/ci/third_party_notices.py --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --locked | Set-Content reports/packaging-metadata.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --locked --filter-platform x86_64-pc-windows-msvc | Set-Content reports/packaging-metadata-windows.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/ci/third_party_notices.py reports/packaging-metadata.json reports/packaging-metadata-windows.json . reports/THIRD-PARTY-NOTICES.txt reports/third-party-notice-inventory.json x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           corepack pnpm exec tauri build --ci --no-sign
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git diff --exit-code -- pnpm-lock.yaml src-tauri/Cargo.lock
           if ($LASTEXITCODE -ne 0) { throw 'Locked dependency inputs changed during the build.' }
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'Tracked source changed during the build.' }
+          $unexpectedSource = @(& git status --porcelain=v1 --untracked-files=all)
+          if ($LASTEXITCODE -ne 0 -or $unexpectedSource.Count -ne 0) { throw 'Checkout contains changed or untracked non-ignored source after the build.' }
           $candidates = @(Get-ChildItem -LiteralPath src-tauri/target/release/bundle/nsis -File -Filter '*-setup.exe' -ErrorAction Stop)
           if ($candidates.Count -ne 1 -or $candidates[0].Length -le 0) { throw 'Expected exactly one nonempty NSIS setup executable.' }
           $installer = $candidates[0]
+          if ($installer.Name -cne 'Aster Desktop_0.1.0_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
+          $sevenZip = Get-Command 7z.exe -ErrorAction Stop
+          $rawPayloadList = Join-Path $env:RUNNER_TEMP 'aster-installer-payload-list-raw.txt'
+          $payloadListing = @(& $sevenZip.Source l -slt -ba $installer.FullName)
+          if ($LASTEXITCODE -ne 0) { throw 'Installer payload listing failed.' }
+          $entryCount = 0
+          [long]$preflightBytes = 0
+          $currentPath = $null
+          $currentSize = $null
+          foreach ($line in @($payloadListing) + '') {
+            if ([string]::IsNullOrWhiteSpace([string]$line)) {
+              if ($null -ne $currentPath) {
+                [long]$parsedSize = 0
+                if ($null -eq $currentSize -or -not [long]::TryParse([string]$currentSize, [ref]$parsedSize) -or $parsedSize -lt 0 -or $parsedSize -gt 268435456) { throw 'Installer payload member size is invalid or exceeds 256 MiB.' }
+                $normalized = ([string]$currentPath).Replace('/', '\')
+                if ($normalized.Length -eq 0 -or $normalized.Length -gt 4096 -or [System.IO.Path]::IsPathRooted($normalized) -or $normalized.StartsWith('\') -or $normalized -match ':' -or $normalized -match '(^|\\)\.{1,2}(\\|$)') { throw 'Installer payload member path is unsafe.' }
+                if ($preflightBytes -gt 536870912 - $parsedSize) { throw 'Installer payload exceeds the 512 MiB expanded-size bound.' }
+                $preflightBytes += $parsedSize
+                $entryCount++
+                if ($entryCount -gt 8192) { throw 'Installer payload has too many members.' }
+                $currentPath = $null
+                $currentSize = $null
+              }
+              continue
+            }
+            if ([string]$line -clike 'Path = *') { $currentPath = ([string]$line).Substring(7); continue }
+            if ([string]$line -clike 'Size = *') { $currentSize = ([string]$line).Substring(7); continue }
+            if ([string]$line -clike 'Anti = +*' -or [string]$line -clike 'Symbolic Link = *' -or [string]$line -clike 'Hard Link = *') { throw 'Installer payload contains a link or anti-item.' }
+          }
+          if ($entryCount -eq 0) { throw 'Installer payload listing contains no members.' }
+          $payloadListing | Set-Content -LiteralPath $rawPayloadList -Encoding utf8
+          $payloadRoot = Join-Path $env:RUNNER_TEMP ("aster-installer-payload-{0}-{1}" -f $env:GITHUB_RUN_ID, $env:GITHUB_RUN_ATTEMPT)
+          if (Test-Path -LiteralPath $payloadRoot) { throw 'Fresh installer payload extraction directory already exists.' }
+          New-Item -ItemType Directory -Path $payloadRoot -ErrorAction Stop | Out-Null
+          & $sevenZip.Source x $installer.FullName "-o$payloadRoot" -y | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Installer payload extraction failed.' }
+          $payloadItems = @(Get-ChildItem -LiteralPath $payloadRoot -Recurse -Force)
+          if (@($payloadItems | Where-Object { ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 }).Count -ne 0) { throw 'Extracted installer payload contains a link/reparse point.' }
+          $expandedBytes = @($payloadItems | Where-Object { -not $_.PSIsContainer } | Measure-Object -Property Length -Sum).Sum
+          if ([long]$expandedBytes -gt 536870912) { throw 'Extracted installer payload exceeds the 512 MiB expanded-size bound.' }
+          $noticeMatches = @($payloadItems | Where-Object { -not $_.PSIsContainer -and $_.Name -ceq 'THIRD-PARTY-NOTICES.txt' })
+          $licenseMatches = @($payloadItems | Where-Object { -not $_.PSIsContainer -and $_.Name -ceq 'LICENSE.txt' })
+          if ($noticeMatches.Count -ne 1 -or $licenseMatches.Count -ne 1) { throw 'Installer must contain exactly one notice resource and one license resource.' }
+          $noticeHash = (Get-FileHash -LiteralPath reports/THIRD-PARTY-NOTICES.txt -Algorithm SHA256).Hash.ToLowerInvariant()
+          $licenseHash = (Get-FileHash -LiteralPath LICENSE -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ((Get-FileHash -LiteralPath $noticeMatches[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() -cne $noticeHash) { throw 'Bundled notice resource differs from generated notice evidence.' }
+          if ((Get-FileHash -LiteralPath $licenseMatches[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() -cne $licenseHash) { throw 'Bundled license resource differs from the repository license.' }
+          $payloadHeader = @(
+            'classification=verified-extracted-nsis-payload'
+            'required_resource_count=2'
+            "preflight_entry_count=$entryCount"
+            "preflight_total_bytes=$preflightBytes"
+            "extracted_file_bytes=$expandedBytes"
+            "THIRD-PARTY-NOTICES.txt.sha256=$noticeHash"
+            "LICENSE.txt.sha256=$licenseHash"
+            '--- 7z listing follows ---'
+          )
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+          [System.IO.File]::WriteAllLines((Join-Path $PWD 'reports/installer-payload-list.txt'), $payloadHeader, $utf8NoBom)
+          [System.IO.File]::AppendAllText((Join-Path $PWD 'reports/installer-payload-list.txt'), [System.IO.File]::ReadAllText($rawPayloadList), $utf8NoBom)
           $signature = Get-AuthenticodeSignature -LiteralPath $installer.FullName
           if ($signature.Status -ne 'NotSigned') { throw "Unexpected installer signature status: $($signature.Status)" }
           New-Item -ItemType Directory -Force reports/engineering-installer | Out-Null
           Copy-Item -LiteralPath $installer.FullName -Destination reports/engineering-installer -ErrorAction Stop
+          Copy-Item reports/THIRD-PARTY-NOTICES.txt,reports/third-party-notice-inventory.json,reports/installer-payload-list.txt -Destination reports/engineering-installer -ErrorAction Stop
           $revision = & git rev-parse HEAD
           if ($LASTEXITCODE -ne 0 -or $revision -ne $env:GITHUB_SHA) { throw 'Checked-out source revision changed.' }
+          $packageClassification = 'unsigned-engineering-candidate'
+          if ($env:GITHUB_REF -ceq 'refs/heads/main' -and $env:GITHUB_EVENT_NAME -cin @('push', 'workflow_dispatch')) {
+            $packageClassification = 'unsigned-engineering-build'
+          }
           $details = [ordered]@{
-            classification = 'unsigned-engineering-candidate'
+            classification = $packageClassification
+            workflow_ref = $env:GITHUB_REF
+            workflow_event = $env:GITHUB_EVENT_NAME
             source_revision = $revision
             workflow_run_id = $env:GITHUB_RUN_ID
             workflow_run_attempt = $env:GITHUB_RUN_ATTEMPT
@@ -221,6 +313,15 @@ jobs:
             byte_count = $installer.Length
             sha256 = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             authenticode_status = [string]$signature.Status
+            bundle_resource_sha256 = [ordered]@{
+              'THIRD-PARTY-NOTICES.txt' = $noticeHash
+              'LICENSE.txt' = $licenseHash
+            }
+            evidence_sha256 = [ordered]@{
+              'THIRD-PARTY-NOTICES.txt' = (Get-FileHash reports/THIRD-PARTY-NOTICES.txt -Algorithm SHA256).Hash.ToLowerInvariant()
+              'third-party-notice-inventory.json' = (Get-FileHash reports/third-party-notice-inventory.json -Algorithm SHA256).Hash.ToLowerInvariant()
+              'installer-payload-list.txt' = (Get-FileHash reports/installer-payload-list.txt -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
             runner = $env:RUNNER_OS
             rustc_version = (& rustc --version)
             built_at_utc = (Get-Date).ToUniversalTime().ToString('o')

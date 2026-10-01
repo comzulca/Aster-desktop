@@ -2,7 +2,7 @@
 
 **Registry key:** `meta/muse-glimmer-30b`
 
-**Status:** design/fixture contract; live canary `NOT RUN` as of 2026-09-24 UTC.
+**Status:** implemented fixture contract; protocol-2 automatic loopback/exact-body fixtures pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`, while the later packaging/evidence source, completed main-branch CI/package binding and the one authorized final-artifact live canary remain `NOT RUN` as of this evidence checkpoint on 2026-10-01 UTC.
 
 **Default selection:** no; user must explicitly select it.
 
@@ -35,5 +35,5 @@ For `stream=true`, NVIDIA documents partial JSON deltas as data-only SSE `data: 
 ## Provenance
 
 - User-provided `02-muse-glimmer-30b.txt`, SHA-256 `9a44533e93b5fdd645e174e6a6f4f397216e1090d0ff4c1c1d8220fbb0562407` (nonstreaming example only).
-- NVIDIA [Muse Glimmer endpoint-specific schema](https://docs.api.nvidia.com/nim/reference/meta-muse-glimmer-30b-infer), reviewed 2026-09-24 UTC: exact model ID, recommended `0.95/1` sampling, `tool_choice=none`, streaming SSE, `reasoning_content` description and `data: [DONE]`.
+- NVIDIA [Muse Glimmer endpoint-specific schema](https://docs.api.nvidia.com/nim/reference/meta-muse-glimmer-30b-infer), rechecked 2026-10-01 UTC: exact model ID, recommended `0.95/1` sampling, `tool_choice=none`, streaming SSE, `reasoning_content` description and `data: [DONE]`.
 - NVIDIA [Muse Glimmer model page](https://build.nvidia.com/meta/muse-glimmer-30b) for endpoint availability and hosting terms; recheck availability and terms when enabling live access.

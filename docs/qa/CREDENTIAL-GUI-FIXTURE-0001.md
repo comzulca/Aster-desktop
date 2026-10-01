@@ -1,6 +1,6 @@
 # CREDENTIAL-GUI-FIXTURE-0001 — owner-run isolated native credential proof
 
-Date: 2026-09-30 UTC. Initial status: **NOT RUN**. Trace: ADR-0005, FR-013, SEC-010, TM-013, AC-026, T-033/T-034. This procedure must be executed only after a reviewed successful new candidate implements the flag; main run 62's LICENSE-only artifact does not contain it.
+Date: 2026-09-30 UTC; reconciled 2026-10-01 UTC. Status: the isolated diagnostic and automated T-033 boundary fixtures pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`, but owner-installed GUI execution T-034 and final package binding remain pending. Trace: ADR-0005, FR-013, SEC-010, TM-013, AC-026, T-033/T-034. Run this procedure only after the exact main-branch engineering build passes CI/package review; no PR candidate or earlier installer certifies the changed source.
 
 ## Preconditions
 

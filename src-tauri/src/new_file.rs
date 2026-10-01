@@ -1,11 +1,12 @@
-//! Internal Windows creation-journal proof seam. No command exposes it.
+//! Windows creation journal used by the native-approved new-file host path.
 //!
 //! Only metadata is journaled; project contents are never copied here. Each
 //! immutable record is encrypted by Windows DPAPI for the current user,
 //! created without overwriting and flushed before the next state transition.
-//! Target-OS ACL/power-loss/native-consent evidence remains an activation gate.
+//! Fixture evidence is separate from installed native-consent and physical
+//! power-loss acceptance; those unexecuted checks remain explicit limitations.
 
-#![allow(dead_code)] // This candidate is intentionally unreachable from shipping IPC.
+#![allow(dead_code)] // Cross-platform builds and recovery proof helpers share this module.
 
 #[cfg(windows)]
 mod windows {

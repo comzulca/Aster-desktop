@@ -1,49 +1,50 @@
-# WORKSPACE-CANDIDATE-0001 — host-only proof seams
+# WORKSPACE-CANDIDATE-0001 — protocol-2 project capability acceptance
 
-Date: 2026-09-30 UTC. Related: issue #12, ADR-0004, AC-008–AC-011, AC-022–AC-025, T-028–T-032. This document defines remaining manual gates; it is not a completed result record.
+Reconciled 2026-10-01 UTC. Related: issue #12, ADR-0003/0004/0006/0009, AC-008–AC-011, AC-022–AC-025, AC-028–AC-030, T-028–T-040. This document defines current behavior and remaining owner/target gates; it is not a completed result record.
 
-## What the candidate does and does not enable
+## Capability boundary
 
-Revision-specific owner-context fixture results are in [LOCAL-0002.md](LOCAL-0002.md), including retained error 1314 and independently successful rerun, and [LOCAL-0003.md](LOCAL-0003.md) for the later PR15 diagnostic runtime. [LOCAL-0004.md](LOCAL-0004.md) tracks the separate changed journal-privacy candidate, which cannot inherit those passes. The manual gates below remain separate.
+Protocol 2 reports exactly four host-owned Boolean capabilities:
 
-The candidate contains a closed edit parser, a lossless native read-only review window, request-bound post-review disclosure revalidation, retained root/ancestor pins, and a Windows-only new-file CREATE_NEW/encrypted-metadata-journal proof seam. Existing-file replacement remains proposal-only. All shipping file-read/disclosure, proposal and apply capability flags stay **false**; the six-command IPC allowlist is unchanged. No renderer/model approval Boolean, general write endpoint, shell, arbitrary URL or tool loop is added.
+| Field | Engineering-candidate value | Meaning |
+| --- | --- | --- |
+| `projectRead` | `true` on supported Windows host | Native root/file selection and guarded host snapshot. Renderer receives relative path, request ID, SHA-256 and byte count only. |
+| `proposals` | `true` on supported Windows host | Strict versioned proposal parsing and host-owned native review. |
+| `applyNewFile` | `true` on supported Windows host | Exact native approval followed by private-journal `CREATE_NEW` publication. |
+| `applyExistingFile` | `false` | Existing-file replacement remains proposal-only. |
 
-The internal `reserve_ephemeral` proof seam excludes a project-bearing request and its derived answer from continuation history. This is candidate behavior, not an active shipping file-upload route: shipping `send_message` still uses ordinary `reserve`, and host-file upload/disclosure capabilities remain disabled. Disclosure candidates bind the exact serialized outbound bytes, fixed NVIDIA destination, conversation/request, selected root, file identity/hash and nonce. Finalization consumes its dispatch chance and native approval before revalidation; root/file drift, expiry or replay denies. No network integration is activated by this seam.
+An unknown/missing field, incompatible protocol or unsupported platform denies. These bits are not claims that CI, laptop acceptance or a live provider has passed.
 
-New-file candidates show the complete host-bound root/absolute target, parent identities, hashes and exact new content. CREATE_NEW never overwrites an existing target. Immutable user-scoped DPAPI records contain bounded metadata, not project text or credentials, with an internal versioned integrity digest. Same-user malicious re-encryption is outside DPAPI's isolation guarantee. Unproven/mismatched recovery is ATTENTION_REQUIRED; there is no automatic delete, restore or cleanup of a target. At most 64 journaled operations fit the bounded scan. A full/ambiguous journal blocks further candidates.
+No renderer/model approval Boolean, generic path/write endpoint, shell, arbitrary URL, web or MCP tool exists. A project file may be read up to the guarded workspace ceiling, but a project-bearing composed prompt is capped at 32 KiB and is denied rather than truncated. The renderer never receives project plaintext.
 
-## Run the inert native-view diagnostic manually
+## Exact disclosure journey
 
-Use the exact reviewed engineering candidate under the owner's existing administrator account, launched normally/non-elevated. On 2026-09-30 the owner reported personally enabling **Windows Developer Mode** and requested continuation. This is an explicit owner-made baseline exception, not an agent modification or authority for further changes. Do not create or switch accounts, elevate automatically, alter remaining Windows/ESET protections, change additional policies/trust, or supply a real key. Close any ordinary Aster window first to keep the diagnostic observation separate from the normal application. Identify the installed **application executable**, not the NSIS setup executable.
+1. The host obtains a project root and file through native pickers and pins/revalidates root, ancestor, parent and file identities. It rejects traversal, ADS, device/UNC aliases, sensitive names, binary/invalid UTF-8, hardlinks and any reparse component.
+2. The host composes the project prompt and serializes the exact fixed-destination provider body before consent. The native review is owned by the normal application HWND and shows the exact bytes to be transmitted, not a summary.
+3. Confirmation creates/reserves only a host-private one-use approval. Before dispatch the host revalidates the selected snapshot, consumes approval and sends the reviewed byte sequence once without reserialization. Denial, close, expiry, drift or replay causes zero transmission. Failed/cancelled egress revokes the snapshot; completion retains only its bounded proposal right.
+4. `reserve_ephemeral` excludes the project-bearing user message and its derived answer from ordinary continuation history. Snapshot/proposal rights have a five-minute deadline and a 60-second host heartbeat removes expired plaintext/candidates. Re-disclosure requires a new selection/review. Exact transport fixtures do not spend the two live canaries.
 
-Preserve the prior non-elevated symlink fixture **FAIL with Windows error 1314** as historical evidence. The owner report alone does not imply a successful rerun or a passed NTFS gate. [LOCAL-0002.md](LOCAL-0002.md) separately records the exact-source 2026-09-30 owner non-elevated rerun: all 59 fixtures passed, including symlink/hardlink/reparse denial. This is internal fixture evidence at its recorded source, not interactive acceptance of a later candidate. A behavior change requires fresh source-bound checks. Keep the Developer Mode baseline field separate from the requirement that remaining protections stay unchanged.
+T-039 must prove metadata-only IPC, exact-body equality from review through loopback receipt, owner-HWND routing, one-use/expiry/drift denial, zero transmission on denial and absence from subsequent ordinary continuation. These automatic portions pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3` in `LOCAL-0006.md`; final main-branch CI/package binding and interactive installed review remain pending. Because no loopback seam ships, the positive installed equality journey remains NOT RUN.
 
-In normal PowerShell, substitute its literal path:
+## Proposal and new-file journey
 
-```powershell
-$asterApp = Read-Host 'Full path to the installed Aster application EXE'
-Get-FileHash -LiteralPath $asterApp -Algorithm SHA256
-$asterSmallReview = Start-Process -FilePath $asterApp -ArgumentList '--aster-review-fixture' -Wait -PassThru
-$asterSmallReview.ExitCode
-$asterLargeReview = Start-Process -FilePath $asterApp -ArgumentList '--aster-review-fixture-large' -Wait -PassThru
-$asterLargeReview.ExitCode
-```
+The model response is untrusted text. The host admits only one versioned, size-bounded typed proposal with a closed operation and validated relative path; surrounding prose, unknown fields, approval claims, URLs/tools, multiple operations and stale hashes deny. The host displays the complete target/content/digests in a separate native review and consumes that approval once.
 
-These flags select synthetic data before normal app initialization. They do not read project files, access credentials, make NVIDIA requests or publish a file. The reviewed text deliberately includes inert markup, mixed newlines, a supplementary-Unicode character and an end marker. The large fixture approaches the 5-MiB review ceiling; oversized content must be denied rather than truncated.
+For a new file, the host revalidates root/parent identities, writes a bounded current-user-DPAPI immutable intent under the private owner-only journal, uses Windows `CREATE_NEW`, retains/validates the created identity, writes/flushes/verifies exact bytes and records the outcome. A competing creator is preserved. Ambiguous interruption enters `ATTENTION_REQUIRED`; safe-helper recovery may classify only evidence it can verify and never blindly deletes, overwrites or restores project data.
 
-For each size, inspect full scrolling/read-only behavior and the final `END-SYNTHETIC` content marker; use Tab/Shift+Tab, Escape and Enter without moving focus from default Cancel. Repeat only these offline diagnostics to test explicit Confirm and Cancel. Record font/DPI/viewport, Narrator/control names, focus visibility and whether any part becomes inaccessible or visually reordered. Wait five minutes in one offline diagnostic to check expiry denies. Outcome classifications are sanitized: exit 0 = confirmed synthetic review **with no publication**, 2 = denied, 3 = unavailable/expired/display failure. Confirmation here is not approval for a real project or proof of new-file apply.
+T-040 must include strict proposal negatives, wrong HWND/caller, replay/expiry/drift, journal privacy and tampering, concurrent creator preservation, and real independent helper-process termination followed by restart/recovery at the defined creation boundaries. Injected errors alone are not process-kill, restart or power-loss evidence. These automatic portions, including the independent helper process, pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3` in `LOCAL-0006.md`; final main-branch CI/package binding, positive installed owner-HWND review and physical power loss remain untested. No proposal-injection seam ships.
 
-The primary commands wait for the GUI process and report its returned `ExitCode`; direct GUI invocation can return immediately and leave `$LASTEXITCODE` stale. Show this interactive test window deliberately; do not use it as a background helper.
+Existing-file replacement has no activation route. It requires a second native file-picker choice; the host snapshot's relative path and SHA-256 must exactly match the parsed proposal before review. The reviewed replacement must end as proposal-only, consume the review safely and leave the target unchanged. A separate race/recovery-safe design and evidence would be required to change `applyExistingFile` from false.
 
-## Independent activation gates — all initially NOT RUN
+## Installed Windows 11 acceptance
 
-| Gate | Required owner/target proof before activation |
-| --- | --- |
-| Native review | Full small/near-limit content, default-deny/cancel, keyboard, DPI/accessibility, expiry and display/readback failure. Future normal-app use must bind an authenticated owner HWND rather than the diagnostic's null owner. |
-| Disclosure | Native review of the exact request including all prior messages; denied request causes zero transmission; root/file mutation during review denies; one-use/expiry/replay; project and derived output never redisclosed without fresh consent. No live project upload is authorized by the two plain-text canaries. |
-| NTFS scope | Traversal/ADS/device/UNC/secret names, hardlinks, file/directory reparse points, parent/root aliases and races, outside sentinel unchanged. Retain the prior non-elevated symlink FAIL/error 1314 and the separate exact-source successful fixture rerun in LOCAL-0002.md. Neither the owner's Developer Mode report nor those internal fixtures grants configuration authority or completes normal-app interactive/race acceptance of a later candidate. |
-| Journal privacy | Host-selected private journal directory, owner-only intended access with explicit DACL evidence, DPAPI/current-user limitations, ciphertext tampering and foreign/corrupt entries. No project text in records. |
-| New-file publication | Concurrent creator preserved; retained parent pins and target sharing; exact content/id/hash; actual process termination at each intent/create/write/flush/complete boundary; restart and conservative ATTENTION_REQUIRED; independently assessed power-loss durability. Injected returns are not process-kill or power-loss proof. |
-| Existing replacement | No implementation or activation in this candidate. Separate identity/race/crash-safe design and evidence remain mandatory. |
+Use the exact reviewed installer in the owner's existing administrator account, launching the app normally/non-elevated. Keep all remaining Windows/ESET protections unchanged. The owner previously enabled Developer Mode; record it as an owner-made baseline exception, not authority for another security change. Preserve the earlier symlink error 1314 and later successful source-bound fixture as distinct historical results; neither certifies this candidate.
 
-Record PASS/FAIL/NOT RUN, exact source SHA, app/installer hashes, Windows build, existing account/non-elevated token, UTC, commands/steps, fixture IDs and redacted evidence for each gate. Record the owner-made Developer Mode exception separately from observed remaining protection states; do not assert configuration verification from the owner's report alone. Preserve historical failures and append new results without rewriting them. A subsequent activation change requires updated specifications/threat review, authenticated normal-app integration, independently passed gates and full exact-revision CI. Do not close issue #12 just because these internals compile or its fixtures pass.
+Record for each journey: immutable source/tree, CI run, manifest/ZIP/EXE hashes, installed app hash, Windows/build/NTFS/account/token, UTC, exact step, PASS/FAIL/NOT RUN and redacted evidence. Inspect:
+
+- small and near-limit native review, exact end marker, default-deny/cancel, keyboard, DPI/Narrator, owner HWND, expiry and display failure;
+- root/file metadata in the renderer with no selected plaintext, exact outbound disclosure review, mutation during review, denial/close/replay and no-history restart;
+- typed proposal and a disposable new-file creation, exact bytes/hash, concurrent creator preservation and conservative recovery observation;
+- explicit proposal-only result and unchanged target for an existing-file proposal.
+
+No live project upload is authorized by the two plain-text provider canaries. Do not put private contents, raw request bodies or credentials in evidence. Do not close issue #12 because local fixtures pass: bind T-038–T-040 to immutable source and package evidence, then execute every feasible installed row on this current primary laptop/principal account before final delivery. No guest/new account is allowed. Rows requiring absent loopback/proposal-injection seams remain explicitly NOT RUN, and existing-file write safety remains an open limitation.

@@ -5,7 +5,7 @@ import { App } from './App';
 import { DEFAULT_MODEL, MUSE_MODEL, type AppStatus, type Bridge, type StreamEvent } from './types';
 
 const baseline: AppStatus = {
-  policyVersion: 1,
+  policyVersion: 2,
   configured: true,
   defaultModel: DEFAULT_MODEL,
   models: [
@@ -26,7 +26,10 @@ function fakeBridge(status: AppStatus = baseline) {
     configureCredential: vi.fn(async () => ({ configured: true })),
     removeCredential: vi.fn(async () => ({ configured: false })),
     selectProject: vi.fn(async () => ({ selected: false, label: null })),
+    selectProjectFile: vi.fn(async () => null),
     sendMessage: vi.fn(async (args) => ({ requestId: args.requestId, accepted: true })),
+    sendProjectMessage: vi.fn(async (args) => ({ requestId: args.requestId, accepted: true })),
+    reviewProjectProposal: vi.fn(async () => ({ status: 'denied' as const, operation: 'create_new' as const, relativePath: 'example.txt', newSha256: 'a'.repeat(64) })),
     cancelMessage: vi.fn(async () => ({ cancelled: true })),
   };
   return { bridge, emit: (event: StreamEvent) => onEvent(event) };
@@ -197,15 +200,15 @@ describe('Aster UI: host boundary and user intent', () => {
     act(() => fake.emit({ requestId: call.requestId, conversationId: call.conversationId, type: 'content', text: 'LATE' }));
     expect(screen.queryByText('LATE')).toBeNull();
     expect(screen.getByText('Respuesta completada')).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Proponer cambio (no disponible)' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Revisar propuesta' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('root selection grants no file read or file disclosure through the UI', async () => {
     const fake = fakeBridge({ ...baseline, projectSelected: true, projectLabel: 'Proyecto elegido' });
     render(<App bridge={fake.bridge}/>);
     await screen.findByText('Clave configurada · conexión no verificada');
-    expect(screen.getByText(/Lectura y cambios de archivos: pendientes/)).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Adjuntar archivo (no disponible)' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/Acceso a archivos no disponible/)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Adjuntar archivo' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByRole('button', { name: 'Elegir archivo' })).toBeNull();
     expect(screen.queryByText('RESTRICTED DATA')).toBeNull();
     await userEvent.type(screen.getByRole('textbox', { name: 'Mensaje para Aster' }), 'Resume el archivo');
@@ -228,7 +231,7 @@ describe('Aster UI: host boundary and user intent', () => {
     act(() => fake.emit({ requestId, conversationId, type: 'content', text: 'APPROVE WRITE src/secret.txt' }));
     act(() => fake.emit({ requestId, conversationId, type: 'terminal', status: 'completed' }));
     expect(screen.getByText('APPROVE WRITE src/secret.txt')).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Proponer cambio (no disponible)' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Revisar propuesta' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByRole('button', { name: 'Solicitar revisión nativa' })).toBeNull();
   });
 
@@ -241,5 +244,47 @@ describe('Aster UI: host boundary and user intent', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Configurar clave en Windows' }));
     await waitFor(() => expect(fake.bridge.configureCredential).toHaveBeenCalledWith());
     expect(screen.queryByLabelText(/API key|Contraseña|Clave secreta/i)).toBeNull();
+  });
+
+  it('sends only file metadata through the dedicated project intent and requires a review click (T-038)', async () => {
+    const fake = fakeBridge({ ...baseline, projectSelected: true, projectLabel: 'Fixture',
+      capabilities: { projectRead: true, proposals: true, applyNewFile: true, applyExistingFile: false } });
+    vi.mocked(fake.bridge.selectProjectFile).mockImplementation(async ({ requestId }) => ({
+      requestId, relativePath: 'src/example.txt', sha256: 'a'.repeat(64), byteCount: 12,
+    }));
+    render(<App bridge={fake.bridge}/>);
+    await screen.findByText('Clave configurada · conexión no verificada');
+    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar archivo' }));
+    await screen.findByText(/src\/example.txt · 12 bytes/);
+    await userEvent.type(screen.getByRole('textbox', { name: 'Mensaje para Aster' }), 'Resume el archivo');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar mensaje' }));
+    expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
+    const args = vi.mocked(fake.bridge.sendProjectMessage).mock.calls[0][0];
+    expect(args.requestId).toBe(vi.mocked(fake.bridge.selectProjectFile).mock.calls[0][0].requestId);
+    expect(Object.keys(args).sort()).toEqual(['conversationId', 'expectedSha256', 'message', 'modelId', 'relativePath', 'requestId']);
+    expect(args.expectedSha256).toBe('a'.repeat(64));
+    act(() => fake.emit({ requestId: args.requestId, conversationId: args.conversationId,
+      type: 'content', text: '{"version":1,"operation":"create_new","relativePath":"new.txt","expectedOldSha256":null,"newContent":"hello"}' }));
+    act(() => fake.emit({ requestId: args.requestId, conversationId: args.conversationId, type: 'terminal', status: 'completed' }));
+    expect(fake.bridge.reviewProjectProposal).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Revisar propuesta' }));
+    await screen.findByText('Propuesta cancelada en la revisión nativa.');
+    expect(vi.mocked(fake.bridge.reviewProjectProposal).mock.calls[0][0].requestId).toBe(args.requestId);
+    expect(JSON.stringify(vi.mocked(fake.bridge.reviewProjectProposal).mock.calls[0][0])).not.toContain('approved');
+    expect((screen.getByRole('button', { name: 'Propuesta revisada' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('rejects forged attachment receipts and continues with ordinary chat (T-038)', async () => {
+    const fake = fakeBridge({ ...baseline, projectSelected: true, projectLabel: 'Fixture',
+      capabilities: { projectRead: true, proposals: true, applyNewFile: true, applyExistingFile: false } });
+    vi.mocked(fake.bridge.selectProjectFile).mockResolvedValue({ requestId: 'forged', relativePath: '../secret', sha256: 'a'.repeat(64), byteCount: 10 });
+    render(<App bridge={fake.bridge}/>);
+    await screen.findByText('Clave configurada · conexión no verificada');
+    await userEvent.click(screen.getByRole('button', { name: 'Adjuntar archivo' }));
+    await screen.findByText(/No se pudo adjuntar el archivo/);
+    await userEvent.type(screen.getByRole('textbox', { name: 'Mensaje para Aster' }), 'Hola');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar mensaje' }));
+    expect(fake.bridge.sendMessage).toHaveBeenCalledOnce();
+    expect(fake.bridge.sendProjectMessage).not.toHaveBeenCalled();
   });
 });

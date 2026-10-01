@@ -1,5 +1,28 @@
 # DEPENDENCIES-0001 — dependency and declared-license inventory
 
+## Current protocol-2 candidate — 2026-10-01 UTC
+
+The schema-2 generator combines complete installed-source Cargo metadata with separately target-filtered `x86_64-pc-windows-msvc` metadata and production npm dependencies. Current exact local-lock counts are **575 installed source packages**, **291 required for the packaged-app graph**, **45 without package-owned standalone text**, **10 covered by exact installed repository/license peers**, **four covered by reviewed overlays**, and **31 with no selected text**. One of the four overlays is the canonical license-steward MPL text described below; the other three are exact pinned upstream-repository MIT text. All 31 remaining gaps are non-required: 30 other-target/build Cargo packages and npm dev dependency `saxes@6.0.0`. `requiredMissingTextCount=0` and `requiredUnknownLicenseCount=0`. The generator fails if either becomes nonzero.
+
+Peer reuse is allowed only when normalized repository and exact declared-license identity match, with the donor recorded. Reviewed target-required gaps use pinned official WebView2 MIT texts—with the original copyright and permission notice preserved—and the canonical Mozilla MPL 2.0 text for `selectors`, each explicitly labeled as an overlay rather than repository-original and bound to its URL/VCS/hash.
+
+The local Rust package points `license-file` to repository `LICENSE`; the SBOM generator represents it as `LicenseRef-Aster-Proprietary`, and Tauri installs it as `LICENSE.txt`. The notice output and proprietary license are then independently extracted from the built NSIS and hashed against manifest inputs. These controls are source-graph and two-resource payload evidence, not an exact runtime binary SBOM, proof that every inventoried package ships, external-distribution clearance or legal advice. Remaining missing-text packages outside the target-required closure stay visible for production legal review.
+
+Reviewed overlays are closed to these exact identities; the generator and verifier reject any other mapping or changed VCS/text fingerprint:
+
+| Package | Provenance | Notice bytes / SHA-256 |
+| --- | --- | --- |
+| `selectors 0.38.0` | `servo/stylo` commit `572ecba2d1600e7c3d490586692a209faf703baa`, path `selectors`; canonical steward text from [Mozilla MPL 2.0](https://www.mozilla.org/media/MPL/2.0/index.txt), explicitly **not** represented as repository-original. | 16,726 / `3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04` |
+| `webview2-com 0.39.1` | `wravery/webview2-rs` commit `edc2caf886175ccaebe86078c9cfe1ae2a187328`, path `crates/webview2-com`; exact upstream root MIT file. | 1,067 / `0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73` |
+| `webview2-com-macros 0.8.1` | `wravery/webview2-rs` commit `dffa41a8a46d3f5565eefbff2de57d38d399f158`, path `crates/callback-macros`; exact upstream root MIT file. | 1,067 / `0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73` |
+| `webview2-com-sys 0.39.1` | `wravery/webview2-rs` commit `edc2caf886175ccaebe86078c9cfe1ae2a187328`, path `crates/bindings`; exact upstream root MIT file. | 1,067 / `0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73` |
+
+The authoritative machine-readable bindings are `scripts/ci/notices/manifest.json` and the generator's compiled expected mapping. Changing a loose text file or manifest alone cannot authorize another overlay. Exact-source offline generation at `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3` produced `THIRD-PARTY-NOTICES.txt` at **4,577,083 bytes**, SHA-256 `45c54b9a9c2ff83296ec2357be44dbb973c8109fa60963cc87754fe842a803ca`. Schema 2 records 575 total packages, 291 Windows-required, 45 direct missing texts, 10 peer-covered, four overlay-covered, one canonical-steward text, 31 non-required missing, zero required missing and zero required `UNKNOWN`. The final hosted package job must reproduce the output; this is not extracted installer-payload evidence or legal approval.
+
+The complete exact-source RustSec scan observed exactly two warnings in the broad lock graph: `proc-macro-error 1.0.4` and `glib 0.18.5`; the frontend audit reported no known vulnerabilities. The 311-package Windows-target metadata excludes both and includes non-yanked `yoke-derive 0.8.4`. No ignore or owner risk acceptance exists. For this **private internal engineering test only**, retain the locked graph and disclose those facts instead of claiming zero warnings. This is the engineering-builder disposition, not an owner/legal risk acceptance, production approval or external-distribution decision. The final packaging/evidence source still needs complete main-branch CI SBOM/audit/schema-2 outputs and independently extracted NSIS-resource evidence. Do not inherit the historical inventory below or treat generated notices/audit exit 0 as legal or risk approval.
+
+## Historical inventory — source `e35dcf7`
+
 Reviewed 2026-09-24 UTC against private `comzulca/Aster-desktop` source commit `e35dcf743831875c782d874313d1108919502cc4` and Git tree `e4cdf33858ed7bd4c23e2bde3b5d4a37f055df68`. This is a read-only inspection of the frontend and Windows host evidence from [workflow run 36043069614](https://github.com/comzulca/Aster-desktop/actions/runs/36043069614), plus the RustSec findings recorded in [CI-0005.md](CI-0005.md). It is a package-declaration inventory, not a legal opinion or approval to distribute an installer.
 
 | Evidence source | Artifact ID | Independently downloaded ZIP | Inventory result |

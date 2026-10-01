@@ -1,10 +1,48 @@
 # PACKAGING-0001 — unsigned engineering installer gate
 
-Current evidence snapshot: **2026-09-30 UTC**. Packaging and artifact integrity **PASS** for source `31a82bf50fc46ea4fbb91c50c59cc02a65da4c71` in [workflow run 36190804857](https://github.com/comzulca/Aster-desktop/actions/runs/36190804857), run number 58. Windows 11 install/uninstall, native UI and live-provider acceptance remain **NOT RUN**. On this date the owner chose an **unsigned engineering build**, not a self-signed or signed production release. Signing is outside this early-stage engineering decision, not an automatically passed production gate.
+Current status: **NOT RUN for the final protocol-2 engineering package**. Runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`, tree `7c1c567faa9fb9df9bb9c6c62e40491fde07c084`, passes complete local automatic gates, but PR run 36901019822 and any PR artifact remain `unsigned-engineering-candidate` evidence only and must not be installed. Root will add a packaging/evidence/documentation commit after `2bcacd7`, including a correction to obsolete Rust comments but no application statement/function or runtime-behavior change; only a fresh fully gated `refs/heads/main` push/workflow-dispatch package may be classified `unsigned-engineering-build` and considered for final verification. No current executable is the deliverable. Signing remains outside this engineering classification.
+
+The product identity remains `Aster Desktop`. Tauri's manifest artifact is therefore `Aster Desktop_0.1.0_x64-setup.exe`. The requested `Aster_0.1.0_x64-setup.exe` may be supplied only as a byte-for-byte delivery alias. Record both filenames, byte counts and SHA-256 values; they must be identical in content, while the manifest continues to identify the original Tauri filename.
+
+Both the Windows-host and packaging jobs regenerate schema-2 notices; local development packaging must do so before Tauri bundling. Pass both complete `cargo metadata` and a second `--filter-platform x86_64-pc-windows-msvc` metadata file to `third_party_notices.py`, followed by that target triple. The inventory distinguishes all installed source packages from `requiredForPackagedApp`: the target Cargo normal-dependency closure plus production npm graph. It fails unless the required subset has zero missing texts and zero unknown license declarations. This is not an exact binary SBOM or a legal decision.
+
+The installer must retain proprietary `LICENSE.txt` and generated `THIRD-PARTY-NOTICES.txt` at its application root. Exact-source schema 2 contains 575 total/291 required, 45 direct gaps, 10 peer-covered, four overlay-covered (one canonical), 31 non-required missing and zero required missing/unknown. `2bcacd7` generated 4,577,083 notice bytes, SHA-256 `45c54b9a9c2ff83296ec2357be44dbb973c8109fa60963cc87754fe842a803ca`. The final main job must reproduce its own inputs, extract the actual NSIS with 7-Zip, require exactly one notice/license resource and bind those hashes plus supplemental evidence. Structural closure is not exact binary SBOM or legal approval.
+
+The uploaded packaging ZIP must contain exactly five non-link entries and nothing else:
+
+1. `manifest.json`
+2. `Aster Desktop_0.1.0_x64-setup.exe`
+3. `THIRD-PARTY-NOTICES.txt`
+4. `third-party-notice-inventory.json`
+5. `installer-payload-list.txt`
+
+The manifest binds source/run/attempt, executable bytes/hash/`NotSigned`, SHA-256 for all three supplemental evidence files and exact hashes for the two installed-root resources. On the owner laptop, first make `7z.exe` available without changing security policy, then run `scripts/qa/Test-EngineeringInstallerArtifact.ps1` with the expected GitHub ZIP digest/source/run/attempt and a new absolute destination. It hashes through one read handle, rejects duplicate/unexpected/link/oversized entries, validates schema-2 counts/provenance and zero unresolved required packages, verifies supplemental hashes, materializes without execution, rechecks Authenticode, independently extracts the NSIS to `verified-installer-payload` and compares both bundle-resource hashes. Its success classification is `VERIFIED_NOT_INSTALLED`; installation remains separate.
+
+Only after the fresh exact-main CI, notice/audit disposition and five-entry/extracted-payload verifier pass may the setup be called the final unsigned engineering build and installed for manual testing. The two broad-lock warnings are absent from the Windows graph but are not owner risk acceptance. Before delivery, test those exact bytes on this primary Windows 11 laptop/principal account; preserve unavailable shipping-seam rows as NOT RUN and review every FAIL/blocker.
+
+## Historical verified artifacts
+
+The latest historical baseline is source `b0610c534fad0348486fb7cdd87774a9a2e81978`, [workflow run 36873066753](https://github.com/comzulca/Aster-desktop/actions/runs/36873066753), run number 85. Its four jobs passed, but it predates protocol 2 and is not a current delivery:
+
+| Item | Historical identity/result |
+| --- | --- |
+| Installer artifact ID | `11169203231` |
+| Downloaded ZIP | 3,590,406 bytes; SHA-256 `9049f2e611d076ab71f3e64de253851978391bbdad633d4c43187d567afedcec` |
+| Executable | `Aster Desktop_0.1.0_x64-setup.exe`, 3,608,012 bytes |
+| Executable SHA-256 | `f305e691ea498a1e1321f3710619b80ebee0c6a5323dc3c5d0538ff45e01e162` |
+| Manifest SHA-256 | `924b2bc1d5fee7ef70f8b0df4764a49de95cdabfb73f68806bec9bbaab5b85bb` |
+| Authenticode | `NotSigned` |
+| Artifact retention | Recorded expiry 2026-10-15; availability must be rechecked |
+
+The older 2026-09-30 run-58 record below remains historical as well.
+
+### Historical run 58 — 2026-09-30 UTC
+
+Packaging and artifact integrity **PASS** for source `31a82bf50fc46ea4fbb91c50c59cc02a65da4c71` in [workflow run 36190804857](https://github.com/comzulca/Aster-desktop/actions/runs/36190804857), run number 58. Windows 11 install/uninstall, native UI and live-provider acceptance were **NOT RUN**. On this date the owner chose an unsigned engineering build.
 
 After the `source-policy`, `frontend`, and `windows-host` jobs all pass on the same `main` commit, the `engineering-installer` job on hosted Windows Server 2025 may build one NSIS setup executable using Node 24 and the pinned Rust 1.97.0 inputs. `package.json` requires Node `>=24.15.0 <25` and pnpm 11.19.0; this run observed Node 24.21.0. It runs the Tauri CLI with `--ci --no-sign`, rejects changed lockfiles and an unexpected executable count, verifies that Authenticode reports `NotSigned`, then uploads the executable and a JSON manifest with exact source commit, workflow run/attempt, filename, byte count and SHA-256. Its private GitHub Actions artifact has 14-day retention; check current availability before use. The ZIP-level artifact digest and executable SHA-256 refer to different bytes and must never be interchanged.
 
-## Verified engineering artifact
+## Historical run-58 artifact
 
 | Item | Recorded identity/result |
 | --- | --- |
@@ -22,4 +60,4 @@ Before using an artifact on a Windows 11 laptop, verify the GitHub workflow and 
 
 ## Historical design state
 
-At design time packaging was **NOT RUN** and Node 22 was the configured input. This was superseded by the dated CI records and Node 24 dependency/toolchain update above. Historical failures and passes remain in `CI-0001.md` through `CI-0005.md`; no old result is rewritten as a result for the current source.
+At design time packaging was **NOT RUN** and Node 22 was the configured input. This was superseded by the dated CI records and Node 24 dependency/toolchain update above. Historical failures and passes remain in `CI-0001.md` through `CI-0006.md`; no old result is rewritten as a result for the current source.

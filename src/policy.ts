@@ -10,13 +10,15 @@ export const MODELS: readonly { id: ModelId; label: string }[] = [
 export function validStatus(value: unknown): value is AppStatus {
   if (typeof value !== 'object' || value === null) return false;
   const s = value as Partial<AppStatus>;
-  if (s.policyVersion !== 1 || typeof s.configured !== 'boolean' ||
+  if (s.policyVersion !== 2 || typeof s.configured !== 'boolean' ||
       s.defaultModel !== DEFAULT_MODEL || !Array.isArray(s.models) || s.models.length !== 2 ||
       typeof s.activeRequest !== 'boolean' || typeof s.projectSelected !== 'boolean' ||
       !(s.projectLabel === null || typeof s.projectLabel === 'string') ||
       !s.capabilities || typeof s.capabilities !== 'object') return false;
   const c = s.capabilities;
-  if (c.projectRead !== false || c.proposals !== false || c.applyNewFile !== false || c.applyExistingFile !== false) return false;
+  if (typeof c.projectRead !== 'boolean' || typeof c.proposals !== 'boolean' ||
+      typeof c.applyNewFile !== 'boolean' || c.applyExistingFile !== false ||
+      (c.applyNewFile && !c.proposals)) return false;
   const actual = s.models.map((m) => m && typeof m === 'object' ? m.id : '').sort();
   return actual.join('|') === [DEFAULT_MODEL, MUSE_MODEL].sort().join('|') &&
     s.models.every((m) => typeof m.label === 'string' && m.label.length <= 100);

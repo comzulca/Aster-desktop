@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use tokio::sync::watch;
 
-pub const POLICY_VERSION: u32 = 1;
+pub const POLICY_VERSION: u32 = 2;
 pub const DEFAULT_MODEL: &str = "nvidia/nemotron-3.5-lightning-30b-a3b";
 pub const MAX_MESSAGE_BYTES: usize = 64 * 1024;
 pub const MAX_CONTEXT_BYTES: usize = 512 * 1024;
@@ -142,9 +142,8 @@ impl SessionState {
         self.reserve_with_retention(conversation_id, request_id, model, prompt, true)
     }
 
-    // Internal proof seam only: no renderer command or disclosure capability
-    // is enabled. A future host path must review the exact outbound request.
-    #[allow(dead_code)]
+    // Project dispatch reviews the exact outbound request and never retains
+    // the project prompt or derived answer in ordinary continuation history.
     pub(crate) fn reserve_ephemeral(
         &mut self,
         conversation_id: &str,
