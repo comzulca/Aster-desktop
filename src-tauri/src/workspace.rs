@@ -2464,8 +2464,10 @@ mod tests {
         use std::io::Write;
         let fixture = NativeFixture::new();
         let weak = fixture.dir.join("weak-journal");
-        std::fs::create_dir(&weak).unwrap();
+        journal_privacy::create_directory_exact(&weak).unwrap();
         let acl = journal_privacy::fixture_acl_handle(&weak, ObjectKind::Directory).unwrap();
+        let owner = journal_privacy::OwnerSid::current_process().unwrap();
+        owner.validate_handle(&acl, ObjectKind::Directory).unwrap();
         // Deliberately weaken only the freshly owned disposable object.
         journal_privacy::fixture_set_private(&acl, ObjectKind::Directory, false).unwrap();
         // SetSecurityInfo propagates the parent's current inheritance model
@@ -2473,7 +2475,6 @@ mod tests {
         // with an explicit protected descriptor at CREATE_NEW; never repair
         // an inherited child ACL after a failed preservation assertion.
         let sentinel_path = weak.join("sentinel.txt");
-        let owner = journal_privacy::OwnerSid::current_process().unwrap();
         let mut sentinel = journal_privacy::create_record_exact(&sentinel_path, &owner).unwrap();
         sentinel.write_all(b"unchanged synthetic marker").unwrap();
         sentinel.sync_all().unwrap();
