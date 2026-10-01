@@ -249,7 +249,8 @@
         "SEC-009"
       ],
       "test_ids": [
-        "T-021"
+        "T-021",
+        "T-037"
       ],
       "threat_ids": [
         "TM-011"
@@ -376,58 +377,54 @@
     {
       "phase": 0,
       "status": "PASS",
-      "source_revision": "649c4a13e5b1f8b74c660752095d82e841e3604e",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows 11 Pro 10.0.26300; local Git 2.56.0.windows.1; read-only inventory.",
-      "command": "git rev-parse HEAD/HEAD^{tree}; git ls-tree -r -l HEAD; independently compare all 79 raw Git blob hashes in actual clone and 49 non-documentation tracked blobs in the tested development copy. Six build-generated untracked permission TOMLs excluded, identified and preserved.",
-      "run_at_utc": "2026-10-01T10:45:23.7265762Z",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Owner inventory/native checks: QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300 at12:45:09Z-12:47:38Z. Independent QUARK2\\CodexSandboxOffline technical sandbox performed read-only82blob/source/specification/threat audit at12:48:00Z; no technical fixture result is credited as owner acceptance.",
+      "command": "Original-owner Git tree/raw hash and size binding of all82 tracked files before/after complete checks; independent82/main79 manifest comparison, exactly11 deltas/71unchanged files. Six generated untracked permission files excluded.",
+      "run_at_utc": "2026-10-01T12:48:00.4670635Z",
       "evidence_paths": [
-        "docs/qa/LOCAL-0004.md"
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
       ]
     },
     {
       "phase": 1,
       "status": "PASS",
-      "source_revision": "649c4a13e5b1f8b74c660752095d82e841e3604e",
-      "environment": "Read-only source/specification review on Windows 11; no GUI or live execution.",
-      "command": "Re-review unchanged SPEC-0001/verification-plan FR-014/SEC-011/AC-027/T-035 mappings at exact source; confirm only cfg(test) setup delta and separate dormant/privacy vs aggregate/manual gates.",
-      "run_at_utc": "2026-10-01T10:46:03Z",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Owner inventory/native checks: QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300 at12:45:09Z-12:47:38Z. Independent QUARK2\\CodexSandboxOffline technical sandbox performed read-only82blob/source/specification/threat audit at12:48:00Z; no technical fixture result is credited as owner acceptance.",
+      "command": "Complete SPEC0001/verification-plan/ADR0008 review: NFR003/SEC009/TM011/AC019/T037 version-alignment prerequisite, T037phase9 matching AC019/T021; preserve privacy FR014/SEC011/AC027/T035 and separate actual-target gates.",
+      "run_at_utc": "2026-10-01T12:48:00.4670635Z",
       "evidence_paths": [
-        "docs/specs/SPEC-0001.md",
-        "docs/aster-builder/verification-plan.md",
-        "docs/qa/LOCAL-0004.md"
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
       ]
     },
     {
       "phase": 2,
       "status": "PASS",
-      "source_revision": "649c4a13e5b1f8b74c660752095d82e841e3604e",
-      "environment": "Read-only threat/authority review on Windows 11; source-bound descriptor design and retained failure/pass records.",
-      "command": "Re-review unchanged TM-014/ADR-0006 with explicit fresh current-user test-object owner baseline; independent static audit found no actionable issue; production prefix/other runtime files unchanged; retain hosted FAIL, technical block and owner PASS separately, flags false.",
-      "run_at_utc": "2026-10-01T10:47:33Z",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Owner inventory/native checks: QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300 at12:45:09Z-12:47:38Z. Independent QUARK2\\CodexSandboxOffline technical sandbox performed read-only82blob/source/specification/threat audit at12:48:00Z; no technical fixture result is credited as owner acceptance.",
+      "command": "Complete THREAT-MODEL0001/ADR0008/TM011 review: frozen/locked inputs, no version bypass, independent static/raw82blob review no actionable finding; runtime/credential/provider/config/capability payload unchanged, four shipping fileflags false and process candidate excluded.",
+      "run_at_utc": "2026-10-01T12:48:00.4670635Z",
       "evidence_paths": [
-        "docs/security/THREAT-MODEL-0001.md",
-        "docs/adr/ADR-0006.md",
-        "docs/qa/LOCAL-0004.md"
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
       ]
     },
     {
       "phase": 3,
-      "reason": "Source-bound offline Rust/frontend fixtures PASS (LOCAL-0004); actual owner GUI/renderer secret-boundary/accessibility acceptance on a new verified artifact remains NOT RUN.",
+      "reason": "Source-bound owner90Rust/23frontend and guard fixtures PASS; actual owner GUI/renderer secret-boundary/accessibility acceptance remains NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 4,
-      "reason": "Offline Windows loopback transport/closed-registry fixtures passed; owner live per-model canaries and normal-app secret-boundary acceptance remain NOT RUN.",
+      "reason": "Source-bound closed-registry/loopback transport fixtures PASS; final two live NVIDIA canaries and normal-app secret-boundary acceptance remain NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 5,
-      "reason": "Synthetic Windows Credential Manager API/DPAPI fixtures passed; owner native/Control Panel GUI, renderer secret-boundary and no-history restart evidence pending.",
+      "reason": "Source-bound synthetic Windows Credential Manager/DPAPI fixtures PASS; actual native/Control Panel GUI, renderer secret-boundary and no-history restart acceptance remain NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 6,
-      "reason": "Source-bound dormant journal privacy and internal workspace fixtures PASS (LOCAL-0004/T-035); normal-app owner HWND/disclosure/proposal/new-file routes, independent-process recovery, existing replacement and power-loss gates remain missing. File IPC/apply stay disabled.",
+      "reason": "Source-bound dormant journal privacy/internal workspace fixtures PASS; normal owner-HWND/disclosure/proposal/new-file routes, independent-process source integration, existing replacement and power-loss remain missing. Four shipping fileflags false.",
       "status": "NOT RUN"
     },
     {
@@ -437,12 +434,12 @@
     },
     {
       "phase": 8,
-      "reason": "Exact-source owner fmt/check/Clippy/full90 Rust and typecheck/23 frontend/build PASS (LOCAL-0004). Previous hosted run72 Windows89PASS/1FAIL and technical ApplicationControl4551 block retained separately. New exact-head hosted CI/audit/SBOM/payload license review and artifact verification pending; interactive acceptance independent.",
+      "reason": "Original-owner frozen frontend/typecheck23tests/build and locked fmt/check/Clippy/full90Rust PASS; guard73/secret0/frontend audit/RustSec3allowedwarnings observed. Fresh exact-head hostedCI/SBOM/declared-license/payload/unsigned packaging pending; structural and fixture PASS is not artifact/manual acceptance.",
       "status": "NOT RUN"
     },
     {
       "phase": 9,
-      "reason": "Unsigned engineering packaging/manual acceptance on this revision pending; signed/public production promotion is not requested or claimed.",
+      "reason": "New-source unsigned engineering artifact verification and manual acceptance pending; signed/public production promotion not requested or claimed.",
       "status": "NOT RUN"
     }
   ],
@@ -460,7 +457,7 @@
     "name": "Aster-desktop",
     "platform": "Windows-11",
     "release_class": "development",
-    "source_revision": "649c4a13e5b1f8b74c660752095d82e841e3604e"
+    "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d"
   },
   "providers": [
     {
@@ -814,12 +811,12 @@
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
       "status": "PASS",
-      "source_revision": "649c4a13e5b1f8b74c660752095d82e841e3604e",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows 11 Pro 10.0.26300, local NTFS, Rust 1.97.0, ASTER_DISABLE_LIVE=1, locked/offline fixtures.",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; 90 PASS, 0 failed/ignored/filtered, including strict typed parser fixtures; no native human consent claimed.",
-      "run_at_utc": "2026-10-01T10:40:40.0485755Z",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
+      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
+      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
       "evidence_paths": [
-        "docs/qa/LOCAL-0004.md"
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
       ]
     },
     {
@@ -841,12 +838,12 @@
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
       "status": "PASS",
-      "source_revision": "649c4a13e5b1f8b74c660752095d82e841e3604e",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows 11 Pro 10.0.26300, local NTFS, Rust 1.97.0, ASTER_DISABLE_LIVE=1, locked/offline fixtures.",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; 90 PASS, 0 failed/ignored/filtered, including internal disclosure/grant/history invalidation fixtures; no shipping endpoint or actual native GUI consent claimed.",
-      "run_at_utc": "2026-10-01T10:40:40.0485755Z",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
+      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
+      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
       "evidence_paths": [
-        "docs/qa/LOCAL-0004.md"
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
       ]
     },
     {
@@ -854,12 +851,12 @@
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 3,
       "status": "PASS",
-      "source_revision": "649c4a13e5b1f8b74c660752095d82e841e3604e",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows 11 Pro 10.0.26300, Rust 1.97.0, ASTER_DISABLE_LIVE=1, locked/offline synthetic fixtures.",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; 90 PASS, 0 failed/ignored/filtered, including pure/fake-backend credential diagnostic isolation fixtures; no actual GUI, real credential or live provider access.",
-      "run_at_utc": "2026-10-01T10:40:40.0485755Z",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
+      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
+      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
       "evidence_paths": [
-        "docs/qa/LOCAL-0004.md"
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
       ]
     },
     {
@@ -874,13 +871,26 @@
       "path": "docs/qa/JOURNAL-PRIVACY-0001.md",
       "verification_phase": 6,
       "status": "PASS",
-      "source_revision": "649c4a13e5b1f8b74c660752095d82e841e3604e",
-      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows 11 Pro 10.0.26300, local NTFS, Rust 1.97.0, ASTER_DISABLE_LIVE=1, locked/offline generated synthetic objects only.",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; full 90 PASS, 0 failed/ignored/filtered, including four pure and six native privacy fixtures after two independently reviewed test-only setup repairs. Prior local/hosted 89 PASS/1 FAIL and technical Windows4551 block retained; fresh hosted checks pending. Aggregate T-031, GUI, external-process termination and power-loss are not claimed.",
-      "run_at_utc": "2026-10-01T10:40:40.0485755Z",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
+      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
+      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
       "evidence_paths": [
-        "docs/qa/LOCAL-0004.md",
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md",
         "docs/qa/JOURNAL-PRIVACY-0001.md"
+      ]
+    },
+    {
+      "id": "T-037",
+      "path": "docs/qa/DEPENDENCY-ALIGNMENT-0001.md",
+      "verification_phase": 9,
+      "status": "PASS",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner Windows11 normal token; Python3.12.14 -I -B; exact candidate guard and four fixed dependency inputs.",
+      "command": "python -I -B scripts/ci/check_tauri_versions.py --self-test; --root .;73purefixtures PASS and locked Rust2.12.1/API2.12.0 major/minor PASS. Structural source check only; install/audit/SBOM/payload/packaging/manual gates independent.",
+      "run_at_utc": "2026-10-01T12:51:36.4068599Z",
+      "evidence_paths": [
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
       ]
     }
   ],
