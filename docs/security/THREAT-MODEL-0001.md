@@ -46,6 +46,8 @@ The arrows cross different trust boundaries: user intent to renderer, untrusted 
 
 ## Explicit release blockers
 
+ADR-0008 / T-037 adds a read-only source-policy check to TM-011: compare exact locked root API and unique Rust tauri major/minor before dependent jobs, rejecting unknown/ambiguous inputs. It does not substitute for frozen/locked installs, supply-chain audit, actual bundling, payload notices or source-bound target acceptance. No version-mismatch bypass, runtime permission or capability change is authorized. Coordinated inputs remain unpinned/unbuilt until a new exact-source candidate passes its own gates.
+
 1. No Windows Credential Manager test means the live credential path is **NOT RUN**; use fake-store tests only and do not declare live Windows connectivity.
 2. No per-provider fake SSE + live canary means the corresponding NVIDIA model is **NOT RUN** or disabled. A fixture PASS alone does not claim live compatibility.
 3. No native Windows race/crash/recovery tests and safe existing-file publication primitive means existing-file **apply** is disabled, even if proposal rendering passes. `CREATE_NEW` is independently gated.
