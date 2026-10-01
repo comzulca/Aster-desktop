@@ -3,6 +3,8 @@
 
 mod credential;
 mod credential_fixture;
+#[cfg(windows)]
+mod journal_privacy;
 mod native_review;
 #[cfg(windows)]
 mod new_file;
