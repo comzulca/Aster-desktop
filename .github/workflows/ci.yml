@@ -269,6 +269,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Installer payload extraction failed.' }
           $payloadItems = @(Get-ChildItem -LiteralPath $payloadRoot -Recurse -Force)
           if (@($payloadItems | Where-Object { ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 }).Count -ne 0) { throw 'Extracted installer payload contains a link/reparse point.' }
+          # NSIS advertises encoded patch bytes for uninstall.exe, not its
+          # reconstructed executable length. Enforce actual member bounds too.
+          if (@($payloadItems | Where-Object { -not $_.PSIsContainer -and $_.Length -gt 268435456 }).Count -ne 0) { throw 'Extracted installer payload member exceeds 256 MiB.' }
           $expandedBytes = @($payloadItems | Where-Object { -not $_.PSIsContainer } | Measure-Object -Property Length -Sum).Sum
           if ([long]$expandedBytes -gt 536870912) { throw 'Extracted installer payload exceeds the 512 MiB expanded-size bound.' }
           $noticeMatches = @($payloadItems | Where-Object { -not $_.PSIsContainer -and $_.Name -ceq 'THIRD-PARTY-NOTICES.txt' })
