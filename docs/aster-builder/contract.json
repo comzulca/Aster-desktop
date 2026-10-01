@@ -376,37 +376,55 @@
   "gates": [
     {
       "phase": 0,
-      "status": "NOT RUN",
-      "reason": "Coordinated Tauri dependency inputs invalidate dependent prior-source evidence. Fresh complete source binding, specification/threat review and quality/artifact checks pending; retain earlier observations in LOCAL-0004."
+      "status": "PASS",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300; local NTFS; read-only inventory/specification/threat review and independent source audit.",
+      "command": "Original-owner Git tree/raw hash and size binding of all82 tracked files before/after complete checks; independent82/main79 manifest comparison, exactly11 deltas/71unchanged files. Six generated untracked permission files excluded.",
+      "run_at_utc": "2026-10-01T12:48:00.4670635Z",
+      "evidence_paths": [
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
+      ]
     },
     {
       "phase": 1,
-      "status": "NOT RUN",
-      "reason": "Coordinated Tauri dependency inputs invalidate dependent prior-source evidence. Fresh complete source binding, specification/threat review and quality/artifact checks pending; retain earlier observations in LOCAL-0004."
+      "status": "PASS",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300; local NTFS; read-only inventory/specification/threat review and independent source audit.",
+      "command": "Complete SPEC0001/verification-plan/ADR0008 review: NFR003/SEC009/TM011/AC019/T037 version-alignment prerequisite, T037phase9 matching AC019/T021; preserve privacy FR014/SEC011/AC027/T035 and separate actual-target gates.",
+      "run_at_utc": "2026-10-01T12:48:00.4670635Z",
+      "evidence_paths": [
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
+      ]
     },
     {
       "phase": 2,
-      "status": "NOT RUN",
-      "reason": "Coordinated Tauri dependency inputs invalidate dependent prior-source evidence. Fresh complete source binding, specification/threat review and quality/artifact checks pending; retain earlier observations in LOCAL-0004."
+      "status": "PASS",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300; local NTFS; read-only inventory/specification/threat review and independent source audit.",
+      "command": "Complete THREAT-MODEL0001/ADR0008/TM011 review: frozen/locked inputs, no version bypass, independent static/raw82blob review no actionable finding; runtime/credential/provider/config/capability payload unchanged, four shipping fileflags false and process candidate excluded.",
+      "run_at_utc": "2026-10-01T12:48:00.4670635Z",
+      "evidence_paths": [
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
+      ]
     },
     {
       "phase": 3,
-      "reason": "New coordinated dependency candidate needs fresh exact-source quality/CI/audit/SBOM/unsigned packaging and independent target acceptance. Earlier source-specific fixture PASS cannot certify changed dependencies; existing pending capability/manual/release gates remain unchanged.",
+      "reason": "Source-bound owner90Rust/23frontend and guard fixtures PASS; actual owner GUI/renderer secret-boundary/accessibility acceptance remains NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 4,
-      "reason": "New coordinated dependency candidate needs fresh exact-source quality/CI/audit/SBOM/unsigned packaging and independent target acceptance. Earlier source-specific fixture PASS cannot certify changed dependencies; existing pending capability/manual/release gates remain unchanged.",
+      "reason": "Source-bound closed-registry/loopback transport fixtures PASS; final two live NVIDIA canaries and normal-app secret-boundary acceptance remain NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 5,
-      "reason": "New coordinated dependency candidate needs fresh exact-source quality/CI/audit/SBOM/unsigned packaging and independent target acceptance. Earlier source-specific fixture PASS cannot certify changed dependencies; existing pending capability/manual/release gates remain unchanged.",
+      "reason": "Source-bound synthetic Windows Credential Manager/DPAPI fixtures PASS; actual native/Control Panel GUI, renderer secret-boundary and no-history restart acceptance remain NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 6,
-      "reason": "New coordinated dependency candidate needs fresh exact-source quality/CI/audit/SBOM/unsigned packaging and independent target acceptance. Earlier source-specific fixture PASS cannot certify changed dependencies; existing pending capability/manual/release gates remain unchanged.",
+      "reason": "Source-bound dormant journal privacy/internal workspace fixtures PASS; normal owner-HWND/disclosure/proposal/new-file routes, independent-process source integration, existing replacement and power-loss remain missing. Four shipping fileflags false.",
       "status": "NOT RUN"
     },
     {
@@ -416,12 +434,12 @@
     },
     {
       "phase": 8,
-      "reason": "New coordinated dependency candidate needs fresh exact-source quality/CI/audit/SBOM/unsigned packaging and independent target acceptance. Earlier source-specific fixture PASS cannot certify changed dependencies; existing pending capability/manual/release gates remain unchanged.",
+      "reason": "Original-owner frozen frontend/typecheck23tests/build and locked fmt/check/Clippy/full90Rust PASS; guard73/secret0/frontend audit/RustSec3allowedwarnings observed. Fresh exact-head hostedCI/SBOM/declared-license/payload/unsigned packaging pending; structural and fixture PASS is not artifact/manual acceptance.",
       "status": "NOT RUN"
     },
     {
       "phase": 9,
-      "reason": "New coordinated dependency candidate needs fresh exact-source quality/CI/audit/SBOM/unsigned packaging and independent target acceptance. Earlier source-specific fixture PASS cannot certify changed dependencies; existing pending capability/manual/release gates remain unchanged.",
+      "reason": "New-source unsigned engineering artifact verification and manual acceptance pending; signed/public production promotion not requested or claimed.",
       "status": "NOT RUN"
     }
   ],
@@ -439,7 +457,7 @@
     "name": "Aster-desktop",
     "platform": "Windows-11",
     "release_class": "development",
-    "source_revision": "UNPINNED"
+    "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d"
   },
   "providers": [
     {
@@ -792,8 +810,14 @@
       "id": "T-029",
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
-      "status": "NOT RUN",
-      "reason": "Earlier owner fixture observations are retained in LOCAL-0004 at their original source. Changed coordinated dependencies require a fresh complete source-bound rerun before this candidate is credited."
+      "status": "PASS",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
+      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
+      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
+      "evidence_paths": [
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
+      ]
     },
     {
       "id": "T-030",
@@ -813,15 +837,27 @@
       "id": "T-032",
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 6,
-      "status": "NOT RUN",
-      "reason": "Earlier owner fixture observations are retained in LOCAL-0004 at their original source. Changed coordinated dependencies require a fresh complete source-bound rerun before this candidate is credited."
+      "status": "PASS",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
+      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
+      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
+      "evidence_paths": [
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
+      ]
     },
     {
       "id": "T-033",
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 3,
-      "status": "NOT RUN",
-      "reason": "Earlier owner fixture observations are retained in LOCAL-0004 at their original source. Changed coordinated dependencies require a fresh complete source-bound rerun before this candidate is credited."
+      "status": "PASS",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
+      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
+      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
+      "evidence_paths": [
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
+      ]
     },
     {
       "id": "T-034",
@@ -834,15 +870,28 @@
       "id": "T-035",
       "path": "docs/qa/JOURNAL-PRIVACY-0001.md",
       "verification_phase": 6,
-      "status": "NOT RUN",
-      "reason": "Earlier owner fixture observations are retained in LOCAL-0004 at their original source. Changed coordinated dependencies require a fresh complete source-bound rerun before this candidate is credited."
+      "status": "PASS",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner QUARK2\\Rene Nehru Alvarez, non-elevated Windows11Pro10.0.26300, local NTFS; Rust1.97.0; ASTER_DISABLE_LIVE=1; locked synthetic fixtures.",
+      "command": "cargo fmt/check/clippy/test against actual clone manifest; full90 Rust library tests PASS,0failed/ignored/filtered, empty main/doc binaries PASS; all82 exact raw tracked blobs match source before/after. Process module, actual GUI/real credential/live-provider acceptance excluded.",
+      "run_at_utc": "2026-10-01T12:47:38.5421166Z",
+      "evidence_paths": [
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md",
+        "docs/qa/JOURNAL-PRIVACY-0001.md"
+      ]
     },
     {
       "id": "T-037",
       "path": "docs/qa/DEPENDENCY-ALIGNMENT-0001.md",
       "verification_phase": 9,
-      "status": "NOT RUN",
-      "reason": "73 staged pure guard fixtures and bounded root-input alignment observations are recorded separately. Complete coordinated source integration/binding, fresh quality/CI/build/audit/SBOM/license/unsigned packaging remains NOT RUN; structural PASS is not acceptance."
+      "status": "PASS",
+      "source_revision": "aca68683023c479783ddda550867d9d5e48fc02d",
+      "environment": "Original owner Windows11 normal token; Python3.12.14 -I -B; exact candidate guard and four fixed dependency inputs.",
+      "command": "python -I -B scripts/ci/check_tauri_versions.py --self-test; --root .;73purefixtures PASS and locked Rust2.12.1/API2.12.0 major/minor PASS. Structural source check only; install/audit/SBOM/payload/packaging/manual gates independent.",
+      "run_at_utc": "2026-10-01T12:51:36.4068599Z",
+      "evidence_paths": [
+        "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"
+      ]
     }
   ],
   "threats": [
