@@ -343,39 +343,50 @@
     },
     {
       "id": "AC-026",
-      "requirement_ids": ["FR-013", "SEC-010"],
-      "test_ids": ["T-033", "T-034"],
-      "threat_ids": ["TM-013"],
+      "requirement_ids": [
+        "FR-013",
+        "SEC-010"
+      ],
+      "test_ids": [
+        "T-033",
+        "T-034"
+      ],
+      "threat_ids": [
+        "TM-013"
+      ],
       "verification_phase": 3
+    },
+    {
+      "id": "AC-027",
+      "requirement_ids": [
+        "FR-014",
+        "SEC-011",
+        "SEC-006"
+      ],
+      "test_ids": [
+        "T-035"
+      ],
+      "threat_ids": [
+        "TM-014"
+      ],
+      "verification_phase": 6
     }
   ],
   "gates": [
     {
       "phase": 0,
-      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
-      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; installed Git 2.56.0; static source/inventory review, not interactive acceptance.",
-      "command": "git ls-tree -r -l HEAD and per-file git hash-object --no-filters; scope/spec/threat source review recorded in LOCAL-0003",
-      "run_at_utc": "2026-09-30T22:10:14.2635473Z",
-      "evidence_paths": ["docs/qa/LOCAL-0003.md"],
-      "status": "PASS"
+      "status": "NOT RUN",
+      "reason": "New private-journal DACL candidate requires immutable source binding and fresh source-bound inventory/spec/threat validation; historical LOCAL-0003 evidence is retained, not transferred."
     },
     {
       "phase": 1,
-      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
-      "environment": "Windows 11 Pro 10.0.26300 build 26300; source-bound static specification review, not GUI acceptance.",
-      "command": "Independent root/source review of SPEC-0001 and FR-013/SEC-010/AC-026 to separate T-033/T-034; source binding recorded in LOCAL-0003",
-      "run_at_utc": "2026-09-30T22:10:14.2635473Z",
-      "evidence_paths": ["docs/qa/LOCAL-0003.md", "docs/specs/SPEC-0001.md", "docs/aster-builder/verification-plan.md"],
-      "status": "PASS"
+      "status": "NOT RUN",
+      "reason": "New private-journal DACL candidate requires immutable source binding and fresh source-bound inventory/spec/threat validation; historical LOCAL-0003 evidence is retained, not transferred."
     },
     {
       "phase": 2,
-      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
-      "environment": "Windows 11 Pro 10.0.26300 build 26300; independent read-only source/threat review, no GUI or OS credential access by reviewer.",
-      "command": "Independent root/source audit of TM-013/ADR-0005 and typed credential diagnostic boundaries; source binding recorded in LOCAL-0003",
-      "run_at_utc": "2026-09-30T22:10:14.2635473Z",
-      "evidence_paths": ["docs/qa/LOCAL-0003.md", "docs/security/THREAT-MODEL-0001.md", "docs/adr/ADR-0005.md"],
-      "status": "PASS"
+      "status": "NOT RUN",
+      "reason": "New private-journal DACL candidate requires immutable source binding and fresh source-bound inventory/spec/threat validation; historical LOCAL-0003 evidence is retained, not transferred."
     },
     {
       "phase": 3,
@@ -404,7 +415,7 @@
     },
     {
       "phase": 8,
-      "reason": "Owner offline fmt/check/Clippy, 80 Rust and 23 frontend fixtures passed; exact-head hosted CI/audit/SBOM/license review, new packaging and interactive Windows acceptance pending.",
+      "reason": "Historical LOCAL-0003 offline 80 Rust/23 frontend fixtures passed at its source; new DACL candidate requires fresh owner checks, exact-head hosted CI/audit/SBOM/license review and packaging. Interactive acceptance remains independent.",
       "status": "NOT RUN"
     },
     {
@@ -427,7 +438,7 @@
     "name": "Aster-desktop",
     "platform": "Windows-11",
     "release_class": "development",
-    "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e"
+    "source_revision": "UNPINNED"
   },
   "providers": [
     {
@@ -568,6 +579,14 @@
     {
       "id": "SEC-010",
       "text": "Credential diagnostic custody and malformed invocation fail closed before normal host initialization, excluding production credential targets, IPC, providers and network."
+    },
+    {
+      "id": "FR-014",
+      "text": "Admit the dormant creation journal through retained NTFS pins and creation-time explicit current-process-user private directory/record descriptors."
+    },
+    {
+      "id": "SEC-011",
+      "text": "Revalidate bounded owner/protected owner-only journal DACLs by retained handles before use/success; reject weak/foreign/drifting objects unchanged, without privilege or unrelated ACL changes."
     }
   ],
   "schema_version": 1,
@@ -771,13 +790,9 @@
     {
       "id": "T-029",
       "path": "docs/aster-builder/verification-plan.md",
-      "status": "PASS",
       "verification_phase": 6,
-      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
-      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; Rust 1.97.0; ASTER_DISABLE_LIVE=1; internal fixture only",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-09-30T22:06:40.4284964Z",
-      "evidence_paths": ["docs/qa/LOCAL-0003.md"]
+      "status": "NOT RUN",
+      "reason": "Historical LOCAL-0003 fixture PASS is retained; new private-journal candidate requires a full exact-source owner rerun before current credit."
     },
     {
       "id": "T-030",
@@ -796,24 +811,16 @@
     {
       "id": "T-032",
       "path": "docs/aster-builder/verification-plan.md",
-      "status": "PASS",
       "verification_phase": 6,
-      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
-      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; Rust 1.97.0; ASTER_DISABLE_LIVE=1; dormant internal disclosure fixture only",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-09-30T22:06:40.4284964Z",
-      "evidence_paths": ["docs/qa/LOCAL-0003.md"]
+      "status": "NOT RUN",
+      "reason": "Historical LOCAL-0003 fixture PASS is retained; new private-journal candidate requires a full exact-source owner rerun before current credit."
     },
     {
       "id": "T-033",
       "path": "docs/aster-builder/verification-plan.md",
-      "status": "PASS",
       "verification_phase": 3,
-      "source_revision": "f6f47a9bdf18edfee33bc742aba282542881a78e",
-      "environment": "Windows 11 Pro 10.0.26300 build 26300; original owner non-elevated token; Rust 1.97.0; ASTER_DISABLE_LIVE=1; 21 new pure diagnostic tests, no native GUI/live calls",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-09-30T22:06:40.4284964Z",
-      "evidence_paths": ["docs/qa/LOCAL-0003.md"]
+      "status": "NOT RUN",
+      "reason": "Historical LOCAL-0003 fixture PASS is retained; new private-journal candidate requires a full exact-source owner rerun before current credit."
     },
     {
       "id": "T-034",
@@ -821,6 +828,13 @@
       "reason": "Actual owner non-elevated Windows 11 native GUI journey on the new packaged diagnostic is not executed. Preserve existing real credential.",
       "status": "NOT RUN",
       "verification_phase": 3
+    },
+    {
+      "id": "T-035",
+      "path": "docs/qa/JOURNAL-PRIVACY-0001.md",
+      "verification_phase": 6,
+      "status": "NOT RUN",
+      "reason": "New dormant private-journal descriptor/pin implementation and exact-source pure/original-owner native privacy fixtures pending; aggregate T-031 remains independently NOT RUN."
     }
   ],
   "threats": [
@@ -912,7 +926,18 @@
     },
     {
       "id": "TM-013",
-      "requirement_ids": ["FR-013", "SEC-010"]
+      "requirement_ids": [
+        "FR-013",
+        "SEC-010"
+      ]
+    },
+    {
+      "id": "TM-014",
+      "requirement_ids": [
+        "FR-014",
+        "SEC-011",
+        "SEC-006"
+      ]
     }
   ],
   "tools": [

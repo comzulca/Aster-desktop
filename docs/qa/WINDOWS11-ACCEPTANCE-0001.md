@@ -14,7 +14,7 @@ Created: **2026-09-30 UTC**. Initial status: **NOT RUN** for all target-Windows-
 
 ## 1. Bind the evidence to the exact candidate
 
-The newer source candidate's offline owner-context results are [LOCAL-0002.md](LOCAL-0002.md); they do not pass this manual procedure or reuse the older installer below. Developer Mode's explicit owner change is included in that evidence.
+Historical owner-context evidence is revision-specific: [LOCAL-0002.md](LOCAL-0002.md) records the initial workspace candidate and reported Developer Mode baseline; [LOCAL-0003.md](LOCAL-0003.md) records the merged PR15 credential-diagnostic runtime with 80 offline Rust fixtures. [LOCAL-0004.md](LOCAL-0004.md) tracks the separate later journal-privacy candidate and its own current status. None passes this manual procedure or permits reusing an older installer for changed behavior.
 
 For the verified **pre-diagnostic** main reference (not an artifact of the new credential diagnostic source):
 
@@ -39,7 +39,7 @@ Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNum
 
 Record the ESET version and Windows protection state as observed in their normal interfaces, without exporting private configuration. Include the owner's reported Developer Mode change as a separate baseline field; do not describe all Windows settings as unchanged. Observation of the mode must not become a new configuration change. Confirm that the OS is actually Windows 11 rather than the hosted Windows Server CI environment.
 
-Historical native-fixture evidence includes a non-elevated symlink-creation **FAIL with Windows error 1314** before the reported Developer Mode change. Preserve it unchanged. The setting report alone does not establish a new PASS: record any rerun separately with exact source, Windows build, existing-account/token, command, UTC and evidence. A source-bound rerun result has not yet been appended to this document; manual UI/live acceptance remains independently gated.
+Historical native-fixture evidence includes a non-elevated symlink-creation **FAIL with Windows error 1314** before the reported Developer Mode change. Preserve it unchanged. The setting report alone does not establish a PASS: LOCAL-0002 separately records the original owner's non-elevated 59-fixture rerun, and LOCAL-0003 records the later 80-fixture rerun including reparse/hardlink/symlink denials, each at its own source. Changed behavior still requires fresh source-bound results; manual UI/live acceptance remains independently gated.
 
 In GitHub, verify the repository is private, the intended source revision is `main`, and all expected workflow jobs passed for **that revision**. Inspect the active `main` ruleset and the owner's repository role; record the ruleset name, enabled status and required checks without changing permissions. Existing historical repository-visibility evidence is not a new ruleset inspection.
 
@@ -56,6 +56,10 @@ Get-FileHash -LiteralPath (Join-Path $asterSource 'public\assets\Aster_UI2.jpg')
 ```
 
 Expected JPG SHA-256: `b95163a411529b8608461dda4faeacab3f09c6cde090c3b1d72092bf0a7c4887`. Origin must be `https://github.com/comzulca/Aster-desktop.git`, `.git` must exist, and current source/status must be recorded. No global safe.directory exception is needed when checks run under the owner rather than the isolated technical sandbox. The owner expressly declined another backup: after verifying both trees and absence of unique files/reparse entries, only the 71-file duplicate `aster-desktop.snapshot-temporal` was removed at 21:43:21 UTC. Active checkout and historical backups were untouched; no security/ACL change was made.
+
+At `2026-09-30T22:49:06.1532939Z`, authenticated owner non-elevated checks verified the same checkout clean on main `50837e157e009b5d1135fbe8fa18d29e9fe2975a`, tree `1799e08bb3313a8417ad78d2d692325e3d9407d5`, after PR15 passed required run63 checks and was merged. Main run64 started packaging this intermediate credential-diagnostic source. Later journal-privacy/runtime candidates invalidate dependent package evidence; reserve the two live canaries for the final selected reviewed artifact, not each intermediate build. No installer or owner GUI acceptance is inferred from this clone/CI observation.
+
+On 2026-10-01 UTC, all four main run64 jobs were observed PASS and its intermediate installer was independently verified without execution: artifact `11131148289`, ZIP SHA256 `dba8fd3f16dde4e460e872310bd33d540aec2d74a2d859b8830f84b751c0e268`, EXE 3,551,847 bytes / SHA256 `752928d145ca7a7e78150266a04c0bf9c8fd057efcbf544a56f1fe9d866348c7`, Authenticode `NotSigned`, verified `2026-10-01T09:34:37.7459336Z`. Classification is VERIFIED_NOT_INSTALLED. It includes the PR15 diagnostic but **not** the later journal-privacy change; it is not a final artifact for that changed source and consumes no live acceptance budget.
 
 ## 2. Download and check the unsigned installer
 

@@ -4,7 +4,7 @@ Date: 2026-09-30 UTC. Related: issue #12, ADR-0004, AC-008–AC-011, AC-022–AC
 
 ## What the candidate does and does not enable
 
-Exact-source owner-context fixture results are in [LOCAL-0002.md](LOCAL-0002.md), including the retained error 1314 and independently successful rerun. The manual gates below remain separate.
+Revision-specific owner-context fixture results are in [LOCAL-0002.md](LOCAL-0002.md), including retained error 1314 and independently successful rerun, and [LOCAL-0003.md](LOCAL-0003.md) for the later PR15 diagnostic runtime. [LOCAL-0004.md](LOCAL-0004.md) tracks the separate changed journal-privacy candidate, which cannot inherit those passes. The manual gates below remain separate.
 
 The candidate contains a closed edit parser, a lossless native read-only review window, request-bound post-review disclosure revalidation, retained root/ancestor pins, and a Windows-only new-file CREATE_NEW/encrypted-metadata-journal proof seam. Existing-file replacement remains proposal-only. All shipping file-read/disclosure, proposal and apply capability flags stay **false**; the six-command IPC allowlist is unchanged. No renderer/model approval Boolean, general write endpoint, shell, arbitrary URL or tool loop is added.
 
@@ -23,17 +23,17 @@ In normal PowerShell, substitute its literal path:
 ```powershell
 $asterApp = Read-Host 'Full path to the installed Aster application EXE'
 Get-FileHash -LiteralPath $asterApp -Algorithm SHA256
-& $asterApp --aster-review-fixture
-$LASTEXITCODE
-& $asterApp --aster-review-fixture-large
-$LASTEXITCODE
+$asterSmallReview = Start-Process -FilePath $asterApp -ArgumentList '--aster-review-fixture' -Wait -PassThru
+$asterSmallReview.ExitCode
+$asterLargeReview = Start-Process -FilePath $asterApp -ArgumentList '--aster-review-fixture-large' -Wait -PassThru
+$asterLargeReview.ExitCode
 ```
 
 These flags select synthetic data before normal app initialization. They do not read project files, access credentials, make NVIDIA requests or publish a file. The reviewed text deliberately includes inert markup, mixed newlines, a supplementary-Unicode character and an end marker. The large fixture approaches the 5-MiB review ceiling; oversized content must be denied rather than truncated.
 
 For each size, inspect full scrolling/read-only behavior and the final `END-SYNTHETIC` content marker; use Tab/Shift+Tab, Escape and Enter without moving focus from default Cancel. Repeat only these offline diagnostics to test explicit Confirm and Cancel. Record font/DPI/viewport, Narrator/control names, focus visibility and whether any part becomes inaccessible or visually reordered. Wait five minutes in one offline diagnostic to check expiry denies. Outcome classifications are sanitized: exit 0 = confirmed synthetic review **with no publication**, 2 = denied, 3 = unavailable/expired/display failure. Confirmation here is not approval for a real project or proof of new-file apply.
 
-PowerShell may return immediately for a GUI executable, and `$LASTEXITCODE` may then be stale. For reliable exit evidence, use `Start-Process -FilePath $asterApp -ArgumentList '--aster-review-fixture' -Wait -PassThru` (and the large argument separately), retaining only the returned `ExitCode`. Show this interactive window deliberately; do not use it as a background helper.
+The primary commands wait for the GUI process and report its returned `ExitCode`; direct GUI invocation can return immediately and leave `$LASTEXITCODE` stale. Show this interactive test window deliberately; do not use it as a background helper.
 
 ## Independent activation gates — all initially NOT RUN
 
