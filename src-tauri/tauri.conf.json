@@ -27,6 +27,10 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "resources": {
+      "../reports/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
+      "../LICENSE": "LICENSE.txt"
+    },
     "icon": ["icons/icon.ico", "icons/icon.png"]
   }
 }

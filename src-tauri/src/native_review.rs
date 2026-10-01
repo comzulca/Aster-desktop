@@ -1,7 +1,7 @@
 //! Host-only, lossless native review candidate. No renderer approval DTO.
-//! Shipping workspace IPC is disabled; the CLI fixture uses synthetic data.
+//! Normal reviews belong to the authenticated host window; CLI fixtures use synthetic data.
 
-#![allow(dead_code)] // Independent Windows 11 activation gate is still pending.
+#![allow(dead_code)] // Platform-specific review variants and synthetic diagnostics.
 
 use sha2::{Digest, Sha256};
 use std::time::{Duration, Instant};
@@ -158,10 +158,28 @@ impl NativeApproval {
 }
 
 pub(crate) fn confirm(document: &ReviewDocument) -> Result<Option<NativeApproval>, ReviewError> {
+    confirm_with_owner(document, 0)
+}
+
+/// Normal application review must belong to the authenticated host window.
+/// The raw handle is obtained from Tauri, never from an IPC argument.
+#[cfg(windows)]
+pub(crate) fn confirm_owned(
+    document: &ReviewDocument,
+    owner: usize,
+) -> Result<Option<NativeApproval>, ReviewError> {
+    windows::validate_owner(owner)?;
+    confirm_with_owner(document, owner)
+}
+
+fn confirm_with_owner(
+    document: &ReviewDocument,
+    owner: usize,
+) -> Result<Option<NativeApproval>, ReviewError> {
     #[cfg(windows)]
     {
         let deadline = Instant::now() + REVIEW_LIFETIME;
-        if !windows::show(document, deadline)? {
+        if !windows::show(document, deadline, owner)? {
             return Ok(None);
         }
         if deadline <= Instant::now() {
@@ -174,7 +192,7 @@ pub(crate) fn confirm(document: &ReviewDocument) -> Result<Option<NativeApproval
     }
     #[cfg(not(windows))]
     {
-        let _ = document;
+        let _ = (document, owner);
         Err(ReviewError::Unavailable)
     }
 }
@@ -231,6 +249,7 @@ mod windows {
     #[link(name = "kernel32")]
     unsafe extern "system" {
         fn GetModuleHandleW(module: *const u16) -> *mut c_void;
+        fn GetCurrentProcessId() -> u32;
     }
 
     const EDIT_ID: usize = 100;
@@ -498,7 +517,28 @@ mod windows {
         })
     }
 
-    pub(super) fn show(document: &ReviewDocument, deadline: Instant) -> Result<bool, ReviewError> {
+    pub(super) fn validate_owner(owner: usize) -> Result<(), ReviewError> {
+        let owner = owner as HWND;
+        let mut process = 0;
+        // SAFETY: Windows validates the opaque handle before accessing it.
+        if owner.is_null()
+            || unsafe { IsWindow(owner) } == 0
+            || unsafe { GetWindowThreadProcessId(owner, &mut process) } == 0
+            || process != unsafe { GetCurrentProcessId() }
+        {
+            return Err(ReviewError::Unavailable);
+        }
+        Ok(())
+    }
+
+    pub(super) fn show(
+        document: &ReviewDocument,
+        deadline: Instant,
+        owner: usize,
+    ) -> Result<bool, ReviewError> {
+        if owner != 0 {
+            validate_owner(owner)?;
+        }
         let state = Box::new(DialogState {
             expected: wide(&document.body),
             edit: Cell::new(ptr::null_mut()),
@@ -515,7 +555,7 @@ mod windows {
             DialogBoxIndirectParamW(
                 GetModuleHandleW(ptr::null()),
                 template.as_ptr().cast(),
-                ptr::null_mut(),
+                owner as HWND,
                 Some(dialog_proc),
                 (&*state as *const DialogState) as isize,
             )
@@ -533,6 +573,57 @@ mod windows {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn normal_review_rejects_missing_or_invalid_owner_before_display() {
+        let document = fixture_document(false).unwrap();
+        assert!(matches!(
+            confirm_owned(&document, 0),
+            Err(ReviewError::Unavailable)
+        ));
+        assert!(matches!(
+            confirm_owned(&document, usize::MAX),
+            Err(ReviewError::Unavailable)
+        ));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn owner_validation_admits_only_a_live_window_in_this_process() {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            CreateWindowExW, DestroyWindow, GetDesktopWindow,
+        };
+        let class: Vec<u16> = "STATIC\0".encode_utf16().collect();
+        // Hidden built-in control: no consent, file or provider operation.
+        let owner = unsafe {
+            CreateWindowExW(
+                0,
+                class.as_ptr(),
+                std::ptr::null(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null(),
+            )
+        };
+        assert!(!owner.is_null());
+        assert_eq!(windows::validate_owner(owner as usize), Ok(()));
+        assert_eq!(
+            windows::validate_owner(unsafe { GetDesktopWindow() } as usize),
+            Err(ReviewError::Unavailable)
+        );
+        assert_ne!(unsafe { DestroyWindow(owner) }, 0);
+        assert_eq!(
+            windows::validate_owner(owner as usize),
+            Err(ReviewError::Unavailable)
+        );
+    }
 
     #[test]
     fn review_is_lossless_and_bound_to_entire_document() {

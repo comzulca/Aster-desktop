@@ -1,15 +1,15 @@
 //! Host-owned, bounded project access. No renderer value is an approval.
 //!
 //! A native folder dialog supplies the root. The separate native file grant,
-//! read and proposal methods below are candidate internals: no IPC command
-//! may expose project plaintext to the WebView until a native full-content
-//! viewer and disclosure gate exist. An internal read consumes its one-use
-//! selected-file grant; disclosure and proposals have separate one-use rights
-//! on its exact ephemeral snapshot.
+//! read and proposal methods keep project plaintext inside the host. IPC carries
+//! only bounded intent metadata; the host revalidates the exact snapshot,
+//! composes the provider prompt and subjects its serialized bytes to an owned
+//! native disclosure review. A read consumes its one-use selected-file grant;
+//! disclosure and proposals have separate one-use rights on that snapshot.
 //!
-//! File publication is deliberately unavailable. The Windows crash journal,
-//! native full-diff approval surface and adversarial NTFS tests in ADR-0003
-//! have not yet passed. A hash check followed by a rename is not a safe CAS.
+//! New-file publication uses an owned native full-content review, exclusive
+//! creation and a private durable Windows journal. Existing-file replacement
+//! remains proposal-only: a hash check followed by rename is not a safe CAS.
 
 use std::collections::HashMap;
 #[cfg(windows)]
@@ -35,6 +35,10 @@ const MAX_PENDING: usize = 4;
 const MAX_DIFF_BYTES: usize = 5 * 1024 * 1024;
 #[cfg(windows)]
 const GRANT_LIFETIME: Duration = Duration::from_secs(300);
+#[cfg(windows)]
+const JOURNAL_CONTAINER: &str = "com.comzulca.aster-desktop-journals-v1";
+#[cfg(windows)]
+const MAX_PROJECT_PROMPT_BYTES: usize = 32 * 1024;
 
 #[cfg_attr(not(windows), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,7 +81,7 @@ pub struct RootSelection {
     pub apply_available: bool,
 }
 
-#[allow(dead_code)] // File read IPC is gated pending native full-content review.
+#[allow(dead_code)] // Host-issued metadata DTO; selected-file content stays host-only.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileSelection {
@@ -94,7 +98,7 @@ pub struct ProjectRead {
     pub sha256: String,
 }
 
-#[allow(dead_code)] // Proposal IPC is gated pending native review and publication proof.
+#[allow(dead_code)] // Host-internal review result; IPC returns a narrower receipt.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProposalReview {
@@ -111,7 +115,7 @@ pub struct ProposalReview {
 
 /// Model output is untrusted data. Parsing this closed object never creates
 /// a grant, confirms a native review, or makes a file operation available.
-#[allow(dead_code)] // The shipping model/proposal IPC remains disabled.
+#[allow(dead_code)] // Parsed as untrusted data; never itself grants approval.
 #[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProposalOperation {
@@ -197,7 +201,7 @@ struct Root {
     ancestor_pins: Vec<std::fs::File>,
 }
 
-#[allow(dead_code)] // Read-grant service remains a Windows-only gated candidate.
+#[allow(dead_code)] // Windows host-only grant; never constructed from a renderer path.
 struct ReadGrant {
     relative_path: String,
     epoch: u64,
@@ -207,7 +211,7 @@ struct ReadGrant {
     sha256: String,
 }
 
-#[allow(dead_code)] // Snapshots remain host-only while disclosure is unavailable.
+#[allow(dead_code)] // Exact project plaintext remains host-only through disclosure.
 struct Snapshot {
     read: ProjectRead,
     epoch: u64,
@@ -319,7 +323,7 @@ impl Workspace {
 
     /// The caller MUST obtain `selected_path` from a trusted OS-native FILE
     /// picker for this conversation and request, not from the renderer/model.
-    #[allow(dead_code)] // Candidate disabled while a host-native file viewer is absent.
+    #[allow(dead_code)] // Host-only; caller must supply an owned native picker result.
     pub fn grant_native_file_read(
         &self,
         conversation_id: &str,
@@ -447,11 +451,180 @@ impl Workspace {
         }
     }
 
+    /// Compose the provider prompt entirely inside the trusted host from the
+    /// exact native-selected snapshot. The renderer supplies only intent
+    /// metadata; it never receives or echoes project plaintext back here.
+    pub fn compose_project_prompt(
+        &self,
+        conversation_id: &str,
+        request_id: &str,
+        relative_path: &str,
+        expected_sha256: &str,
+        message: &str,
+    ) -> Result<String, WorkspaceError> {
+        validate_id(conversation_id)?;
+        validate_id(request_id)?;
+        if !crate::policy::valid_prompt(message) {
+            return Err(WorkspaceError::Denied);
+        }
+        let normalized = join_relative(&parse_relative_path(relative_path)?);
+        #[cfg(windows)]
+        {
+            let state = self.state.lock().map_err(|_| WorkspaceError::Unavailable)?;
+            let snapshot = state
+                .snapshots
+                .get(&(conversation_id.to_owned(), request_id.to_owned()))
+                .ok_or(WorkspaceError::Denied)?;
+            if snapshot.epoch != state.epoch
+                || snapshot.deadline <= Instant::now()
+                || snapshot.read.relative_path != normalized
+                || snapshot.read.sha256 != expected_sha256
+                || !snapshot.disclosure_remaining
+                || !snapshot.dispatch_remaining
+                || snapshot.prepared_disclosure.is_some()
+            {
+                return Err(WorkspaceError::Denied);
+            }
+            // Reject obviously oversized attachments before another disk read;
+            // JSON escaping is checked against the same bound below as well.
+            if message.len().saturating_add(snapshot.read.content.len()) > MAX_PROJECT_PROMPT_BYTES
+            {
+                return Err(WorkspaceError::TooLarge);
+            }
+            let root = state.root.as_ref().ok_or(WorkspaceError::Denied)?;
+            let (current, id) = windows_fs::read_guarded(root, &parse_relative_path(&normalized)?)?;
+            if id != snapshot.id
+                || current != snapshot.read.content
+                || sha256_hex(current.as_bytes()) != snapshot.read.sha256
+            {
+                return Err(WorkspaceError::Conflict);
+            }
+            // This closed envelope keeps host-owned authority metadata separate
+            // from both the ordinary user message and untrusted file bytes.
+            let prompt = serialize_project_prompt(
+                message,
+                &snapshot.read.relative_path,
+                &snapshot.read.sha256,
+                &current,
+            )?;
+            if prompt.len() > MAX_PROJECT_PROMPT_BYTES {
+                return Err(WorkspaceError::TooLarge);
+            }
+            Ok(prompt)
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = (normalized, expected_sha256);
+            Err(WorkspaceError::Unavailable)
+        }
+    }
+
+    /// Revoke every outstanding object bound to one request. Denial and any
+    /// failed pre-dispatch path call this so stored bytes, snapshots and file
+    /// candidates cannot be revived by a retry.
+    pub fn revoke_pending(
+        &self,
+        conversation_id: &str,
+        request_id: &str,
+    ) -> Result<(), WorkspaceError> {
+        validate_id(conversation_id)?;
+        validate_id(request_id)?;
+        let mut state = self.state.lock().map_err(|_| WorkspaceError::Unavailable)?;
+        let key = (conversation_id.to_owned(), request_id.to_owned());
+        state.read_grants.remove(&key);
+        state.snapshots.remove(&key);
+        state.proposals.retain(|_, candidate| {
+            candidate.conversation_id != conversation_id || candidate.request_id != request_id
+        });
+        #[cfg(windows)]
+        state.creations.retain(|_, candidate| {
+            candidate.conversation_id != conversation_id || candidate.request_id != request_id
+        });
+        Ok(())
+    }
+
+    /// Heartbeat cleanup for expired authority. Live requests and completed
+    /// project snapshots remain available for their bounded follow-up review.
+    pub fn expire_pending(&self) -> Result<(), WorkspaceError> {
+        let mut state = self.state.lock().map_err(|_| WorkspaceError::Unavailable)?;
+        let now = Instant::now();
+        state
+            .read_grants
+            .retain(|_, candidate| candidate.deadline > now);
+        state
+            .snapshots
+            .retain(|_, candidate| candidate.deadline > now);
+        state
+            .proposals
+            .retain(|_, candidate| candidate.deadline > now);
+        #[cfg(windows)]
+        state
+            .creations
+            .retain(|_, candidate| candidate.deadline > now);
+        Ok(())
+    }
+
+    /// Resolve the private, per-selected-root journal directory beneath the
+    /// trusted existing Tauri local-data directory. Existing ACLs are only
+    /// validated; they are never repaired, replaced or cleaned up.
+    pub fn journal_directory(&self, local_data_base: PathBuf) -> Result<PathBuf, WorkspaceError> {
+        #[cfg(windows)]
+        {
+            let state = self.state.lock().map_err(|_| WorkspaceError::Unavailable)?;
+            let project = state.root.as_ref().ok_or(WorkspaceError::Denied)?;
+            windows_fs::check_root(project)?;
+            let local_data = windows_fs::select_root(local_data_base)?;
+            if windows_fs::root_or_ancestor_contains(&local_data, project.id)? {
+                // Journal metadata must not become project-visible content.
+                return Err(WorkspaceError::Denied);
+            }
+            let container =
+                match windows_fs::private_child_if_present(&local_data, JOURNAL_CONTAINER)? {
+                    Some(existing) => existing,
+                    None => windows_fs::ensure_private_child(&local_data, JOURNAL_CONTAINER)?,
+                };
+            if windows_fs::roots_overlap(project, &container)? {
+                return Err(WorkspaceError::Denied);
+            }
+            let partition_name = format!("root-{}", windows_fs::journal_partition_digest(project)?);
+            // If a partition already exists, reject overlap before any create.
+            // If absent, the disjoint container proof above means its direct
+            // child cannot be an ancestor or descendant of the project root.
+            let partition = match windows_fs::private_child_if_present(&container, &partition_name)?
+            {
+                Some(existing) => {
+                    if windows_fs::roots_overlap(project, &existing)? {
+                        return Err(WorkspaceError::Denied);
+                    }
+                    existing
+                }
+                None => windows_fs::ensure_private_child(&container, &partition_name)?,
+            };
+            if windows_fs::roots_overlap(project, &partition)? {
+                return Err(WorkspaceError::Denied);
+            }
+            let journal = crate::new_file::Journal::in_pinned_directory(
+                &partition.path,
+                &partition.anchor,
+                &partition.ancestor_pins,
+                windows_fs::record_identity(partition.id),
+            )?;
+            journal.revalidate()?;
+            windows_fs::check_root(project)?;
+            Ok(partition.path.clone())
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = local_data_base;
+            Err(WorkspaceError::Unavailable)
+        }
+    }
+
     /// Consume this once BEFORE host-owned native disclosure confirmation.
     /// The caller shows the selected NVIDIA destination, file, byte count and
     /// exact digest, then transmits only on native confirmation. A refusal
     /// still consumes this right. Renderer-supplied content is never trusted.
-    #[allow(dead_code)] // Disclosure remains disabled until native full-content review exists.
+    #[allow(dead_code)] // Legacy one-step proof seam; shipping uses prepare/finalize review.
     pub fn take_disclosure(
         &self,
         conversation_id: &str,
@@ -599,7 +772,7 @@ impl Workspace {
 
     /// Final barrier AFTER native review: consume the exact approval, then
     /// recheck expiry/root generation/current file identity+hash. Only these
-    /// exact stored bytes may be dispatched by a future provider integration.
+    /// exact stored bytes may be dispatched by the exact-body provider path.
     #[cfg(windows)]
     #[allow(dead_code)]
     pub fn finalize_disclosure_candidate(
@@ -646,7 +819,7 @@ impl Workspace {
 
     /// Propose replacement of the exact selected/read file. Never publishes.
     /// `expected_old_sha256` is mandatory for an existing-file proposal.
-    #[allow(dead_code)] // Needs a host-native full-content viewer to be usable.
+    #[allow(dead_code)] // Existing replacement is reviewed but remains proposal-only.
     pub fn review_proposal(
         &self,
         conversation_id: &str,
@@ -906,7 +1079,7 @@ impl Workspace {
     }
 
     /// A non-serializable, move-only native approval is consumed in the host.
-    /// This is an INTERNAL proof seam, never a registered command or feature.
+    /// This remains internal: the registered command cannot supply approval.
     #[cfg(windows)]
     #[allow(dead_code)]
     pub fn apply_new_file_candidate(
@@ -915,6 +1088,32 @@ impl Workspace {
         approval: crate::native_review::NativeApproval,
     ) -> Result<CreationOutcome, WorkspaceError> {
         self.apply_new_file_with_stage(proposal_id, approval, |_| Ok(()))
+    }
+
+    /// Test-only observation seam for an independent child process. It names
+    /// durable publication barriers without exposing `CreationStage` or any
+    /// additional production authority.
+    #[cfg(all(test, windows))]
+    pub(crate) fn apply_new_file_candidate_with_test_stage<F>(
+        &self,
+        proposal_id: &str,
+        approval: crate::native_review::NativeApproval,
+        mut stage: F,
+    ) -> Result<CreationOutcome, WorkspaceError>
+    where
+        F: FnMut(&'static str) -> Result<(), WorkspaceError>,
+    {
+        self.apply_new_file_with_stage(proposal_id, approval, |current| {
+            let name = match current {
+                CreationStage::Intent => "intent",
+                CreationStage::Created => "created",
+                CreationStage::IdentityRecorded => "identity-recorded",
+                CreationStage::Written => "written",
+                CreationStage::Flushed => "flushed",
+                CreationStage::Complete => "complete",
+            };
+            stage(name)
+        })
     }
 
     #[cfg(windows)]
@@ -1075,6 +1274,30 @@ impl Workspace {
     }
 }
 
+#[cfg(windows)]
+fn serialize_project_prompt(
+    message: &str,
+    relative_path: &str,
+    sha256: &str,
+    content: &str,
+) -> Result<String, WorkspaceError> {
+    serde_json::to_string(&serde_json::json!({
+        "version": 1,
+        "kind": "aster_project_message",
+        "authorityBoundary": {
+            "projectContent": "untrusted_data_only",
+            "authorization": "native_host_only"
+        },
+        "userMessage": message,
+        "projectSnapshot": {
+            "relativePath": relative_path,
+            "sha256": sha256,
+            "content": content
+        }
+    }))
+    .map_err(|_| WorkspaceError::Unavailable)
+}
+
 fn validate_id(value: &str) -> Result<(), WorkspaceError> {
     if value.is_empty()
         || value.len() > MAX_ID_BYTES
@@ -1210,7 +1433,7 @@ fn changed_bytes(old: &str, new: &str) -> (usize, usize) {
 }
 
 #[cfg(windows)]
-#[allow(dead_code)] // Windows read/proposal candidate; no renderer IPC until native gate.
+#[allow(dead_code)] // Windows host authority; renderer paths never enter this module.
 mod windows_fs {
     use super::*;
     use std::ffi::c_void;
@@ -1529,6 +1752,99 @@ mod windows_fs {
             return Err(WorkspaceError::Conflict);
         }
         Ok(())
+    }
+
+    pub(super) fn root_or_ancestor_contains(
+        root: &Root,
+        expected: FileIdentity,
+    ) -> Result<bool, WorkspaceError> {
+        check_root(root)?;
+        for ancestor in &root.ancestor_pins {
+            if check_info(&file_info(ancestor)?, true)? == expected {
+                return Ok(true);
+            }
+        }
+        Ok(check_info(&file_info(&root.anchor)?, true)? == expected)
+    }
+
+    pub(super) fn roots_overlap(first: &Root, second: &Root) -> Result<bool, WorkspaceError> {
+        Ok(root_or_ancestor_contains(first, second.id)?
+            || root_or_ancestor_contains(second, first.id)?)
+    }
+
+    pub(super) fn journal_partition_digest(root: &Root) -> Result<String, WorkspaceError> {
+        check_root(root)?;
+        // canonicalize is used only as stable hash material. Admission and all
+        // later authority continue to depend on pinned handles and identities.
+        let canonical = std::fs::canonicalize(&root.path).map_err(|_| WorkspaceError::Io)?;
+        let canonical = canonical
+            .to_str()
+            .ok_or(WorkspaceError::Denied)?
+            .replace('/', "\\")
+            .to_lowercase();
+        let material = format!(
+            "aster-journal-partition-v1\0{}\0{}\0{}",
+            root.id.volume, root.id.index, canonical
+        );
+        check_root(root)?;
+        Ok(sha256_hex(material.as_bytes()))
+    }
+
+    fn private_child_target(parent: &Root, name: &str) -> Result<PathBuf, WorkspaceError> {
+        let components = parse_relative_path(name)?;
+        if components.len() != 1 || components[0] != name {
+            return Err(WorkspaceError::Denied);
+        }
+        check_root(parent)?;
+        let pinned = pin_creation_parent(parent, &components)?;
+        if pinned.id != parent.id {
+            return Err(WorkspaceError::Conflict);
+        }
+        let target = pinned.target_path.clone();
+        // The selected Root itself pins this one-level creation parent and all
+        // ancestors against rename. Release the extra restrictive operation
+        // pins before CreateDirectoryW so they cannot deny its write share.
+        drop(pinned);
+        check_root(parent)?;
+        Ok(target)
+    }
+
+    fn select_private_child(parent: &Root, target: PathBuf) -> Result<Root, WorkspaceError> {
+        let child = select_root(target)?;
+        let owner = crate::journal_privacy::OwnerSid::current_process()?;
+        owner.validate_handle(&child.anchor, crate::journal_privacy::ObjectKind::Directory)?;
+        check_root(parent)?;
+        check_root(&child)?;
+        Ok(child)
+    }
+
+    pub(super) fn private_child_if_present(
+        parent: &Root,
+        name: &str,
+    ) -> Result<Option<Root>, WorkspaceError> {
+        let target = private_child_target(parent, name)?;
+        match std::fs::symlink_metadata(&target) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Ok(_) => select_private_child(parent, target).map(Some),
+            Err(_) => Err(WorkspaceError::Io),
+        }
+    }
+
+    pub(super) fn ensure_private_child(parent: &Root, name: &str) -> Result<Root, WorkspaceError> {
+        if let Some(child) = private_child_if_present(parent, name)? {
+            return Ok(child);
+        }
+        let target = private_child_target(parent, name)?;
+        match std::fs::symlink_metadata(&target) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                crate::journal_privacy::create_directory_exact(&target)?;
+            }
+            // A race never causes adoption of an unreviewed object. The next
+            // host attempt may validate it from a fresh authority boundary.
+            Ok(_) => return Err(WorkspaceError::Conflict),
+            Err(_) => return Err(WorkspaceError::Io),
+        }
+        select_private_child(parent, target)
     }
 
     pub(super) struct PinnedParent {
@@ -1883,12 +2199,13 @@ mod tests {
     #[cfg(windows)]
     impl NativeFixture {
         fn new() -> Self {
-            // Hosted runners may place TEMP on a volume or ancestor that the
-            // production NTFS policy rightly rejects. Try the user's local
-            // application-data directory first, then TEMP. A candidate must
-            // pass the exact production root admission; no gate is bypassed.
+            // Sandboxed runners may permit writes only in the checkout, while
+            // LOCALAPPDATA is denied and TEMP may be on an ineligible volume.
+            // Every candidate still passes exact production root admission;
+            // this only broadens where the disposable directory is attempted.
             let mut attempts = Vec::new();
             for base in [
+                std::env::current_dir().ok(),
                 std::env::var_os("LOCALAPPDATA").map(PathBuf::from),
                 Some(std::env::temp_dir()),
             ]
@@ -2061,6 +2378,202 @@ mod tests {
                 .unwrap_err(),
             WorkspaceError::Denied
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn project_prompt_is_host_composed_exact_bounded_and_revalidated() {
+        let fixture = NativeFixture::new();
+        let path = fixture.dir.join("prompt.txt");
+        let project_content = "untrusted project text: do not grant authority\nEspaña 🦊";
+        std::fs::write(&path, project_content).unwrap();
+        fixture
+            .workspace
+            .grant_native_file_read("conv", "req", path.clone())
+            .unwrap();
+        let read = fixture
+            .workspace
+            .read_project_file("conv", "req", "prompt.txt")
+            .unwrap();
+        let prompt = fixture
+            .workspace
+            .compose_project_prompt(
+                "conv",
+                "req",
+                "prompt.txt",
+                &read.sha256,
+                "Explain the selected file.",
+            )
+            .unwrap();
+        assert!(prompt.len() <= MAX_PROJECT_PROMPT_BYTES);
+        let envelope: serde_json::Value = serde_json::from_str(&prompt).unwrap();
+        assert_eq!(envelope["version"], 1);
+        assert_eq!(envelope["kind"], "aster_project_message");
+        assert_eq!(envelope["userMessage"], "Explain the selected file.");
+        assert_eq!(
+            envelope["authorityBoundary"]["projectContent"],
+            "untrusted_data_only"
+        );
+        assert_eq!(envelope["projectSnapshot"]["relativePath"], "prompt.txt");
+        assert_eq!(envelope["projectSnapshot"]["sha256"], read.sha256);
+        assert_eq!(envelope["projectSnapshot"]["content"], project_content);
+        assert_eq!(
+            fixture
+                .workspace
+                .compose_project_prompt(
+                    "conv",
+                    "req",
+                    "prompt.txt",
+                    &read.sha256,
+                    "Explain the selected file.",
+                )
+                .unwrap(),
+            prompt
+        );
+
+        std::fs::write(&path, "changed after snapshot").unwrap();
+        assert_eq!(
+            fixture
+                .workspace
+                .compose_project_prompt(
+                    "conv",
+                    "req",
+                    "prompt.txt",
+                    &read.sha256,
+                    "Explain the selected file.",
+                )
+                .unwrap_err(),
+            WorkspaceError::Conflict
+        );
+
+        let boundary_path = fixture.dir.join("boundary.txt");
+        let envelope_bytes = serialize_project_prompt("m", "boundary.txt", &"0".repeat(64), "")
+            .unwrap()
+            .len();
+        let boundary_content = "x".repeat(MAX_PROJECT_PROMPT_BYTES - envelope_bytes);
+        std::fs::write(&boundary_path, &boundary_content).unwrap();
+        fixture
+            .workspace
+            .grant_native_file_read("boundary", "exact", boundary_path.clone())
+            .unwrap();
+        let boundary = fixture
+            .workspace
+            .read_project_file("boundary", "exact", "boundary.txt")
+            .unwrap();
+        let exact_boundary = fixture
+            .workspace
+            .compose_project_prompt("boundary", "exact", "boundary.txt", &boundary.sha256, "m")
+            .unwrap();
+        assert_eq!(exact_boundary.len(), MAX_PROJECT_PROMPT_BYTES);
+
+        std::fs::write(&boundary_path, format!("{boundary_content}x")).unwrap();
+        fixture
+            .workspace
+            .grant_native_file_read("boundary-overflow", "plus-one", boundary_path)
+            .unwrap();
+        let overflow = fixture
+            .workspace
+            .read_project_file("boundary-overflow", "plus-one", "boundary.txt")
+            .unwrap();
+        assert_eq!(
+            fixture
+                .workspace
+                .compose_project_prompt(
+                    "boundary-overflow",
+                    "plus-one",
+                    "boundary.txt",
+                    &overflow.sha256,
+                    "m",
+                )
+                .unwrap_err(),
+            WorkspaceError::TooLarge
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn revoke_pending_consumes_only_the_bound_request() {
+        let fixture = NativeFixture::new();
+        let path = fixture.dir.join("revoke.txt");
+        std::fs::write(&path, "snapshot to revoke").unwrap();
+        fixture
+            .workspace
+            .grant_native_file_read("revoked", "req", path.clone())
+            .unwrap();
+        let read = fixture
+            .workspace
+            .read_project_file("revoked", "req", "revoke.txt")
+            .unwrap();
+        let prompt = fixture
+            .workspace
+            .compose_project_prompt("revoked", "req", "revoke.txt", &read.sha256, "inspect")
+            .unwrap();
+        let body = crate::provider::exact_body(
+            crate::policy::Model::Nemotron,
+            &[crate::policy::ChatMessage {
+                role: "user",
+                content: prompt,
+            }],
+        )
+        .unwrap();
+        fixture
+            .workspace
+            .prepare_disclosure_candidate("revoked", "req", "revoke.txt", &read.sha256, body)
+            .unwrap();
+
+        fixture
+            .workspace
+            .grant_native_file_read("retained", "req", path)
+            .unwrap();
+        fixture
+            .workspace
+            .read_project_file("retained", "req", "revoke.txt")
+            .unwrap();
+        fixture.workspace.revoke_pending("revoked", "req").unwrap();
+        let state = fixture.workspace.state.lock().unwrap();
+        assert!(!state
+            .snapshots
+            .contains_key(&("revoked".into(), "req".into())));
+        assert!(state
+            .snapshots
+            .contains_key(&("retained".into(), "req".into())));
+        drop(state);
+        assert_eq!(
+            fixture
+                .workspace
+                .finalize_disclosure_candidate(
+                    "revoked",
+                    "req",
+                    crate::native_review::NativeApproval::for_fixture(&"0".repeat(64))
+                )
+                .unwrap_err(),
+            WorkspaceError::Denied
+        );
+
+        let live_path = fixture.dir.join("revoke.txt");
+        fixture
+            .workspace
+            .grant_native_file_read("live", "req", live_path)
+            .unwrap();
+        fixture
+            .workspace
+            .read_project_file("live", "req", "revoke.txt")
+            .unwrap();
+        fixture
+            .workspace
+            .state
+            .lock()
+            .unwrap()
+            .snapshots
+            .get_mut(&("retained".into(), "req".into()))
+            .unwrap()
+            .deadline = Instant::now();
+        fixture.workspace.expire_pending().unwrap();
+        let state = fixture.workspace.state.lock().unwrap();
+        assert!(!state
+            .snapshots
+            .contains_key(&("retained".into(), "req".into())));
+        assert!(state.snapshots.contains_key(&("live".into(), "req".into())));
     }
 
     #[cfg(windows)]
@@ -2447,6 +2960,140 @@ mod tests {
         .unwrap();
         assert_eq!(journal.nonces().unwrap().len(), 0);
         selected.path.clone()
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn journal_directory_is_private_stable_partitioned_and_never_repairs() {
+        use crate::journal_privacy::{self, ObjectKind};
+
+        let fixture = NativeFixture::new();
+        let fixture_parent = fixture.dir.parent().unwrap().to_path_buf();
+        let local_data = fixture_parent.join(format!("aj-{}", windows_fs::random_nonce().unwrap()));
+        std::fs::create_dir(&local_data).unwrap();
+        let first = fixture
+            .workspace
+            .journal_directory(local_data.clone())
+            .unwrap();
+        assert_eq!(
+            first.parent().unwrap().file_name().unwrap(),
+            JOURNAL_CONTAINER
+        );
+        let partition = first.file_name().unwrap().to_str().unwrap();
+        assert!(partition.starts_with("root-"));
+        assert_eq!(partition.len(), 5 + 64);
+        assert_eq!(
+            fixture
+                .workspace
+                .journal_directory(local_data.clone())
+                .unwrap(),
+            first
+        );
+        {
+            let owner = journal_privacy::OwnerSid::current_process().unwrap();
+            let container = windows_fs::select_root(first.parent().unwrap().to_path_buf()).unwrap();
+            owner
+                .validate_handle(&container.anchor, ObjectKind::Directory)
+                .unwrap();
+            let selected = windows_fs::select_root(first.clone()).unwrap();
+            owner
+                .validate_handle(&selected.anchor, ObjectKind::Directory)
+                .unwrap();
+        }
+
+        let second_project = fixture.dir.join("second-project");
+        std::fs::create_dir(&second_project).unwrap();
+        fixture.workspace.set_native_root(second_project).unwrap();
+        let second = fixture
+            .workspace
+            .journal_directory(local_data.clone())
+            .unwrap();
+        assert_ne!(second, first);
+        assert_eq!(second.parent(), first.parent());
+
+        let weak_base = fixture_parent.join(format!("aj-{}", windows_fs::random_nonce().unwrap()));
+        std::fs::create_dir(&weak_base).unwrap();
+        let weak_container = weak_base.join(JOURNAL_CONTAINER);
+        journal_privacy::create_directory_exact(&weak_container).unwrap();
+        let acl =
+            journal_privacy::fixture_acl_handle(&weak_container, ObjectKind::Directory).unwrap();
+        journal_privacy::fixture_set_private(&acl, ObjectKind::Directory, false).unwrap();
+        let descriptor = journal_privacy::fixture_descriptor(&acl).unwrap();
+        assert_eq!(
+            fixture
+                .workspace
+                .journal_directory(weak_base.clone())
+                .unwrap_err(),
+            WorkspaceError::Denied
+        );
+        assert_eq!(
+            journal_privacy::fixture_descriptor(&acl).unwrap(),
+            descriptor
+        );
+        drop(acl);
+        std::fs::remove_dir_all(&weak_base).unwrap();
+        std::fs::remove_dir_all(&local_data).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn journal_container_selected_as_project_cannot_create_nested_partition() {
+        let fixture = NativeFixture::new();
+        let local_data = fixture
+            .dir
+            .parent()
+            .unwrap()
+            .join(format!("aj-{}", windows_fs::random_nonce().unwrap()));
+        std::fs::create_dir(&local_data).unwrap();
+        let local_data_root = windows_fs::select_root(local_data.clone()).unwrap();
+        let container =
+            windows_fs::ensure_private_child(&local_data_root, JOURNAL_CONTAINER).unwrap();
+        let container_path = container.path.clone();
+        drop(container);
+        drop(local_data_root);
+        assert_eq!(std::fs::read_dir(&container_path).unwrap().count(), 0);
+
+        fixture
+            .workspace
+            .set_native_root(container_path.clone())
+            .unwrap();
+        assert_eq!(
+            fixture
+                .workspace
+                .journal_directory(local_data.clone())
+                .unwrap_err(),
+            WorkspaceError::Denied
+        );
+        assert_eq!(std::fs::read_dir(&container_path).unwrap().count(), 0);
+
+        // Release the container root pins before fixture cleanup.
+        fixture
+            .workspace
+            .set_native_root(fixture.dir.clone())
+            .unwrap();
+        std::fs::remove_dir_all(local_data).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn revoke_pending_consumes_new_file_candidate() {
+        let fixture = NativeFixture::new();
+        let (proposal, _) = new_file_fixture(
+            &fixture,
+            "revoked-new-file.txt",
+            "must never be written",
+            "revoke-journal",
+        );
+        fixture.workspace.revoke_pending("conv", "req").unwrap();
+        assert!(fixture.workspace.state.lock().unwrap().creations.is_empty());
+        assert_eq!(
+            fixture
+                .workspace
+                .apply_new_file_candidate(&proposal.proposal_id, synthetic_approval(&proposal))
+                .unwrap_err(),
+            WorkspaceError::Denied
+        );
+        assert!(!fixture.dir.join("revoked-new-file.txt").exists());
     }
 
     #[cfg(windows)]

@@ -11,6 +11,9 @@
     "allow-configure-nvidia-credential",
     "allow-remove-nvidia-credential",
     "allow-select-project-root",
+    "allow-select-project-file",
+    "allow-send-project-message",
+    "allow-review-project-proposal",
     "allow-send-message",
     "allow-cancel-message"
   ]

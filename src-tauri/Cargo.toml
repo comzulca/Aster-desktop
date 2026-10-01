@@ -5,6 +5,7 @@ edition = "2021"
 rust-version = "1.97.0"
 build = "build.rs"
 publish = false
+license-file = "../LICENSE"
 
 [lib]
 name = "aster_desktop_lib"

@@ -35,7 +35,7 @@ def make_reports(metadata: dict) -> tuple[dict, dict]:
     licenses = []
     for package_id, pkg in sorted(by_id.items(), key=lambda item: (item[1]["name"], item[1]["version"], item[0])):
         source_type = (pkg.get("source") or "path").split("+", 1)[0]
-        declared_license = pkg.get("license") or "UNKNOWN"
+        declared_license = pkg.get("license") or ("LicenseRef-Aster-Proprietary" if package_id == root_id and pkg.get("license_file") else "UNKNOWN")
         licenses.append(
             {"name": pkg["name"], "version": pkg["version"], "declaredLicense": declared_license, "sourceType": source_type}
         )

@@ -1,6 +1,8 @@
 //! Aster Desktop host. WebView input is intent; this host alone owns OS
 //! credentials, fixed HTTPS egress, file grants and terminal request state.
 
+#[cfg(all(test, windows))]
+mod creation_process_fixture;
 mod credential;
 mod credential_fixture;
 #[cfg(windows)]
@@ -122,6 +124,50 @@ struct SendIntent {
     message: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SelectFileIntent {
+    conversation_id: String,
+    request_id: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileReceipt {
+    relative_path: String,
+    request_id: String,
+    sha256: String,
+    byte_count: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProjectSendIntent {
+    conversation_id: String,
+    request_id: String,
+    model_id: String,
+    message: String,
+    relative_path: String,
+    expected_sha256: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProposalIntent {
+    conversation_id: String,
+    request_id: String,
+    proposal_json: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProposalReceipt {
+    status: &'static str,
+    operation: String,
+    relative_path: String,
+    new_sha256: String,
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StreamEvent<'a> {
@@ -172,9 +218,9 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         project_selected: project_label.is_some(),
         project_label,
         capabilities: Capabilities {
-            project_read: false,
-            proposals: false,
-            apply_new_file: false,
+            project_read: cfg!(windows),
+            proposals: cfg!(windows),
+            apply_new_file: cfg!(windows),
             apply_existing_file: false,
         },
     })
@@ -247,10 +293,8 @@ async fn select_project_root(
                     .workspace
                     .set_native_root(path.into_path().map_err(|_| "workspace_denied")?)
                     .map(|mut selection| {
-                        // Internal Windows file-service proofs are still pending.
-                        // Root selection supplies only a label, never read access.
-                        selection.read_available = false;
-                        selection.apply_available = false;
+                        selection.read_available = true;
+                        selection.apply_available = true;
                         selection
                     })
                     .map_err(|e| e.code().to_owned()),
@@ -269,6 +313,176 @@ async fn select_project_root(
     {
         let _ = app;
         Err("WORKSPACE_UNAVAILABLE".to_owned())
+    }
+}
+
+#[tauri::command]
+async fn select_project_file(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    input: SelectFileIntent,
+) -> Result<Option<FileReceipt>, String> {
+    trusted(&window)?;
+    if !policy::valid_id(&input.conversation_id) || !policy::valid_id(&input.request_id) {
+        return Err("invalid_input".into());
+    }
+    #[cfg(windows)]
+    {
+        tauri::async_runtime::spawn_blocking(move || {
+            let host = app.state::<Host>();
+            let _guard = host.enter_native_dialog()?;
+            let Some(selected) = window.dialog().file().blocking_pick_file() else {
+                return Ok(None);
+            };
+            let grant = host
+                .workspace
+                .grant_native_file_read(
+                    &input.conversation_id,
+                    &input.request_id,
+                    selected.into_path().map_err(|_| "WORKSPACE_DENIED")?,
+                )
+                .map_err(|e| e.code())?;
+            let read = host
+                .workspace
+                .read_project_file(
+                    &input.conversation_id,
+                    &input.request_id,
+                    &grant.relative_path,
+                )
+                .map_err(|e| e.code())?;
+            // Project plaintext remains in the host snapshot and native review.
+            Ok(Some(FileReceipt {
+                relative_path: read.relative_path,
+                request_id: input.request_id,
+                sha256: read.sha256,
+                byte_count: read.content.len(),
+            }))
+        })
+        .await
+        .map_err(|_| "native_dialog_unavailable".to_owned())?
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Err("WORKSPACE_UNAVAILABLE".into())
+    }
+}
+
+#[tauri::command]
+async fn review_project_proposal(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    input: ProposalIntent,
+) -> Result<ProposalReceipt, String> {
+    trusted(&window)?;
+    if !policy::valid_id(&input.conversation_id) || !policy::valid_id(&input.request_id) {
+        return Err("invalid_input".into());
+    }
+    #[cfg(windows)]
+    {
+        tauri::async_runtime::spawn_blocking(move || {
+            let host = app.state::<Host>();
+            let _guard = host.enter_native_dialog()?;
+            let result = (|| -> Result<ProposalReceipt, String> {
+                let edit =
+                    workspace::parse_proposed_edit(&input.proposal_json).map_err(|e| e.code())?;
+                let review = match edit.operation {
+                    workspace::ProposalOperation::CreateNew => {
+                        let journal = host
+                            .workspace
+                            .journal_directory(
+                                app.path()
+                                    .local_data_dir()
+                                    .map_err(|_| "WORKSPACE_UNAVAILABLE")?,
+                            )
+                            .map_err(|e| e.code())?;
+                        host.workspace.prepare_new_file_proposal(
+                            &input.conversation_id,
+                            &input.request_id,
+                            &input.proposal_json,
+                            journal,
+                        )
+                    }
+                    workspace::ProposalOperation::ReplaceExisting => {
+                        let selected = window
+                            .dialog()
+                            .file()
+                            .blocking_pick_file()
+                            .ok_or("proposal_denied")?;
+                        let grant = host
+                            .workspace
+                            .grant_native_file_read(
+                                &input.conversation_id,
+                                &input.request_id,
+                                selected.into_path().map_err(|_| "WORKSPACE_DENIED")?,
+                            )
+                            .map_err(|e| e.code())?;
+                        host.workspace
+                            .read_project_file(
+                                &input.conversation_id,
+                                &input.request_id,
+                                &grant.relative_path,
+                            )
+                            .map_err(|e| e.code())?;
+                        host.workspace.review_model_replacement(
+                            &input.conversation_id,
+                            &input.request_id,
+                            &input.proposal_json,
+                        )
+                    }
+                }
+                .map_err(|e| e.code())?;
+                let document = native_review::ReviewDocument::proposal(&review.diff)
+                    .map_err(|_| "native_review_unavailable")?;
+                let owner = window.hwnd().map_err(|_| "native_review_unavailable")?.0 as usize;
+                let approval = native_review::confirm_owned(&document, owner)
+                    .map_err(|_| "native_review_unavailable")?;
+                let status = match approval {
+                    None => {
+                        let _ = host
+                            .workspace
+                            .revoke_pending(&input.conversation_id, &input.request_id);
+                        "denied"
+                    }
+                    Some(approval) if edit.operation == workspace::ProposalOperation::CreateNew => {
+                        match host
+                            .workspace
+                            .apply_new_file_candidate(&review.proposal_id, approval)
+                            .map_err(|e| e.code())?
+                        {
+                            workspace::CreationOutcome::Verified => "verified",
+                            workspace::CreationOutcome::AttentionRequired => "attention_required",
+                        }
+                    }
+                    Some(approval) => {
+                        approval
+                            .consume(document.binding_sha256())
+                            .map_err(|_| "native_review_unavailable")?;
+                        let _ = host
+                            .workspace
+                            .revoke_pending(&input.conversation_id, &input.request_id);
+                        "proposal_only"
+                    }
+                };
+                Ok(ProposalReceipt {
+                    status,
+                    operation: review.operation,
+                    relative_path: review.relative_path,
+                    new_sha256: review.new_sha256,
+                })
+            })();
+            let _ = host
+                .workspace
+                .revoke_pending(&input.conversation_id, &input.request_id);
+            result
+        })
+        .await
+        .map_err(|_| "native_dialog_unavailable".to_owned())?
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, input);
+        Err("WORKSPACE_UNAVAILABLE".into())
     }
 }
 
@@ -323,53 +537,233 @@ async fn send_message(
         .reserve(&conversation_id, &request_id, model, prompt)
         .map_err(|e| e.code().to_owned())?;
 
-    let result_id = request_id.clone();
-    let worker_id = request_id.clone();
-    let worker_conversation = conversation_id.clone();
-    let worker_app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let cancellation = admission.cancellation;
-        let event_cancel = cancellation.clone();
-        let response = AssertUnwindSafe(provider::stream_chat(
-            model,
-            &admission.messages,
-            key,
-            cancellation,
-            |text| {
-                if *event_cancel.borrow() {
-                    return Err(provider::ProviderFailure::Cancelled);
-                }
-                let session = worker_app.state::<Host>();
-                let mut state = session
+    start_stream(
+        app,
+        conversation_id,
+        request_id.clone(),
+        model,
+        admission,
+        key,
+        None,
+    );
+    Ok(Accepted {
+        request_id,
+        accepted: true,
+    })
+}
+
+#[tauri::command]
+async fn send_project_message(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    input: ProjectSendIntent,
+) -> Result<Accepted, String> {
+    trusted(&window)?;
+    let model = Model::parse(&input.model_id).ok_or("unregistered_model")?;
+    if !policy::valid_id(&input.conversation_id)
+        || !policy::valid_id(&input.request_id)
+        || !policy::valid_prompt(&input.message)
+    {
+        return Err("invalid_input".into());
+    }
+    #[cfg(windows)]
+    {
+        let prepared_app = app.clone();
+        let prepared = tauri::async_runtime::spawn_blocking(move || {
+            let host = prepared_app.state::<Host>();
+            let preliminary = (|| {
+                let guard = host.enter_native_dialog()?;
+                let prompt = host
+                    .workspace
+                    .compose_project_prompt(
+                        &input.conversation_id,
+                        &input.request_id,
+                        &input.relative_path,
+                        &input.expected_sha256,
+                        &input.message,
+                    )
+                    .map_err(|e| e.code().to_owned())?;
+                let admission = host
                     .sessions
                     .lock()
-                    .map_err(|_| provider::ProviderFailure::InvalidContract)?;
-                if !state.mark_streaming(&worker_conversation, &worker_id) {
-                    return Err(provider::ProviderFailure::Cancelled);
+                    .map_err(|_| "host_unavailable".to_owned())?
+                    .reserve_ephemeral(&input.conversation_id, &input.request_id, model, prompt)
+                    .map_err(|e| e.code().to_owned())?;
+                Ok::<_, String>((guard, admission))
+            })();
+            let (_guard, admission) = match preliminary {
+                Ok(prepared) => prepared,
+                Err(error) => {
+                    let _ = host
+                        .workspace
+                        .revoke_pending(&input.conversation_id, &input.request_id);
+                    return Err(error);
                 }
-                // Keep the same host lock while enqueueing the event. A later
-                // cancellation acknowledgement cannot precede a new host emit.
-                let result = worker_app
-                    .emit_to(
-                        MAIN_WINDOW,
-                        STREAM_EVENT,
-                        StreamEvent {
-                            request_id: &worker_id,
-                            conversation_id: &worker_conversation,
-                            kind: "content",
-                            text: Some(&text),
-                            status: None,
-                            error_code: None,
-                        },
+            };
+            let reviewed = (|| {
+                let body =
+                    provider::exact_body(model, &admission.messages).map_err(|e| e.code())?;
+                let document = host
+                    .workspace
+                    .prepare_disclosure_candidate(
+                        &input.conversation_id,
+                        &input.request_id,
+                        &input.relative_path,
+                        &input.expected_sha256,
+                        body,
                     )
-                    .map_err(|_| provider::ProviderFailure::InvalidContract);
-                drop(state);
-                result
-            },
-        ))
-        .catch_unwind()
+                    .map_err(|e| e.code())?;
+                let owner = window.hwnd().map_err(|_| "native_review_unavailable")?.0 as usize;
+                let approval = native_review::confirm_owned(&document, owner)
+                    .map_err(|_| "native_review_unavailable")?
+                    .ok_or("disclosure_denied")?;
+                let body = host
+                    .workspace
+                    .finalize_disclosure_candidate(
+                        &input.conversation_id,
+                        &input.request_id,
+                        approval,
+                    )
+                    .map_err(|e| e.code())?;
+                if *admission.cancellation.borrow() {
+                    return Err("cancelled");
+                }
+                let key = host.credentials.read().map_err(|e| e.code())?;
+                Ok((body, key))
+            })();
+            match reviewed {
+                Ok((body, key)) => Ok((
+                    input.conversation_id,
+                    input.request_id,
+                    admission,
+                    body,
+                    key,
+                )),
+                Err(error) => {
+                    if let Ok(mut sessions) = host.sessions.lock() {
+                        let disposition = sessions.finish(
+                            &input.conversation_id,
+                            &input.request_id,
+                            TransportOutcome::Failed,
+                        );
+                        if let Some(disposition) = disposition {
+                            let status = if disposition == FinishDisposition::Cancelled {
+                                "cancelled"
+                            } else {
+                                "failed"
+                            };
+                            let _ = prepared_app.emit_to(
+                                MAIN_WINDOW,
+                                STREAM_EVENT,
+                                StreamEvent {
+                                    request_id: &input.request_id,
+                                    conversation_id: &input.conversation_id,
+                                    kind: "terminal",
+                                    text: None,
+                                    status: Some(status),
+                                    error_code: Some(error),
+                                },
+                            );
+                        }
+                    }
+                    let _ = host
+                        .workspace
+                        .revoke_pending(&input.conversation_id, &input.request_id);
+                    Err(error.to_owned())
+                }
+            }
+        })
         .await
-        .unwrap_or(Err(provider::ProviderFailure::InvalidContract));
+        .map_err(|_| "native_dialog_unavailable".to_owned())??;
+        let (conversation_id, request_id, admission, body, key) = prepared;
+        start_stream(
+            app,
+            conversation_id,
+            request_id.clone(),
+            model,
+            admission,
+            key,
+            Some(body),
+        );
+        Ok(Accepted {
+            request_id,
+            accepted: true,
+        })
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, input, model);
+        Err("WORKSPACE_UNAVAILABLE".into())
+    }
+}
+
+fn start_stream(
+    worker_app: tauri::AppHandle,
+    worker_conversation: String,
+    worker_id: String,
+    model: Model,
+    admission: policy::Admission,
+    key: zeroize::Zeroizing<String>,
+    approved_body: Option<Vec<u8>>,
+) {
+    tauri::async_runtime::spawn(async move {
+        let project_request = approved_body.is_some();
+        let cancellation = admission.cancellation;
+        let event_cancel = cancellation.clone();
+        let on_content = |text: String| {
+            if *event_cancel.borrow() {
+                return Err(provider::ProviderFailure::Cancelled);
+            }
+            let session = worker_app.state::<Host>();
+            let mut state = session
+                .sessions
+                .lock()
+                .map_err(|_| provider::ProviderFailure::InvalidContract)?;
+            if !state.mark_streaming(&worker_conversation, &worker_id) {
+                return Err(provider::ProviderFailure::Cancelled);
+            }
+            // Keep the same host lock while enqueueing the event. A later
+            // cancellation acknowledgement cannot precede a new host emit.
+            let result = worker_app
+                .emit_to(
+                    MAIN_WINDOW,
+                    STREAM_EVENT,
+                    StreamEvent {
+                        request_id: &worker_id,
+                        conversation_id: &worker_conversation,
+                        kind: "content",
+                        text: Some(&text),
+                        status: None,
+                        error_code: None,
+                    },
+                )
+                .map_err(|_| provider::ProviderFailure::InvalidContract);
+            drop(state);
+            result
+        };
+        let transport = async {
+            match approved_body {
+                Some(body) => {
+                    provider::stream_chat_exact(
+                        model,
+                        &admission.messages,
+                        body,
+                        key,
+                        cancellation,
+                        on_content,
+                    )
+                    .await
+                }
+                None => {
+                    provider::stream_chat(model, &admission.messages, key, cancellation, on_content)
+                        .await
+                }
+            }
+        };
+        let response = AssertUnwindSafe(transport)
+            .catch_unwind()
+            .await
+            .unwrap_or(Err(provider::ProviderFailure::InvalidContract));
         let (transport, provider_error) = match response {
             Ok(answer) => (TransportOutcome::Completed(answer), None),
             Err(provider::ProviderFailure::Cancelled) => (TransportOutcome::Cancelled, None),
@@ -385,6 +779,11 @@ async fn send_message(
             .map(|mut s| s.finish(&worker_conversation, &worker_id, transport))
             .unwrap_or(None);
         if let Some(disposition) = disposition {
+            if project_request && disposition != FinishDisposition::Completed {
+                let _ = state
+                    .workspace
+                    .revoke_pending(&worker_conversation, &worker_id);
+            }
             let (status, error_code) = match disposition {
                 FinishDisposition::Completed => ("completed", None),
                 FinishDisposition::Cancelled => ("cancelled", None),
@@ -404,10 +803,6 @@ async fn send_message(
             );
         }
     });
-    Ok(Accepted {
-        request_id: result_id,
-        accepted: true,
-    })
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -485,11 +880,24 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Host::default())
+        .setup(|app| {
+            let cleanup_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                    let _ = cleanup_app.state::<Host>().workspace.expire_pending();
+                }
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_app_status,
             configure_nvidia_credential,
             remove_nvidia_credential,
             select_project_root,
+            select_project_file,
+            send_project_message,
+            review_project_proposal,
             send_message,
             cancel_message,
         ])
@@ -604,6 +1012,39 @@ mod tests {
     }
 
     #[test]
+    fn workspace_intents_never_admit_content_handles_or_approval_fields() {
+        let file = serde_json::json!({"conversationId":"c1", "requestId":"r1"});
+        let send = serde_json::json!({"conversationId":"c1", "requestId":"r1", "modelId":DEFAULT_MODEL,
+            "message":"Review this file", "relativePath":"src/example.txt", "expectedSha256":"a".repeat(64)});
+        let proposal =
+            serde_json::json!({"conversationId":"c1", "requestId":"r1", "proposalJson":"{}"});
+        assert!(serde_json::from_value::<SelectFileIntent>(file.clone()).is_ok());
+        assert!(serde_json::from_value::<ProjectSendIntent>(send.clone()).is_ok());
+        assert!(serde_json::from_value::<ProposalIntent>(proposal.clone()).is_ok());
+        for field in [
+            "content",
+            "absolutePath",
+            "ownerHwnd",
+            "approved",
+            "apiKey",
+            "exactBody",
+            "url",
+            "journalDirectory",
+        ] {
+            let mut values = [file.clone(), send.clone(), proposal.clone()];
+            for value in &mut values {
+                value
+                    .as_object_mut()
+                    .unwrap()
+                    .insert(field.into(), serde_json::json!("forged"));
+            }
+            assert!(serde_json::from_value::<SelectFileIntent>(values[0].clone()).is_err());
+            assert!(serde_json::from_value::<ProjectSendIntent>(values[1].clone()).is_err());
+            assert!(serde_json::from_value::<ProposalIntent>(values[2].clone()).is_err());
+        }
+    }
+
+    #[test]
     fn closed_command_manifest_is_explicit_and_not_wildcard() {
         let manifest = include_str!("../build.rs");
         let capability = include_str!("../capabilities/main.json");
@@ -612,6 +1053,9 @@ mod tests {
             "configure_nvidia_credential",
             "remove_nvidia_credential",
             "select_project_root",
+            "select_project_file",
+            "send_project_message",
+            "review_project_proposal",
             "send_message",
             "cancel_message",
         ] {

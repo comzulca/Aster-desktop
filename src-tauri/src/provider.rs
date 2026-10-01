@@ -333,11 +333,54 @@ where
     stream_with_client(&http, ENDPOINT, model, messages, key, cancel, on_content).await
 }
 
+/// Dispatch bytes that already passed a host-owned disclosure review. The
+/// reviewed bytes are sent verbatim, but only after recomputing the closed
+/// provider contract and proving that the reviewed body is exactly the body
+/// this model/message pair is allowed to send.
+pub async fn stream_chat_exact<F>(
+    model: Model,
+    messages: &[ChatMessage],
+    exact_body: Vec<u8>,
+    key: Zeroizing<String>,
+    cancel: watch::Receiver<bool>,
+    on_content: F,
+) -> Result<String, ProviderFailure>
+where
+    F: FnMut(String) -> Result<(), ProviderFailure>,
+{
+    let http = client()?;
+    stream_with_client_exact(
+        &http, ENDPOINT, model, messages, exact_body, key, cancel, on_content,
+    )
+    .await
+}
+
 async fn stream_with_client<F>(
     client: &Client,
     endpoint: &str,
     model: Model,
     messages: &[ChatMessage],
+    key: Zeroizing<String>,
+    cancel: watch::Receiver<bool>,
+    on_content: F,
+) -> Result<String, ProviderFailure>
+where
+    F: FnMut(String) -> Result<(), ProviderFailure>,
+{
+    let body = exact_body(model, messages)?;
+    stream_with_client_exact(
+        client, endpoint, model, messages, body, key, cancel, on_content,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)] // Keep every reviewed contract input explicit at this boundary.
+async fn stream_with_client_exact<F>(
+    client: &Client,
+    endpoint: &str,
+    model: Model,
+    messages: &[ChatMessage],
+    approved_body: Vec<u8>,
     key: Zeroizing<String>,
     mut cancel: watch::Receiver<bool>,
     mut on_content: F,
@@ -348,14 +391,18 @@ where
     if *cancel.borrow() {
         return Err(ProviderFailure::Cancelled);
     }
-    let body = exact_body(model, messages)?;
+    if approved_body.len() > MAX_REQUEST_BYTES || approved_body != exact_body(model, messages)? {
+        return Err(ProviderFailure::InvalidContract);
+    }
     let request = client
         .post(endpoint)
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::ACCEPT, "text/event-stream")
         .header(header::ACCEPT_ENCODING, "identity")
         .bearer_auth(key.as_str())
-        .body(body);
+        // Send the approved allocation itself. Do not rebuild or normalize it
+        // after native review; byte identity is the disclosure boundary.
+        .body(approved_body);
     // The secret has been copied into an HTTP header by reqwest. Discard the
     // original OS-owned string before the first await. No debug logging.
     drop(key);
@@ -666,6 +713,55 @@ mod tests {
         assert_eq!(body["stream"], true);
         assert_eq!(body["tool_choice"], "none");
         assert!(body.get("tools").is_none());
+    }
+
+    #[tokio::test]
+    async fn reviewed_body_is_dispatched_byte_for_byte_and_mismatch_never_reaches_network() {
+        let response_body = format!(
+            "{}data: [DONE]\n\n",
+            frame(Model::Muse, "reviewed", Some("stop"))
+        );
+        let (url, server) =
+            fake_server(fake_response("200 OK", "text/event-stream", &response_body));
+        let messages = vec![ChatMessage {
+            role: "user",
+            content: "project byte fixture: España 🦊".into(),
+        }];
+        let approved = exact_body(Model::Muse, &messages).unwrap();
+        let expected = approved.clone();
+        let (_tx, cancel) = watch::channel(false);
+        let answer = stream_with_client_exact(
+            &test_client(),
+            &url,
+            Model::Muse,
+            &messages,
+            approved,
+            Zeroizing::new("synthetic-fixture-key-123".to_owned()),
+            cancel,
+            |_| Ok(()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(answer, "reviewed");
+        let captured = server.join().unwrap();
+        let captured_body = captured.split_once("\r\n\r\n").unwrap().1.as_bytes();
+        assert_eq!(captured_body, expected.as_slice());
+
+        let mut changed = expected;
+        changed.push(b' ');
+        let (_tx, cancel) = watch::channel(false);
+        let denied = stream_with_client_exact(
+            &test_client(),
+            "http://127.0.0.1:9/v1/chat/completions",
+            Model::Muse,
+            &messages,
+            changed,
+            Zeroizing::new("synthetic-fixture-key-123".to_owned()),
+            cancel,
+            |_| Ok(()),
+        )
+        .await;
+        assert_eq!(denied, Err(ProviderFailure::InvalidContract));
     }
 
     #[tokio::test]

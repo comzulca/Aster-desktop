@@ -1,0 +1,3 @@
+/scripts/ci/notices/*.txt text eol=lf
+/scripts/ci/notices/manifest.json text eol=lf
+/scripts/ci/notices/README.md text eol=lf

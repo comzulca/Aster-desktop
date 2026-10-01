@@ -1,12 +1,18 @@
 # DEPENDENCY-ALIGNMENT-0001 — coordinated Tauri candidate plan
 
-Written before source-policy guard implementation: 2026-10-01 UTC. Status: **NOT RUN / UNPINNED joint candidate**. Trace: ADR-0008 / NFR-003 / SEC-009 / TM-011 / AC-019 / T-037. The owner selected a coherent update and closure only of verified superseded PRs; issue11/12 acceptance remains open.
+Current outcome: the coordinated dependency update was integrated and verified at historical main source `b0610c534fad0348486fb7cdd87774a9a2e81978`. It resolves Rust `tauri 2.12.1`, API/CLI `2.12.0`, passed the 73-case T-037 guard, 90 Rust tests, 23 frontend tests and unsigned packaging in run 85. See [CI-0006.md](CI-0006.md). This closes the dependency-alignment decision only; it does not transfer evidence to the later protocol-2 runtime change, close issues #11/#12 or certify laptop behavior.
+
+The changed candidate must rerun locked install, T-037, all host/frontend tests, audits, SBOM/schema-2 notices, independently extracted NSIS resource evidence and unsigned packaging on one immutable revision. Historical run 85 recorded exactly three allowed warnings (`proc-macro-error 1.0.4`, `glib 0.18.5`, `yoke-derive 0.8.3`); their disposition and current applicability require fresh review. Notice closure/payload hashes are structural engineering evidence, not an exact binary SBOM or legal approval.
+
+## Historical integration plan and evidence trail
+
+Written before source-policy guard implementation: 2026-10-01 UTC. Trace: ADR-0008 / NFR-003 / SEC-009 / TM-011 / AC-019 / T-037. The owner selected a coherent update and closure only of verified superseded PRs; issue #11/#12 acceptance remained open.
 
 ## Candidate inventory and independent proof
 
 Use authenticated PR17 Cargo.lock with Rust tauri2.12.1/dialog2.8.0/build2.7.1/runtime2.12.1; pair npm API2.12.0 and CLI2.12.0 from PR20/21. Preserve root Cargo.toml and all production source/config/capability/provider/credential content. Capture direct/transitive additions/removals/versions/licenses and exact dependency-file blobs. PR16/17/18/20/21 may be superseded only after inclusion is independently verified; PR19 Vitest and PR22 Vite remain separately reviewed updates.
 
-The prior candidate source checks passed 80 Rust/23 frontend tests on main50837e and skipped engineering-installer. They do not prove PR23's changed journal source or a mismatched Rust/npm installer. Current main tauri2.11.6 is already patched for GHSA-w28w-mhc8-qvjv. Treat generated Dependabot release excerpts as lower-trust summaries; inspect exact official package tags, not unrelated plugin-http notes.
+At that planning checkpoint, prior candidate source checks passed 80 Rust/23 frontend tests on main50837e and skipped engineering-installer. They did not prove PR23's changed journal source or a mismatched Rust/npm installer. The then-current main `tauri 2.11.6` was already patched for GHSA-w28w-mhc8-qvjv. Treat generated Dependabot release excerpts as lower-trust summaries; inspect exact official package tags, not unrelated plugin-http notes.
 
 ## Planned source-policy compatibility gate
 

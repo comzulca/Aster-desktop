@@ -20,6 +20,9 @@ export const nativeBridge: Bridge = {
   configureCredential: () => callHost('configure_nvidia_credential'),
   removeCredential: () => callHost('remove_nvidia_credential'),
   selectProject: () => callHost('select_project_root'),
+  selectProjectFile: (args) => callHost('select_project_file', { input: args }),
   sendMessage: (args) => callHost('send_message', { input: args }),
+  sendProjectMessage: (args) => callHost('send_project_message', { input: args }),
+  reviewProjectProposal: (args) => callHost('review_project_proposal', { input: args }),
   cancelMessage: (requestId) => callHost('cancel_message', { requestId }),
 };

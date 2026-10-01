@@ -2,6 +2,20 @@ export const DEFAULT_MODEL = 'nvidia/nemotron-3.5-lightning-30b-a3b' as const;
 export const MUSE_MODEL = 'meta/muse-glimmer-30b' as const;
 export type ModelId = typeof DEFAULT_MODEL | typeof MUSE_MODEL;
 
+export type SendMessageIntent = {
+  conversationId: string;
+  requestId: string;
+  modelId: ModelId;
+  message: string;
+};
+
+export type FileReceipt = {
+  relativePath: string;
+  requestId: string;
+  sha256: string;
+  byteCount: number;
+};
+
 export interface AppStatus {
   policyVersion: number;
   configured: boolean;
@@ -33,11 +47,14 @@ export interface Bridge {
   configureCredential(): Promise<{ configured: boolean }>;
   removeCredential(): Promise<{ configured: boolean }>;
   selectProject(): Promise<{ selected: boolean; label: string | null }>;
-  sendMessage(args: {
-    conversationId: string;
-    requestId: string;
-    modelId: ModelId;
-    message: string;
-  }): Promise<{ requestId: string; accepted: boolean }>;
+  selectProjectFile(args: { conversationId: string; requestId: string }): Promise<FileReceipt | null>;
+  sendMessage(args: SendMessageIntent): Promise<{ requestId: string; accepted: boolean }>;
+  sendProjectMessage(args: SendMessageIntent & { relativePath: string; expectedSha256: string }): Promise<{ requestId: string; accepted: boolean }>;
+  reviewProjectProposal(args: { conversationId: string; requestId: string; proposalJson: string }): Promise<{
+    status: 'verified' | 'attention_required' | 'denied' | 'proposal_only';
+    operation: 'create_new' | 'replace_existing';
+    relativePath: string;
+    newSha256: string;
+  }>;
   cancelMessage(requestId: string): Promise<{ cancelled: boolean }>;
 }
