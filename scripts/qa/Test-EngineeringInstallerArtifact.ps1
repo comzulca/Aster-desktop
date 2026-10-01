@@ -273,6 +273,9 @@ $payloadDirectory = Join-Path $destinationFull 'verified-installer-payload'
 if ($LASTEXITCODE -ne 0) { throw 'Independent installer payload extraction failed.' }
 $payloadItems = @(Get-ChildItem -LiteralPath $payloadDirectory -Recurse -Force)
 if (@($payloadItems | Where-Object { ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 }).Count -ne 0) { throw 'Extracted installer payload contains a link/reparse point.' }
+# NSIS uninstall.exe size metadata describes encoded patches; the extractor
+# reconstructs a larger executable. Check actual member lengths independently.
+if (@($payloadItems | Where-Object { -not $_.PSIsContainer -and $_.Length -gt 268435456 }).Count -ne 0) { throw 'Extracted installer payload member exceeds 256 MiB.' }
 $expandedBytes = @($payloadItems | Where-Object { -not $_.PSIsContainer } | Measure-Object -Property Length -Sum).Sum
 if ([long]$expandedBytes -gt 536870912) { throw 'Extracted installer payload exceeds the 512 MiB expanded-size bound.' }
 if ($payloadList -cnotmatch ('(?m)^extracted_file_bytes=' + [long]$expandedBytes + '$')) { throw 'Independent extracted byte count differs from CI evidence.' }

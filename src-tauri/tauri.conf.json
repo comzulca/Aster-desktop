@@ -27,6 +27,11 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "windows": {
+      "nsis": {
+        "compression": "none"
+      }
+    },
     "resources": {
       "../reports/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
       "../LICENSE": "LICENSE.txt"
