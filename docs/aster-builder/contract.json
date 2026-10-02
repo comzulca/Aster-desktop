@@ -484,12 +484,12 @@
     },
     {
       "phase": 4,
-      "reason": "Protocol-2 transport/exact-body fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but final main-branch CI/package binding remains pending; exactly two final-artifact live canaries on the current principal laptop/account remain pre-delivery NOT RUN.",
+      "reason": "Protocol-2 transport/exact-body fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but final main-branch CI/package binding remains pending. Exactly two final-artifact live canaries on the current principal laptop/account remain post-handoff owner acceptance NOT RUN; they block live-provider acceptance or production promotion, not a verified unsigned engineering handoff.",
       "status": "NOT RUN"
     },
     {
       "phase": 5,
-      "reason": "Private-journal integration and restart fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but final main-branch CI/package binding remains pending; owner Credential Manager GUI, installed secret-boundary and no-history acceptance on the current principal laptop/account are pre-delivery NOT RUN.",
+      "reason": "Private-journal integration and restart fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but final main-branch CI/package binding remains pending. Owner Credential Manager GUI, installed secret-boundary and no-history checks on the current principal laptop/account remain post-handoff owner acceptance NOT RUN and block installed-feature acceptance or production promotion, not a verified unsigned engineering handoff.",
       "status": "NOT RUN"
     },
     {
@@ -504,12 +504,12 @@
     },
     {
       "phase": 8,
-      "reason": "Runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3 passes local typecheck/25 frontend tests/build/audit, 100 Rust tests, 90-file source guard, T-037 73 cases plus actual comparison, offline metadata/notices/SBOM and complete audit. PR run 36901019822 is still incomplete and any PR package is a non-installable candidate. The later packaging/evidence source requires a fresh complete main-branch run, reproducible notices/SBOM and independently extracted bundle-resource evidence. Structural evidence is not legal approval and principal-laptop T-041 performance is pre-delivery NOT RUN.",
+      "reason": "Corrected-NSIS source 9796d75a98b14d247d3f86e1803300727b3d0229 passes local typecheck/25 frontend tests/build/audit, 100 Rust tests, 91-file source guard, T-037 73 cases plus actual comparison, offline metadata/notices/SBOM, structural ledger through phase 2 and complete audit. Historical PR run 36901019822 completed cancelled at 2026-10-01T18:18:52Z; no cause is inferred and no partial PASS transfers. Main run 36916971838 is intermediate evidence for the pre-reconciliation tree, not a deliverable. The later documentation-reconciliation source requires a fresh complete main-branch run, reproducible notices/SBOM and independently extracted bundle-resource evidence. Structural evidence is not legal approval; principal-laptop T-041 performance remains post-handoff owner acceptance NOT RUN and does not block a verified unsigned engineering handoff.",
       "status": "NOT RUN"
     },
     {
       "phase": 9,
-      "reason": "Runtime source is pinned and locally validated, but the later final packaging/evidence revision and main-branch unsigned-engineering-build manifest/supplemental/ZIP/EXE/delivery-alias hashes are pending. PR unsigned-engineering-candidate artifacts are never installed. Feasible Windows 11 manual acceptance on the current primary laptop/principal account is required before final delivery and remains NOT RUN; unavailable shipping-seam rows stay disclosed NOT RUN and production promotion is not claimed.",
+      "reason": "Runtime source is pinned and locally validated, but the later final packaging/evidence revision and main-branch unsigned-engineering-build manifest/supplemental/ZIP/EXE/delivery-alias hashes are pending. PR unsigned-engineering-candidate artifacts are never installed. Once those automated and artifact gates pass, the verified unsigned engineering build may be handed to the owner. Feasible Windows 11 manual acceptance on the current primary laptop/principal account follows handoff and remains NOT RUN; it blocks installed-feature acceptance or production promotion, unavailable shipping-seam rows stay disclosed NOT RUN, and no production claim is made.",
       "status": "NOT RUN"
     }
   ],
