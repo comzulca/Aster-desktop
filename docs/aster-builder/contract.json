@@ -479,22 +479,22 @@
     },
     {
       "phase": 3,
-      "reason": "Exact-source local 25-test renderer and automatic credential-boundary fixtures pass at runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but the later packaging/evidence source, completed main-branch CI/package binding and installed accessibility/native GUI evidence are incomplete.",
+      "reason": "This structural runtime ledger retains historical source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3 and its automatic PASS metadata. Delivered source 1782d337 has complete CI/package PASS and six owner-reported category PASS results dated 2026-10-02 Edinburgh/BST (docs/qa/OWNER-ACCEPTANCE-0001.md). Detailed accessibility/native GUI/secret-boundary receipts not supplied remain NOT RUN in this compound gate and are explicitly transferred to v0.2.0 review (docs/qa/V0.2.0-FOLLOW-UP-0001.md, V02-001/002/005), not fabricated or treated as production clearance.",
       "status": "NOT RUN"
     },
     {
       "phase": 4,
-      "reason": "Protocol-2 transport/exact-body fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but final main-branch CI/package binding remains pending. Exactly two final-artifact live canaries on the current principal laptop/account remain post-handoff owner acceptance NOT RUN; they block live-provider acceptance or production promotion, not a verified unsigned engineering handoff.",
+      "reason": "Historical runtime-source transport fixtures retain their PASS metadata. Final 1782d337 CI/package qualification passed and the owner reports providers/history PASS (docs/qa/OWNER-ACCEPTANCE-0001.md). Per-model live receipts, counts, streaming/terminal and restart details were not supplied and transfer to V02-004 in docs/qa/V0.2.0-FOLLOW-UP-0001.md; do not infer 0/2 or 2/2 executed calls or complete this compound gate from a category statement.",
       "status": "NOT RUN"
     },
     {
       "phase": 5,
-      "reason": "Private-journal integration and restart fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but final main-branch CI/package binding remains pending. Owner Credential Manager GUI, installed secret-boundary and no-history checks on the current principal laptop/account remain post-handoff owner acceptance NOT RUN and block installed-feature acceptance or production promotion, not a verified unsigned engineering handoff.",
+      "reason": "Historical runtime-source private-journal/restart fixtures keep their PASS metadata. Final 1782d337 CI/package qualification passed; credentials/uninstall and providers/history are owner-reported category PASS (docs/qa/OWNER-ACCEPTANCE-0001.md). Detailed installed secret-boundary/no-history/diagnostic/recovery records are not consolidated here and transfer to V02-004/005/008/010 in docs/qa/V0.2.0-FOLLOW-UP-0001.md. Physical power loss is not proven by process termination; this compound gate remains NOT RUN.",
       "status": "NOT RUN"
     },
     {
       "phase": 6,
-      "reason": "Exact-source automatic T-038 through T-040 portions, including independent-process termination/restart, pass locally at runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3. Full T-039/T-040 remain NOT RUN because installed owner-HWND positive journeys have not executed and no loopback/proposal-injection seam ships; existing replacement is intentionally proposal-only.",
+      "reason": "Historical automatic T-038 through T-040 portions retain source-bound PASS; final 1782d337 build qualification and owner-reported project/files category PASS are in docs/qa/OWNER-ACCEPTANCE-0001.md. Full T-039/T-040 lack granular installed loopback/proposal-injection receipts and remain NOT RUN/deferred to V02-007/008/010. Existing replacement is hard false/proposal-only and transfers to V02-009 in docs/qa/V0.2.0-FOLLOW-UP-0001.md; no activation is authorized.",
       "status": "NOT RUN"
     },
     {
@@ -504,12 +504,12 @@
     },
     {
       "phase": 8,
-      "reason": "Corrected-NSIS source 9796d75a98b14d247d3f86e1803300727b3d0229 passes local typecheck/25 frontend tests/build/audit, 100 Rust tests, 91-file source guard, T-037 73 cases plus actual comparison, offline metadata/notices/SBOM, structural ledger through phase 2 and complete audit. Historical PR run 36901019822 completed cancelled at 2026-10-01T18:18:52Z; no cause is inferred and no partial PASS transfers. Main run 36916971838 is intermediate evidence for the pre-reconciliation tree, not a deliverable. The later documentation-reconciliation source requires a fresh complete main-branch run, reproducible notices/SBOM and independently extracted bundle-resource evidence. Structural evidence is not legal approval; principal-laptop T-041 performance remains post-handoff owner acceptance NOT RUN and does not block a verified unsigned engineering handoff.",
+      "reason": "Full delivered-source 1782d337 local/CI/audit/notices/SBOM/package qualification PASS is recorded separately in docs/qa/OWNER-ACCEPTANCE-0001.md (run 37040168700 attempt 1, artifact 11243338033). Earlier cancelled/failed runs keep their historical records; two unignored off-Windows RustSec warnings remain disclosed. Performance is category PASS (owner-reported), not a measured complete T-041: numeric cold/warm/resource/latency and unavailable installed cancel/20-turn details transfer to V02-003. This historical-source compound ledger gate remains NOT RUN rather than relabelling all tests or asserting legal/production readiness.",
       "status": "NOT RUN"
     },
     {
       "phase": 9,
-      "reason": "Runtime source is pinned and locally validated, but the later final packaging/evidence revision and main-branch unsigned-engineering-build manifest/supplemental/ZIP/EXE/delivery-alias hashes are pending. PR unsigned-engineering-candidate artifacts are never installed. Once those automated and artifact gates pass, the verified unsigned engineering build may be handed to the owner. Feasible Windows 11 manual acceptance on the current primary laptop/principal account follows handoff and remains NOT RUN; it blocks installed-feature acceptance or production promotion, unavailable shipping-seam rows stay disclosed NOT RUN, and no production claim is made.",
+      "reason": "This schema-1 structural ledger remains pinned to historical runtime source 2bcacd7 and its original PASS metadata; its null artifact and false release-verification fields are not the current installer inventory. The actual final unsigned engineering build at 1782d337 passed run 37040168700 and independent artifact 11243338033 verification, and six owner categories were accepted PASS on 2026-10-02 (docs/qa/OWNER-ACCEPTANCE-0001.md). Both v0.1.0 issues are eligible for scoped closure with explicit residual transfer to docs/qa/V0.2.0-FOLLOW-UP-0001.md. Compound full release gates remain NOT RUN; no signing/legal/distribution/production approval, replacement activation, new installer or live request is inferred.",
       "status": "NOT RUN"
     }
   ],
@@ -918,7 +918,7 @@
     {
       "id": "T-028",
       "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Exact-source credential representation/native API fixtures passed (LOCAL-0002); owner-entered Control Panel GUI interoperability and secret-boundary inspection remain NOT RUN.",
+      "reason": "Historical credential representation/native API fixtures passed (LOCAL-0002). Credentials/uninstall category PASS is owner-reported on 2026-10-02 (docs/qa/OWNER-ACCEPTANCE-0001.md), but detailed Control Panel/secret-boundary evidence is not supplied; the compound procedure remains NOT RUN/deferred V02-005 in docs/qa/V0.2.0-FOLLOW-UP-0001.md.",
       "status": "NOT RUN",
       "verification_phase": 3
     },
@@ -936,14 +936,14 @@
     {
       "id": "T-030",
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "reason": "Lossless/bounds/encoding fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3; interactive native display/consent/accessibility and normal-app owner HWND integration remain NOT RUN.",
+      "reason": "Historical lossless/bounds/encoding fixtures retain their PASS evidence. UI/project categories are owner-reported PASS (docs/qa/OWNER-ACCEPTANCE-0001.md), not receipts for every advanced native owner-HWND/consent/accessibility case; detailed compound evidence remains NOT RUN/deferred V02-002/007 in docs/qa/V0.2.0-FOLLOW-UP-0001.md.",
       "status": "NOT RUN",
       "verification_phase": 6
     },
     {
       "id": "T-031",
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "reason": "CREATE_NEW/DPAPI/private-journal, competition and independent-process termination/restart fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3; physical power-loss proof and installed native consent remain pending.",
+      "reason": "Historical CREATE_NEW/DPAPI/private-journal, competition and independent-process termination/restart fixtures retain PASS metadata. Owner-reported project/files category PASS does not provide detailed installed native-consent or physical power-loss proof; the compound procedure remains NOT RUN/deferred V02-008/010 (docs/qa/V0.2.0-FOLLOW-UP-0001.md), with no primary-laptop power cut authorized.",
       "status": "NOT RUN",
       "verification_phase": 6
     },
@@ -972,7 +972,7 @@
     {
       "id": "T-034",
       "path": "docs/qa/CREDENTIAL-GUI-FIXTURE-0001.md",
-      "reason": "Actual owner non-elevated Windows 11 native GUI journey on the new packaged diagnostic is not executed. Preserve existing real credential.",
+      "reason": "Owner reports credentials/uninstall category PASS on 2026-10-02 for non-elevated Aster (docs/qa/OWNER-ACCEPTANCE-0001.md). Specific generated-target GUI stages/ExitCode were not supplied, so full diagnostic evidence remains NOT RUN/deferred V02-005 (docs/qa/V0.2.0-FOLLOW-UP-0001.md); preserve the existing real credential.",
       "status": "NOT RUN",
       "verification_phase": 3
     },
@@ -1014,21 +1014,21 @@
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
       "verification_phase": 6,
       "status": "NOT RUN",
-      "reason": "Metadata-only IPC, owner-HWND exact-body one-use dispatch and ephemeral continuation fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3, but the full procedure requires installed owner-HWND observation. The shipping app has no loopback seam and no real/private project upload is authorized."
+      "reason": "Historical metadata-only IPC, owner-HWND exact-body one-use dispatch and ephemeral-continuation fixtures retain PASS. Final package qualification and project/files category PASS are in docs/qa/OWNER-ACCEPTANCE-0001.md. The full installed procedure lacks granular receipts and a shipping loopback seam; it remains NOT RUN/deferred V02-007. No real/private upload or new live request is authorized by docs/qa/V0.2.0-FOLLOW-UP-0001.md."
     },
     {
       "id": "T-040",
       "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
       "verification_phase": 6,
       "status": "NOT RUN",
-      "reason": "Integrated proposal/new-file/private-journal, independent helper-process termination/restart and proposal-only existing-replacement fixtures pass locally at immutable runtime source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3. The full procedure remains NOT RUN because installed owner-HWND positive proposal journeys have not executed, no proposal-injection seam ships and physical power-loss proof remains pending."
+      "reason": "Historical proposal/new-file/private-journal, independent process termination/restart and unchanged-existing proposal-only fixtures retain PASS. Project/files category PASS is owner-reported (docs/qa/OWNER-ACCEPTANCE-0001.md); missing detailed installed proposal receipts, absent injection seam and physical power-loss proof keep the full procedure NOT RUN/deferred V02-008/010. Existing replacement stays disabled under V02-009 (docs/qa/V0.2.0-FOLLOW-UP-0001.md)."
     },
     {
       "id": "T-041",
       "path": "docs/qa/WINDOWS11-ACCEPTANCE-0001.md",
       "verification_phase": 8,
       "status": "NOT RUN",
-      "reason": "Exact installed Windows 11 artifact launch/resource/responsiveness/cancellation/bounded-session observations are owner-run and not yet executed."
+      "reason": "Performance category PASS is owner-reported on 2026-10-02 (docs/qa/OWNER-ACCEPTANCE-0001.md). Numeric launch/resource/latency values, method, raw samples and installed synthetic cancel/20-turn receipts were not supplied; complete T-041 remains NOT RUN/deferred V02-003 in docs/qa/V0.2.0-FOLLOW-UP-0001.md. No metric or exact execution clock time is invented."
     }
   ],
   "threats": [

@@ -1,0 +1,50 @@
+# OWNER-ACCEPTANCE-0001 — v0.1.0 internal engineering acceptance
+
+Acceptance date supplied by the owner: **2026-10-02**. Location label: **Edinburgh, Scotland**. IANA timezone: **Europe/London**, which also covers Edinburgh; the date is in BST, **UTC+01:00**. No exact test clock time was supplied; none is invented. This record was prepared from the owner's explicit statement in the existing engineering conversation, not from newly executed tests.
+
+## Scope and provenance
+
+The owner confirms that the installed executable matches the delivered final engineering build and that all six categories below passed. Testing used the existing Windows 11 administrator account, with **Aster launched normally, without privilege elevation**. Administrator membership is not an elevated application token. No guest/new account, GUI automation, additional live request, credential operation, installer execution or security-setting change was performed to prepare this documentation.
+
+| Owner's acceptance category | Reported result | Evidence classification |
+| --- | --- | --- |
+| Interface | PASS | Owner-reported category acceptance |
+| Performance | PASS | Owner-reported category acceptance; no numeric measurements supplied |
+| Providers and history | PASS | Owner-reported category acceptance; individual models/call counts and protocol observations not supplied |
+| Credentials and uninstall | PASS | Owner-reported category acceptance; diagnostic stages, exit code and uninstall chronology not supplied |
+| Project and files | PASS | Owner-reported category acceptance; no inference that disabled replacement was executed |
+| Acceptance of engineering scope | PASS | Owner-reported internal unsigned-engineering acceptance, not production or legal approval |
+
+The owner's explicit follow-up decision is that everything not covered by these statements will be reviewed in **Aster-desktop v0.2.0**. [V0.2.0-FOLLOW-UP-0001](V0.2.0-FOLLOW-UP-0001.md) records those residual obligations and their acceptance criteria. This is a scope/deferment decision, not a retrospective execution of every detailed procedure or a waiver of host safety controls. Category acceptance does not change granular FAIL/NOT RUN records into independently measured PASS results.
+
+## Exact accepted engineering artifact
+
+| Item | Bound identity / existing evidence |
+| --- | --- |
+| Repository / source | `comzulca/Aster-desktop`; `1782d3375db47466f89be6bd3cd3c6affbfa95b7` |
+| Source tree | `c7e116d9bbba63f5b0b2ace7cf0757cb16a30b3b` |
+| CI | [Run 94 / 37040168700](https://github.com/comzulca/Aster-desktop/actions/runs/37040168700), attempt 1, push/main; four jobs SUCCESS, completed `2026-10-02T18:04:48Z` |
+| Automatic suites | 100 Rust tests, 25 frontend tests; source/compatibility/audit/notices/SBOM/package gates PASS at the source above |
+| Private engineering artifact | `11243338033`; recorded retention expiry `2026-10-16T18:04:24Z`, availability must be rechecked before a later download |
+| Artifact ZIP | 5,677,853 bytes; SHA-256 `36288b92a6e4b5b38f0d075572ea6ebc330f73b3bc64cc3570f17ad6069346e8` |
+| Raw manifest | 1,157 bytes; SHA-256 `e0eb4c727ee4a436b3f51e1f1d9247d8b4c94f918602082a9c6be73ed9a181c7` |
+| Manifest-named setup | `Aster Desktop_0.1.0_x64-setup.exe` |
+| Byte-identical delivery alias | `Aster_0.1.0_x64-setup.exe` |
+| Both setup files | 19,017,189 bytes; SHA-256 `0357a0798714922dd6bc6dc612eb6ed0a5c9c6224197328e1f186112c0256bcb` |
+| Authenticode / class | `NotSigned` / `unsigned-engineering-build` |
+| Packaged application | `aster-desktop.exe`, AMD64 PE32+, file/product version 0.1.0; 14,103,040 bytes |
+| Packaged application SHA-256 | `f05eed42074f2e1b4b37d5d3be23b7227e0930726cac58f8cf65285f7b1bba62` |
+
+Existing independent verification bound the five-entry ZIP, manifest, notice inventory, supplemental hashes, bounded NSIS payload, unique application and both installed-root license resources. Schema 2 contains 575 source packages / 291 required, zero required missing texts and zero required unknown licenses. The complete broad-lock RustSec audit disclosed two unignored warnings: `proc-macro-error 1.0.4` / `RUSTSEC-2024-0370` and `glib 0.18.5` / `RUSTSEC-2024-0429`; neither occurs in the 311-package Windows metadata. Their presence is not rewritten as a warning-free audit or a legal clearance.
+
+The detailed pre-handoff reports remain local under `engineering-tools/FINAL-SOURCE-CHECKS-1782d337-20261002.md` and `engineering-builds/Aster-0.1.0-1782d337-run37040168700-1/` in the existing premium workspace. Private screenshots, signed download URLs, prompts, responses and credentials are not published.
+
+## Installed identity, separately observed
+
+An independent read-only audit at **`2026-10-02T19:25:00.4822961Z`** (20:25:00 BST) found Windows 11 Pro `10.0.26300`, installed product Aster Desktop 0.1.0, and the regular installed file at `%LOCALAPPDATA%\Aster Desktop\aster-desktop.exe`. Its 14,103,040-byte length and SHA-256 matched the packaged application above; the running process referenced the same installed path. The uninstall registry entry did not supply an installation date. This audit neither launched the application nor proves the time, elevation or steps of earlier owner testing. Those facts above are separately attributed to the owner.
+
+## Closure and unchanged limitations
+
+[Issue #11](https://github.com/comzulca/Aster-desktop/issues/11) may close for accepted v0.1.0 internal engineering evaluation. [Issue #12](https://github.com/comzulca/Aster-desktop/issues/12) may close within v0.1.0 with its unresolved detailed capability obligations explicitly transferred to the versioned v0.2.0 follow-up, not reported as completed safety proofs. The issue bodies and dated historical failures remain recoverable history; they are not deleted.
+
+The installed v0.1.0 Windows protocol-2 code remains `projectRead=true`, `proposals=true`, `applyNewFile=true`, **`applyExistingFile=false`**. Existing-file replacement remains proposal-only. No source, capability, registry, policy, dependency, installer, credential or protection setting is changed by this reconciliation. There is no new installer: the accepted build stays bound to `1782d337`. A later documentation commit is not that executable's source revision. Signing, public redistribution, legal clearance and production promotion remain outside this acceptance.

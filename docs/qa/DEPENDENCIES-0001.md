@@ -1,6 +1,12 @@
 # DEPENDENCIES-0001 — dependency and declared-license inventory
 
-## Current protocol-2 candidate — 2026-10-01 UTC
+## Current engineering disposition — 2026-10-02
+
+Final source `1782d3375db47466f89be6bd3cd3c6affbfa95b7` / main run `37040168700` attempt 1 / artifact `11243338033` passed full audit/SBOM/schema-2 notices and independent extracted NSIS-resource qualification. It reproduced the counts and notice hash recorded below. The owner reports engineering-scope acceptance PASS for internal unsigned evaluation dated 2026-10-02, Edinburgh/BST; [OWNER-ACCEPTANCE-0001](OWNER-ACCEPTANCE-0001.md) binds that decision. Detailed notice/advisory dispositions not supplied are explicitly deferred under V02-006 in [v0.2.0 follow-up](V0.2.0-FOLLOW-UP-0001.md). The two disclosed off-Windows broad-lock warnings remain; no ignore, warning-free audit, external-distribution clearance or legal/production approval is inferred.
+
+## Retained protocol-2 inventory checkpoint — 2026-10-01 UTC
+
+The counts/provenance below remain source-bound inventory evidence. Its then-pending final-package and owner-decision wording is historical and superseded by the current disposition above, not a request to repeat the completed final-build checks.
 
 The schema-2 generator combines complete installed-source Cargo metadata with separately target-filtered `x86_64-pc-windows-msvc` metadata and production npm dependencies. Current exact local-lock counts are **575 installed source packages**, **291 required for the packaged-app graph**, **45 without package-owned standalone text**, **10 covered by exact installed repository/license peers**, **four covered by reviewed overlays**, and **31 with no selected text**. One of the four overlays is the canonical license-steward MPL text described below; the other three are exact pinned upstream-repository MIT text. All 31 remaining gaps are non-required: 30 other-target/build Cargo packages and npm dev dependency `saxes@6.0.0`. `requiredMissingTextCount=0` and `requiredUnknownLicenseCount=0`. The generator fails if either becomes nonzero.
 

@@ -2,7 +2,7 @@
 
 **Registry key:** `nvidia/nemotron-3.5-lightning-30b-a3b`
 
-**Status:** implemented fixture contract; protocol-2 automatic loopback/exact-body fixtures pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`, while the later packaging/evidence source, completed main-branch CI/package binding and the one authorized final-artifact live canary remain `NOT RUN` as of this evidence checkpoint on 2026-10-01 UTC.
+**Status, reconciled 2026-10-02 (Edinburgh, `Europe/London`, BST, UTC+01:00):** implemented fixture contract; protocol-2 automatic loopback/exact-body fixtures pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`. Final source/package binding is PASS at source `1782d3375db47466f89be6bd3cd3c6affbfa95b7`, main CI run `37040168700` attempt 1, artifact `11243338033`. The owner reports providers/history PASS on the matching installed build in [OWNER-ACCEPTANCE-0001.md](../qa/OWNER-ACCEPTANCE-0001.md). The historical 2026-10-01 canary NOT RUN checkpoint is retained; no separate Nemotron request count, timestamp or trace was supplied, so detailed per-model verification is explicitly assigned to [v0.2.0 review](../qa/V0.2.0-FOLLOW-UP-0001.md), not inferred from the category report.
 
 **Default selection:** yes.
 
@@ -31,7 +31,7 @@ The host constructs this UTF-8 JSON structure, replacing the sample message with
 
 NVIDIA's hosted example accesses streamed `choices[0].delta.reasoning_content` separately from `choices[0].delta.content`; both may be absent or null in individual chunks. Aster must keep these channels separate and expose `content` as the answer. `finish_reason=length` is incomplete even if a terminal `[DONE]` follows. Empty `choices` may be skipped without treating a partial stream as complete. Only `[DONE]` after a valid terminal response completes the request. Do not treat a `seed` value as proof of identical model text. `tools`, `tool_choice`, and arbitrary endpoint overrides are outside this model-specific documented schema; do not synthesize provider tool calls or offer the model a commit channel in this release.
 
-Fixture checks specific to this pair: request byte-level JSON structure, thinking and reasoning budget, independent reasoning/content channels, empty choices, output exhaustion, `[DONE]` without final content, delayed and truncated events, and host rejection of model ID mismatches. Shared transport and hostile-response checks are in [transport.md](transport.md). A live canary with real NVIDIA service has **not** run; neither acceptance of `reasoning_budget` nor event behavior is proven at runtime by documentation alone.
+Fixture checks specific to this pair: request byte-level JSON structure, thinking and reasoning budget, independent reasoning/content channels, empty choices, output exhaustion, `[DONE]` without final content, delayed and truncated events, and host rejection of model ID mismatches. Shared transport and hostile-response checks are in [transport.md](transport.md). The owner-reported providers/history PASS does not supply the model-specific trace needed to independently establish acceptance of `reasoning_budget` or exact event behavior. That detailed runtime verification remains explicit v0.2.0 follow-up; documentation alone and fake-server fixtures do not establish it, and this reconciliation makes no new NVIDIA request.
 
 ## Provenance
 

@@ -1,6 +1,10 @@
 # DEPENDENCY-ALIGNMENT-0001 — coordinated Tauri candidate plan
 
-Current outcome: the coordinated dependency update was integrated and verified at historical main source `b0610c534fad0348486fb7cdd87774a9a2e81978`. It resolves Rust `tauri 2.12.1`, API/CLI `2.12.0`, passed the 73-case T-037 guard, 90 Rust tests, 23 frontend tests and unsigned packaging in run 85. See [CI-0006.md](CI-0006.md). This closes the dependency-alignment decision only; it does not transfer evidence to the later protocol-2 runtime change, close issues #11/#12 or certify laptop behavior.
+Current outcome, 2026-10-02: the coordinated dependency update is integrated. The final protocol-2 source `1782d3375db47466f89be6bd3cd3c6affbfa95b7` separately passed complete local/CI/audit/73-case alignment and package qualification in main run `37040168700` attempt 1, artifact `11243338033` (100 Rust/25 frontend tests). [OWNER-ACCEPTANCE-0001](OWNER-ACCEPTANCE-0001.md) records the owner-reported six category PASS and the exact final binary; [v0.2.0 follow-up](V0.2.0-FOLLOW-UP-0001.md) records the explicit residual transfer. Dependency alignment alone is not installed or production acceptance.
+
+## Historical integration outcome — 2026-10-01 UTC
+
+The coordinated dependency update was integrated and verified at historical main source `b0610c534fad0348486fb7cdd87774a9a2e81978`. It resolves Rust `tauri 2.12.1`, API/CLI `2.12.0`, passed the 73-case T-037 guard, 90 Rust tests, 23 frontend tests and unsigned packaging in run 85. See [CI-0006.md](CI-0006.md). This closed the dependency-alignment decision only and did not transfer evidence to the later protocol-2 runtime change, close issues #11/#12 or certify laptop behavior. The subsequent final-source record above supplies independent qualification, not inherited run-85 credit.
 
 The changed candidate must rerun locked install, T-037, all host/frontend tests, audits, SBOM/schema-2 notices, independently extracted NSIS resource evidence and unsigned packaging on one immutable revision. Historical run 85 recorded exactly three allowed warnings (`proc-macro-error 1.0.4`, `glib 0.18.5`, `yoke-derive 0.8.3`); their disposition and current applicability require fresh review. Notice closure/payload hashes are structural engineering evidence, not an exact binary SBOM or legal approval.
 
