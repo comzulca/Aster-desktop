@@ -1,10 +1,12 @@
 # WINDOWS11-ACCEPTANCE-0001 — unsigned engineering acceptance
 
-Created 2026-09-30 UTC; reconciled 2026-10-01 UTC for protocol 2 and the owner's latest test decision. **All target-laptop rows are NOT RUN until executed and recorded against the verified engineering setup.** Run this issue-#11/#12 procedure on this current primary Windows 11 laptop, under the owner's existing principal account only, after internal artifact verification and handoff of the exact final-main engineering build. These post-handoff rows block installed-feature acceptance and any production promotion, not the prior handoff of the verified unsigned engineering test build. Do not create/use a guest or new account. The owner selected an unsigned engineering build; no self-signed certificate, trust-store change or production signature is required or claimed. Hosted Windows Server 2025 cannot satisfy this procedure. A test-only seam absent from the shipping app remains NOT RUN rather than being fabricated.
+Created 2026-09-30 UTC; acceptance reconciliation **2026-10-02**, Edinburgh / `Europe/London`, BST (UTC+01:00). **Interface, performance, providers/history, credentials/uninstall, project/files and engineering-scope acceptance are PASS (owner-reported)** for the delivered final engineering build `1782d337`. The owner confirms the installed executable matches the delivered build and that Aster ran without elevation in the existing Windows 11 administrator account. No exact test clock time was supplied. [OWNER-ACCEPTANCE-0001](OWNER-ACCEPTANCE-0001.md) binds the statement and artifact; all unreported detailed cases are explicitly transferred to [v0.2.0 review](V0.2.0-FOLLOW-UP-0001.md). This is not a blanket per-procedure PASS or production promotion.
+
+The procedures below are retained for detailed evidence review, not instructions to automatically rerun tests or spend live calls. Use only the existing principal account; do not create a guest/new account. The build remains unsigned: no self-signed certificate, trust-store change or production signature is required or claimed. Hosted Windows Server evidence, source fixtures, category acceptance and installed per-case observations remain separate. An unavailable shipping seam remains NOT RUN/deferred rather than fabricated.
 
 ## Authority and environment
 
-The owner's latest workflow is manual installation of the verified final engineering build, followed by non-sensitive screenshots and explicit observations for each evaluated element. Computer Use setup is no longer requested. Screenshots alone do not prove keyboard actions, timing, provider identity or hidden network/secret boundaries; retain observed steps and the source/fixture evidence separately.
+The owner manually installed and evaluated the verified final engineering build and supplied the dated six-category acceptance above. Computer Use setup is not requested. Screenshots alone do not prove keyboard actions, timing, provider identity or hidden network/secret boundaries; detailed observations not supplied in the statement are deferred, and existing source/fixture evidence is retained separately.
 
 - Use only the owner's existing principal account `QUARK2\Rene Nehru Alvarez`; launch PowerShell and Aster Desktop normally/non-elevated. Read-only baseline `e6418f` at `2026-10-01T17:03:47.5227862Z` recorded SID ending `1001`, `ElevatedAdministrator=false`, Windows 11 Pro 64-bit `10.0.26300`. Accept installer UAC only if required and record it. Do not create/use a guest or new account.
 - The owner reports personally enabling Developer Mode on 2026-09-30. Record that as an owner-made baseline exception, not an agent change, a PASS or authority for another security change.
@@ -15,7 +17,7 @@ The owner's latest workflow is manual installation of the verified final enginee
 
 Historical local/CI results remain in `LOCAL-0002.md` through `LOCAL-0004.md` and `CI-0002.md` through `CI-0006.md`. In particular, run 85 and its `b0610c5` installer predate protocol 2 and are not the candidate for this procedure.
 
-Use the reviewed `Aster-desktop-work2` checkout above for verifier and source-identity commands; do not relocate source or substitute the older checkout. The external passive sampler is `C:\Users\Rene Nehru Alvarez\Documents\aster-desktop-premium\engineering-tools\Measure-AsterEngineeringProcess.ps1`, SHA-256 `292a2fa642a738d776e8f985383430fedaecb97109700e55c5244fd2d38b9a3d`. Only its parser/denial/self-process fixtures have passed; no Aster process has been sampled, and it measures bounded process CPU/memory rather than UI latency.
+Use the reviewed `Aster-desktop-work2` checkout above for verifier and source-identity commands; do not relocate source or substitute the older checkout. The external passive sampler is `C:\Users\Rene Nehru Alvarez\Documents\aster-desktop-premium\engineering-tools\Measure-AsterEngineeringProcess.ps1`, SHA-256 `292a2fa642a738d776e8f985383430fedaecb97109700e55c5244fd2d38b9a3d`. Its parser/denial/self-process fixtures passed; no Aster sampling report was supplied with the category PASS. It measures bounded process CPU/memory rather than UI latency. Raw measurements/method are deferred under V02-003; no sampler is launched by this reconciliation.
 
 ## 1. Bind one immutable final engineering build
 
@@ -36,18 +38,18 @@ Get-FileHash -LiteralPath (Join-Path $asterSource 'public\assets\Aster_UI2.jpg')
 
 Expected origin: `https://github.com/comzulca/Aster-desktop.git`. Expected image SHA-256: `b95163a411529b8608461dda4faeacab3f09c6cde090c3b1d72092bf0a7c4887`. Record any dirty checkout; do not overwrite it or infer the packaged source from it.
 
-Fill these values from the **new** run:
+Recorded final-main identity (full hashes and source provenance in [OWNER-ACCEPTANCE-0001](OWNER-ACCEPTANCE-0001.md)):
 
 | Identity | Current result |
 | --- | --- |
-| Source commit/tree | NOT RUN |
-| Workflow run/attempt; all four jobs | NOT RUN |
-| Installer artifact ID/retention | NOT RUN |
-| Artifact ZIP bytes/SHA-256 | NOT RUN |
-| Manifest bytes/SHA-256 | NOT RUN |
-| Manifest executable filename/bytes/SHA-256 | NOT RUN |
-| Authenticode | NOT RUN (expected `NotSigned`) |
-| Schema-2 notice inventory; supplemental and bundle-resource hashes | NOT RUN |
+| Source commit/tree | PASS — `1782d3375db47466f89be6bd3cd3c6affbfa95b7` / `c7e116d9bbba63f5b0b2ace7cf0757cb16a30b3b` |
+| Workflow run/attempt; all four jobs | PASS — `37040168700` / attempt 1, push/main, four SUCCESS |
+| Installer artifact ID/retention | `11243338033`; recorded expiry 2026-10-16, recheck later availability |
+| Artifact ZIP bytes/SHA-256 | PASS — 5,677,853 bytes; bound in the acceptance record |
+| Manifest bytes/SHA-256 | PASS — 1,157 bytes; `e0eb4c727ee4a436b3f51e1f1d9247d8b4c94f918602082a9c6be73ed9a181c7` |
+| Manifest executable filename/bytes/SHA-256 | PASS — `Aster Desktop_0.1.0_x64-setup.exe`, 19,017,189 bytes; alias byte-identical |
+| Authenticode | PASS for engineering classification — `NotSigned`, not signature approval |
+| Schema-2 notice inventory; supplemental and bundle-resource hashes | PASS — five-entry manifest/extracted payload binding, zero required gaps |
 
 Product identity remains `Aster Desktop`; the manifest must identify `Aster Desktop_0.1.0_x64-setup.exe`. The requested handoff `Aster_0.1.0_x64-setup.exe` may be created only as a byte-for-byte delivery alias. Record its size/SHA-256 and confirm they equal the manifest executable's values; do not rewrite the manifest or claim that the alias is a separate build.
 
@@ -129,7 +131,7 @@ Retain raw observations and classify any freeze, crash, unbounded growth trend o
 
 ## 7. Exactly two authorized live canaries
 
-Initial status: **NOT RUN**. Reserve these for the final reviewed installed artifact. Use one short non-sensitive plain-text prompt per exact model, no file/project context:
+Detailed canary procedure retained for review. **Providers/history category PASS is owner-reported**, but individual call receipts, counts and identities were not supplied; they are deferred under V02-004, not inferred as 0/2 or 2/2. This documentation does not authorize or execute another request. The prior bounded procedure uses one short non-sensitive plain-text prompt per exact model, no file/project context:
 
 - `nvidia/nemotron-3.5-lightning-30b-a3b`
 - `meta/muse-glimmer-30b`
@@ -142,29 +144,28 @@ Review current SBOM/inventories against the independently extracted resource evi
 
 Record an explicit unsigned-engineering decision against the exact source/setup hash and residual risks. Then close and uninstall **Aster Desktop v0.1.0 only** through Settings > Apps > Installed apps. Record removal of its app/launch entry, remaining app-created files and running processes. Do not modify any remnant of the previously removed Aster 0.10.0 product, unrelated files or the production credential; uninstall is not expected to remove the credential automatically.
 
-## Result record — complete only after execution
+## Result record — category acceptance and detailed evidence boundary
 
 | Field | Value |
 | --- | --- |
-| UTC/tester; Windows version/build; account/token/UAC | NOT RUN |
-| Display scale/power mode/ESET/protection state before/after | NOT RUN |
-| Developer Mode owner baseline; no further changes | NOT RUN |
-| Source/tree/ruleset/run/attempt | NOT RUN |
-| ZIP/manifest/EXE/alias bytes and hashes; `NotSigned` | NOT RUN |
-| Notice/license/payload inventory hashes and review | NOT RUN |
-| Install/normal launch/installed EXE hash | NOT RUN |
-| Synthetic credential GUI and renderer secret boundary | NOT RUN |
-| Full/compact UI, keyboard, Narrator/inert rendering | NOT RUN |
-| Ordinary session restart/no history | NOT RUN |
-| Four protocol-2 capabilities; metadata-only selection | NOT RUN |
-| Exact-body cancel/drift/one-use loopback/no continuation | NOT RUN |
-| Proposal/new-file/no-clobber/process-kill/restart recovery | NOT RUN |
-| Existing-file proposal-only; target unchanged | NOT RUN |
-| T-041 launch/idle/responsiveness/cancel/20-turn observations | NOT RUN |
-| Nemotron one-call canary | NOT RUN; authorized once |
-| Muse one-call canary | NOT RUN; authorized once |
-| Additional live calls | NOT RUN; not authorized |
-| Uninstall/residual app files/processes; credential preserved | NOT RUN |
-| FAIL/NOT RUN list and unsigned-engineering decision | NOT RUN |
+| Acceptance date/tester/account/token | 2026-10-02, Edinburgh/BST, owner; existing administrator account, Aster non-elevated (owner-confirmed); exact test time/UAC detail deferred V02-001 |
+| Windows identity | Read-only installed audit: Windows 11 Pro `10.0.26300`; test-time differences/settings detail not supplied |
+| Display scale/power mode/ESET/protection state before/after | Detailed record not supplied; deferred V02-001/V02-002 |
+| Developer Mode owner baseline | Prior owner-made 2026-09-30 exception retained; no additional setting claim inferred |
+| Source/tree/run/attempt | PASS — final engineering identity above, not the later documentation revision |
+| ZIP/manifest/EXE/alias bytes and hashes; `NotSigned` | PASS — independent final-artifact qualification |
+| Notice/license/payload inventory hashes and review | Structural package proof PASS; scope acceptance PASS (owner-reported); detailed/legal disposition not inferred, V02-006 |
+| Install/normal launch/installed EXE hash | Owner confirms install/normal non-elevated launch; independent current installed hash MATCH at `2026-10-02T19:25:00.4822961Z` |
+| Credentials and uninstall | PASS (owner-reported category); synthetic stages/ExitCode/secret-boundary and uninstall chronology deferred V02-005/V02-006 |
+| Interface | PASS (owner-reported category); exact viewports/keyboard/Narrator/inert-case observations deferred V02-002 |
+| Providers and history | PASS (owner-reported category); per-model counts/receipts and detailed restart inspection deferred V02-004 |
+| Project and files | PASS (owner-reported category); protocol-2 source flags `true/true/true/false`, not an observed per-step receipt; detail deferred V02-007/V02-008 |
+| Exact-body drift/replay/expiry/loopback/no continuation | Granular installed evidence NOT RUN/unavailable; deferred V02-007; source automatic PASS kept separately |
+| Positive installed proposal/new-file/no-clobber recovery | Granular installed evidence not supplied; missing proposal-injection seam deferred V02-008; automatic process-restart PASS kept separately |
+| Existing-file replacement / physical power loss | DISABLED / NOT RUN; deferred V02-009/V02-010, not activated or waived |
+| Performance | PASS (owner-reported category); raw launch/idle/latency measurements and installed cancel/20-turn evidence deferred V02-003 |
+| Individual Nemotron and Muse canaries | Detailed receipts/counts not supplied; deferred V02-004; no current spent/unspent count inferred |
+| Additional live calls | None executed by this reconciliation; no additional request authority granted |
+| Scope decision and residual list | PASS (owner-reported internal engineering acceptance); explicit v0.2.0 transfer in follow-up register; no production/signing/distribution claim |
 
-For every executed row retain PASS or FAIL, exact step/command, UTC, source/environment/artifact identity and redacted evidence path. A blocked dependent row remains NOT RUN with its reason. Do not commit private evidence, credentials or raw app/project/provider data.
+For independently executed detailed rows retain PASS or FAIL, exact step/command, UTC, source/environment/artifact identity and redacted evidence path. The owner's dated category statements are credited as such without invented timestamps, steps or numeric data. A missing or unavailable detailed row remains NOT RUN/deferred with its reason; category acceptance and explicit transfer support scoped closure of #11/#12 without implying all procedures passed. Do not commit private evidence, credentials or raw app/project/provider data.

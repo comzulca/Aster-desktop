@@ -2,7 +2,7 @@
 
 **Registry key:** `meta/muse-glimmer-30b`
 
-**Status:** implemented fixture contract; protocol-2 automatic loopback/exact-body fixtures pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`, while the later packaging/evidence source, completed main-branch CI/package binding and the one authorized final-artifact live canary remain `NOT RUN` as of this evidence checkpoint on 2026-10-01 UTC.
+**Status, reconciled 2026-10-02 (Edinburgh, `Europe/London`, BST, UTC+01:00):** implemented fixture contract; protocol-2 automatic loopback/exact-body fixtures pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`. Final source/package binding is PASS at source `1782d3375db47466f89be6bd3cd3c6affbfa95b7`, main CI run `37040168700` attempt 1, artifact `11243338033`. The owner reports providers/history PASS on the matching installed build in [OWNER-ACCEPTANCE-0001.md](../qa/OWNER-ACCEPTANCE-0001.md). The historical 2026-10-01 canary NOT RUN checkpoint is retained; no separate Muse request count, timestamp or trace was supplied, so detailed per-model verification is explicitly assigned to [v0.2.0 review](../qa/V0.2.0-FOLLOW-UP-0001.md), not inferred from the category report.
 
 **Default selection:** no; user must explicitly select it.
 
@@ -30,7 +30,7 @@ The schema allows an optional first `system` message followed by alternating use
 
 ## Response normalization and gates
 
-For `stream=true`, NVIDIA documents partial JSON deltas as data-only SSE `data: ...` events and terminal `data: [DONE]`. Completion, truncation, cancellation, unknown action output, malformed bytes, HTTP failures and missing usage use [transport.md](transport.md)'s host policy. Treat a standalone JSON response as a mismatched live contract when streaming was requested; do not silently fall back to nonstreaming. Fixture checks specific to Muse: exact request parameters including `tool_choice=none`, valid streamed answer with/without reasoning, returned tool call despite `none` (rejected), and absence of answer because reasoning consumes the 8,192-token budget. A fake-server PASS does not demonstrate that the remote endpoint accepts this exact shape; the live canary remains **NOT RUN**.
+For `stream=true`, NVIDIA documents partial JSON deltas as data-only SSE `data: ...` events and terminal `data: [DONE]`. Completion, truncation, cancellation, unknown action output, malformed bytes, HTTP failures and missing usage use [transport.md](transport.md)'s host policy. Treat a standalone JSON response as a mismatched live contract when streaming was requested; do not silently fall back to nonstreaming. Fixture checks specific to Muse: exact request parameters including `tool_choice=none`, valid streamed answer with/without reasoning, returned tool call despite `none` (rejected), and absence of answer because reasoning consumes the 8,192-token budget. A fake-server PASS does not demonstrate that the remote endpoint accepts this exact shape. The owner-reported providers/history PASS is recorded separately; its absent detailed model-specific trace is explicit v0.2.0 follow-up, not a fabricated canary outcome or authority to make another request.
 
 ## Provenance
 

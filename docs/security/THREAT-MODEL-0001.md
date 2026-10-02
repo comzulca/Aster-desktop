@@ -1,6 +1,14 @@
 # THREAT-MODEL-0001 — Aster-desktop v0.1.0
 
-Status: versioned threat assessment, created 2026-09-24 UTC and reconciled for the protocol-2 engineering candidate on 2026-10-01 UTC. Scope: Windows 11 app, local project, native credential custody, two NVIDIA hosted models, private source repository. Code presence is not acceptance; each mitigation is credited only at its tested boundary and source revision. Source of normative IDs: `docs/specs/SPEC-0001.md`. Decisions: `docs/adr/ADR-0001.md` through `ADR-0006.md`, `ADR-0008.md`, and `ADR-0009.md`.
+Status: versioned threat assessment, created 2026-09-24 UTC; protocol-2 assessment retained from 2026-10-01 UTC and current evidence/scope reconciled 2026-10-02. Scope: Windows 11 app, local project, native credential custody, two NVIDIA hosted models, private source repository. Code presence is not acceptance; each mitigation is credited only at its tested boundary and source revision. Source of normative IDs: `docs/specs/SPEC-0001.md`. Decisions: `docs/adr/ADR-0001.md` through `ADR-0006.md`, `ADR-0008.md`, and `ADR-0009.md`.
+
+## Current v0.1.0 engineering disposition — 2026-10-02
+
+Delivered source `1782d3375db47466f89be6bd3cd3c6affbfa95b7`, main run `37040168700`/attempt 1 and artifact `11243338033` have complete automatic and independent unsigned-artifact qualification PASS (100 Rust/25 frontend tests, all four CI jobs). The owner confirms the installed build matches that deliverable and reports **PASS** for six manual categories: UI, performance, providers/history, credential/uninstall, project/files, and engineering-scope acceptance. The reported tests were on 2026-10-02 in Edinburgh, Europe/London, BST (UTC+01:00), using the existing Windows 11 administrator account with Aster **not elevated**. No exact test clock time was supplied. [OWNER-ACCEPTANCE-0001](../qa/OWNER-ACCEPTANCE-0001.md) preserves that owner report separately from observed automatic proof.
+
+Every obligation not completed within that report is expressly deferred for v0.2.0 review in [V0.2.0-FOLLOW-UP-0001](../qa/V0.2.0-FOLLOW-UP-0001.md). In particular, installed exact-body/zero-send/continuation and deterministic proposal-injection proof, advanced native-review/secret-boundary evidence, quantitative performance details, physical power-loss and safe existing-file publication are not globally marked PASS. Source helper-process termination/restart remains distinct from installed UI and physical durability. `applyExistingFile=false` and all host security invariants remain unchanged. Existing same-user/elevated-interference risks, provider cost/timing limits, notice/legal limitations and unsigned/non-production classification are not erased by acceptance.
+
+Issues #11/#12 can close only for the accepted v0.1.0 engineering scope with this visible transfer. Their closure is not a security-completion, feature-enablement, signing, distribution or production-promotion decision. This documentation reconciliation performs no new runtime test or live request and changes no credentials, protections, privileges or capability flags.
 
 ## Assets, actors and boundaries
 
@@ -25,7 +33,9 @@ flowchart TB
 
 The arrows cross different trust boundaries: user intent to renderer, untrusted renderer to privileged host, host to Windows Credential Manager, host to mutable filesystem and host to external NVIDIA. GitHub/CI introduces an independent source/release boundary; repository privacy is verified as an operational property, not assumed from its name.
 
-## Abuse cases and proposed controls
+## Threat register and retained 2026-10-01 evidence checkpoint
+
+The threat descriptions, trace IDs and host mitigation obligations below remain normative. Their residual-status wording is the retained 2026-10-01 checkpoint, not the current completion summary; the current disposition and explicit v0.2.0 transfer above supersede its pending final-package/manual scheduling statements without rewriting historical proof or completing unobserved security tests.
 
 | TM | Threat and entry point | Requirement / acceptance / negative test | Mitigation owner and intended behavior | Residual risk / gate |
 | --- | --- | --- | --- | --- |
@@ -45,7 +55,9 @@ The arrows cross different trust boundaries: user intent to renderer, untrusted 
 | TM-014 | Inherited/broad/NULL journal ACL, wrong owner, path-versus-handle replacement or directory/record permission drift exposes recovery metadata or admits a foreign record before publication/recovery. | FR-014, FR-017, SEC-011, SEC-006 / AC-027, AC-030 / T-035, T-040; privacy subsection of T-031 | Native storage owner; create only new exact host-selected objects with protected current-user descriptors; retain ancestor/directory handles and identity; validate bounded owner/closed ACL by handle before enumeration/read/write/decryption and before success; reject existing weak objects unchanged. | Same-user malicious code, elevated administrators/SYSTEM and physical power-loss are separate residuals, not excluded by owner-only DACL. No global policy, privilege, parent-folder or credential ACL modification. Exact-source local T-040 portions pass; hosted CI/package evidence is pending. |
 | TM-015 | A forged file receipt, renderer-supplied path/content/approval, wrong owner window, post-review file drift, or body reserialization leaks different project bytes or enables an unreviewed mutation. | FR-015–FR-017, SEC-012, SEC-013 / AC-028–AC-030 / T-038–T-040 | Protocol-2 host boundary; native file picker and retained snapshot, metadata-only receipt, authenticated main-HWND native review, non-serializable one-use approval, exact serialized-body dispatch, post-review identity/hash revalidation, ephemeral continuation, private journal and `CREATE_NEW`. Existing replacement stays proposal-only. | Exact-source local hostile-input/exact-body/process-restart fixtures pass. Completed hosted CI/package binding is required before engineering handoff. Feasible installed review on the current primary laptop/principal account follows handoff and blocks installed-feature acceptance or production promotion. Same-user/elevated interference remains residual. |
 
-## Explicit engineering-handoff and acceptance blockers
+## Historical engineering-handoff and acceptance blockers — 2026-10-01 UTC
+
+These dated pre-handoff statements are preserved as historical evidence. The exact final engineering package has since passed qualification, the owner-reported six manual categories have passed, and remaining obligations are transferred as described in the current disposition above. Normative capability activation gates, residual risks and proof distinctions still apply.
 
 The protocol-2 capability change invalidates the prior `b0610c5` installer as a deliverable for the changed behavior. Applicable local automatic T-038–T-040 portions now pass at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`; the later packaging/evidence source, complete main-branch CI, inventories, extracted payload/notices evidence and unsigned packaging remain required before engineering handoff. The following remain independent post-handoff acceptance or promotion gates: installed Windows 11 GUI/accessibility/performance acceptance, owner credential GUI/secret-boundary inspection, two authorized live canaries, and any existing-file replacement design.
 
