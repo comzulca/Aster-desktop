@@ -818,7 +818,7 @@
       "path": "docs/qa/LOCAL-V022-0001.md",
       "verification_phase": 8,
       "status": "FAIL",
-      "reason": "Full local cargo test exited101: Windows Smart App Control blocked the empty binary test harness, never executed. Source/frontend/library/metadata/audit/build and bounded passive portions PASS as separately recorded; hosted checks and final delivery pending."
+      "reason": "Full local cargo test exited101: Windows Smart App Control blocked the empty binary test harness, never executed. This local FAIL is retained. Independent hosted full cargo test and all four PR29 checks PASS for P1/run37150703411, with exact merge-tree/runtime equality; local engineering alias qualified. See LOCAL-V022-0001 and CI-V022-0001. Compound installed/native/live acceptance remains NOT RUN."
     },
     {
       "id": "T-058",
@@ -1017,16 +1017,16 @@
     {
       "phase": 8,
       "status": "FAIL",
-      "reason": "Full local Rust command FAIL101 on Smart App Control empty-harness block; independent scoped checks/package PASS, hosted full suite and installed acceptance pending. No security bypass or invented PASS."
+      "reason": "Full local Rust command FAIL101 on Smart App Control empty-harness block remains retained. Independent scoped local checks/package and complete hosted P1/run37150703411 suite PASS; alias qualification complete in CI-V022-0001. This compound gate does not claim local full-suite or installed/native/live PASS. No security bypass or invented PASS."
     },
     {
       "phase": 9,
       "status": "NOT RUN",
-      "reason": "Final engineering alias/hosted checks/native acceptance pending; no signing, merge or production promotion authorised."
+      "reason": "Source-bound unsigned local engineering alias and independent hosted P1/run37150703411 four-check suite qualified in CI-V022-0001. Final installed/native/live acceptance, signing and production qualification remain absent; no merge or production promotion authorised. Documentation-only later-head CI must not be inferred from the completed checkpoint."
     }
   ],
   "release": {
-    "artifact_sha256": null,
+    "artifact_sha256": "3a9207030fc3f4656d566e08a8a2a58d01e8c613098b90e7a9e8f3b45b2b90aa",
     "signed": false,
     "signature_evidence": null,
     "target_os_verified": false,
