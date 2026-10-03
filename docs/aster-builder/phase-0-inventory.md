@@ -1,12 +1,18 @@
 # Phase 0 — project inventory and provenance
 
+## Source-bound review — 2026-10-03
+
+Implementation source is now local commit `f8622a0bd7f0c1ca89f435a2f1d6a415842525ec`, tree `c4e4848201cdb3061be1d74a4a7f565e05cc0ad4`, on `codex/aster-v0.2.0-meta-contributor`. The checkout was clean before and after the exact-source offline suites and NSIS build. A separately retained physical source manifest covers 116 files / 4,270,794 bytes, canonical SHA-256 `66d12ec88b4ef2fcb107d64c83792814aa574e919db3dc1dde393bc819113d16`. The later documentation/ledger update references that tested source; it does not alter runtime behaviour.
+
+Manual inventory, stable requirement/acceptance trace and threat/ADR review were reconfirmed at `2026-10-03T11:22:16Z`. Ledger gates 0–2 record **PASS for design/provenance review only**. The [source-bound local checkpoint](../qa/LOCAL-V020-0001.md) records automated and locally built payload portions independently. Account entitlement, real/native acceptance, GitHub/main-CI qualification and final promotion remain separate; no new external, credential or paid authority is inferred. Original work and the earlier evidence below remain preserved.
+
 ## Current v0.2.0 implementation inventory — 2026-10-02
 
 Isolated branch `codex/aster-v0.2.0-meta-contributor` is based on main `35314591ff997f0a660460917d55c48423433544` (PR #27). The earlier dirty engineering checkout is preserved unchanged. The original checkout's `origin` is a local mirror; it is not assumed to be GitHub. No new publication or live/paid account operation is inferred from the completed v0.1 publication task.
 
 The supplied plan and images are scoped requirements input. The owner explicitly overrides memory-only history: conversations persist between restarts. British-English UI/help/current documentation and the supplied new artwork supersede the Spanish/central-title plan. [SPEC-0002](../specs/SPEC-0002.md), [THREAT-MODEL-0002](../security/THREAT-MODEL-0002.md) and ADR-0010..0015 were written before behaviour changes. Current transport is Meta Contributor only; project read/proposals/new-file/existing-file flags and their IPC permissions are all disabled. Old provider/history imports are denied; old secrets, protected creation journals and dated evidence are preserved.
 
-Verified local inputs: Node/pnpm/Rust are the configured bundled/cached runtimes (pnpm 11.19.0; Rust 1.97.0); dependency locks remain fixed, apart from the package's 0.2.0 identity. Exact wordmark and ready assets are copied unchanged; launcher ICO/PNG are deterministically exported from the owner's supplied square image. Meta's public direct API/model/schema/pricing/terms were checked on 2 October; account eligibility, entitlement, invoice/FX basis and live canary are not established by public docs. Current execution and remaining gates are recorded in [LOCAL-V020-0001](../qa/LOCAL-V020-0001.md), separately from old acceptance.
+Verified local inputs: Node/pnpm/Rust are the configured bundled/cached runtimes (pnpm 11.19.0; Rust 1.97.0); dependency locks remain fixed, apart from the package's 0.2.0 identity. Exact wordmark and ready assets are copied unchanged; launcher ICO/PNG are deterministically exported from the owner's supplied square image. Meta's public direct API/model/schema/pricing/terms were checked on 2 October; model, authentication, pricing and terms pages were rechecked on 3 October with the same contract and 2 October legal revision. Account eligibility, entitlement, invoice/FX basis and live canary are not established by public docs. Current execution and remaining gates are recorded in [LOCAL-V020-0001](../qa/LOCAL-V020-0001.md), separately from old acceptance.
 
 ## Historical v0.1.0 inventory — retained provenance
 
