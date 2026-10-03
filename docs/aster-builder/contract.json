@@ -4,7 +4,7 @@
     "name": "Aster Desktop v0.2.0",
     "platform": "Windows-11-x64",
     "release_class": "development",
-    "source_revision": "f8622a0bd7f0c1ca89f435a2f1d6a415842525ec"
+    "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981"
   },
   "policy": {
     "allow_automatic_provider_fallback": false,
@@ -488,157 +488,157 @@
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 8,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: UK/account/tier and owner-attested direct API eligibility; live entitlement remains independent. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: UK/account/tier and owner-attested direct API eligibility; live entitlement remains independent. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite. META-CATALOGUE-0001 records separately accepted catalogue authentication/entry visibility only, not live model inference or legal/financial eligibility."
     },
     {
       "id": "T-043",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 4,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: One exact default model; deny legacy/third model before egress. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: One exact default model; deny legacy/third model before egress. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-044",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 4,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Exact-byte Meta serialization and strict fragmented/malformed SSE/usage. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Exact-byte Meta serialization and strict fragmented/malformed SSE/usage. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-045",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 4,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Complete prior context local data admission plus exact native default-deny review. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Complete prior context local data admission plus exact native default-deny review. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite. D5 synthetic fixtures deny both Meta key prefixes in new and prior user/assistant content; interactive native full-body review remains separate."
     },
     {
       "id": "T-046",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 5,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Integer reserve/settle, exact limit, +1 boundary, dated FX and conservative cache handling. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Integer reserve/settle, exact limit, +1 boundary, dated FX and conservative cache handling. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-047",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 5,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Unknown usage/restart/cancel retains reserve; separate original-account statement reconciliation. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Unknown usage/restart/cancel retains reserve; separate original-account statement reconciliation. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-048",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 5,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Legacy pair import denial and preservation of older secrets/creation journal. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Legacy pair import denial and preservation of older secrets/creation journal. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-049",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 8,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Interactive status, independent scrolling, busy navigation and request-bound Stop. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Interactive status, independent scrolling, busy navigation and request-bound Stop. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-050",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 4,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Body/frame/wire/UTF8/turn/timeout/global-slot/replay boundaries. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Body/frame/wire/UTF8/turn/timeout/global-slot/replay boundaries. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-051",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 3,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Native Meta custody, owner handle, collection/revocation/write ordering and cancellation. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Native Meta custody, owner handle, collection/revocation/write ordering and cancellation. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite. D5 synthetic representation/decoder tests support both closed key forms; the two disposable native credential fixtures and GUI custody remain NOT RUN."
     },
     {
       "id": "T-052",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 4,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Fixed HTTPS origin, no proxies/redirect/retry/fallback or unregistered tool routes. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Fixed HTTPS origin, no proxies/redirect/retry/fallback or unregistered tool routes. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-053",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 3,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Four false project flags and no retired commands/permissions. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Four false project flags and no retired commands/permissions. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-054",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 5,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Clock high-water/explicit period review, process lease and immutable append failures. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Clock high-water/explicit period review, process lease and immutable append failures. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-055",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 3,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Closed protocol3 receipts/intents, no paths/secrets/approval overrides. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Closed protocol3 receipts/intents, no paths/secrets/approval overrides. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-056",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 5,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: No keys/text in finance/logs; cross-domain/corrupt/weak ACL denial without reset. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: No keys/text in finance/logs; cross-domain/corrupt/weak ACL denial without reset. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-057",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 8,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Format/clippy/typecheck/tests/secrets/advisories/notices/SBOM source-bound gates. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Format/clippy/typecheck/tests/secrets/advisories/notices/SBOM source-bound gates. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-058",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 9,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Main source/CI manifest, installer hash, complete payload and new launcher verification. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Main source/CI manifest, installer hash, complete payload and new launcher verification. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-059",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 8,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Separately authorised synthetic direct Meta live canary and valid usage/settlement. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Separately authorised synthetic direct Meta live canary and valid usage/settlement. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-060",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 5,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: History restart/interrupted pending/limits/legacy denial/navigation/no authority restoration. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: History restart/interrupted pending/limits/legacy denial/navigation/no authority restoration. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-061",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 8,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Exact owner assets, British-English menus/help/native/installer and keyboard/visual acceptance. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Exact owner assets, British-English menus/help/native/installer and keyboard/visual acceptance. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     },
     {
       "id": "T-062",
       "path": "docs/qa/LOCAL-V020-0001.md",
       "verification_phase": 5,
       "status": "NOT RUN",
-      "reason": "Full compound acceptance not yet complete for source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec: Private store process exclusion, foreign state/tamper, logical removal and no financial reset. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Private store process exclusion, foreign state/tamper, logical removal and no financial reset. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
     }
   ],
   "gates": [
     {
       "phase": 0,
       "status": "PASS",
-      "source_revision": "f8622a0bd7f0c1ca89f435a2f1d6a415842525ec",
-      "environment": "Windows 11 x64 local source/design review; tested source f8622a0 and retained source manifest. Design/provenance only, not installed, live or release acceptance.",
+      "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981",
+      "environment": "Windows 11 x64 local source/design review; tested source b9ba052 and retained physical source manifest. Design/provenance only, not installed, live or release acceptance.",
       "command": "Manual inventory/governance/baseline/authority review; git rev-parse HEAD and HEAD^{tree}; scripts/ci/publish_preflight.py .; review LOCAL-V020-0001 source-pinned checkpoint",
-      "run_at_utc": "2026-10-03T11:22:16Z",
+      "run_at_utc": "2026-10-03T12:52:01Z",
       "evidence_paths": [
         "docs/aster-builder/phase-0-inventory.md",
         "docs/qa/LOCAL-V020-0001.md"
@@ -647,10 +647,10 @@
     {
       "phase": 1,
       "status": "PASS",
-      "source_revision": "f8622a0bd7f0c1ca89f435a2f1d6a415842525ec",
-      "environment": "Windows 11 x64 local source/design review; tested source f8622a0 and retained source manifest. Design/provenance only, not installed, live or release acceptance.",
+      "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981",
+      "environment": "Windows 11 x64 local source/design review; tested source b9ba052 and retained physical source manifest. Design/provenance only, not installed, live or release acceptance.",
       "command": "Manual SPEC-0002 stable requirement/acceptance/non-goal review and ledger requirement/threat/acceptance/test cross-reference audit",
-      "run_at_utc": "2026-10-03T11:22:16Z",
+      "run_at_utc": "2026-10-03T12:52:01Z",
       "evidence_paths": [
         "docs/specs/SPEC-0002.md",
         "docs/aster-builder/contract.json",
@@ -660,10 +660,10 @@
     {
       "phase": 2,
       "status": "PASS",
-      "source_revision": "f8622a0bd7f0c1ca89f435a2f1d6a415842525ec",
-      "environment": "Windows 11 x64 local source/design review; tested source f8622a0 and retained source manifest. Design/provenance only, not installed, live or release acceptance.",
+      "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981",
+      "environment": "Windows 11 x64 local source/design review; tested source b9ba052 and retained physical source manifest. Design/provenance only, not installed, live or release acceptance.",
       "command": "Manual THREAT-MODEL-0002 data-flow/residual-risk review; review ADR-0010 through ADR-0015 custody, IPC, provider, finance and restoration invariants",
-      "run_at_utc": "2026-10-03T11:22:16Z",
+      "run_at_utc": "2026-10-03T12:52:01Z",
       "evidence_paths": [
         "docs/security/THREAT-MODEL-0002.md",
         "docs/adr/ADR-0010.md",
@@ -678,17 +678,17 @@
     {
       "phase": 3,
       "status": "NOT RUN",
-      "reason": "Compound phase acceptance is incomplete for tested source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
     },
     {
       "phase": 4,
       "status": "NOT RUN",
-      "reason": "Compound phase acceptance is incomplete for tested source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
     },
     {
       "phase": 5,
       "status": "NOT RUN",
-      "reason": "Compound phase acceptance is incomplete for tested source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
     },
     {
       "phase": 6,
@@ -703,12 +703,12 @@
     {
       "phase": 8,
       "status": "NOT RUN",
-      "reason": "Compound phase acceptance is incomplete for tested source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
     },
     {
       "phase": 9,
       "status": "NOT RUN",
-      "reason": "Compound phase acceptance is incomplete for tested source f8622a0bd7f0c1ca89f435a2f1d6a415842525ec; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
     }
   ],
   "release": {
