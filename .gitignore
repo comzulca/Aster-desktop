@@ -31,7 +31,8 @@ Thumbs.db
 *.pfx
 *.kdbx
 
-# Ephemeral user content and local journals. No chat persistence in v0.1.0.
+# Local content and journals are never repository artefacts. v0.2.0 history is
+# host-owned in a separate protected local-data domain, not in this checkout.
 /data/
 /logs/
 *.sqlite

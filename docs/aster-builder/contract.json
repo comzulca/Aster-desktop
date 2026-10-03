@@ -1,518 +1,11 @@
 {
-  "acceptance": [
-    {
-      "id": "AC-001",
-      "requirement_ids": [
-        "PR-001"
-      ],
-      "test_ids": [
-        "T-001"
-      ],
-      "threat_ids": [],
-      "verification_phase": 8
-    },
-    {
-      "id": "AC-002",
-      "requirement_ids": [
-        "PR-002"
-      ],
-      "test_ids": [
-        "T-002"
-      ],
-      "threat_ids": [
-        "TM-011"
-      ],
-      "verification_phase": 8
-    },
-    {
-      "id": "AC-003",
-      "requirement_ids": [
-        "FR-001"
-      ],
-      "test_ids": [
-        "T-003"
-      ],
-      "threat_ids": [
-        "TM-003"
-      ],
-      "verification_phase": 4
-    },
-    {
-      "id": "AC-004",
-      "requirement_ids": [
-        "FR-002"
-      ],
-      "test_ids": [
-        "T-004",
-        "T-005"
-      ],
-      "threat_ids": [
-        "TM-003"
-      ],
-      "verification_phase": 4
-    },
-    {
-      "id": "AC-005",
-      "requirement_ids": [
-        "FR-003"
-      ],
-      "test_ids": [
-        "T-006"
-      ],
-      "threat_ids": [
-        "TM-008"
-      ],
-      "verification_phase": 4
-    },
-    {
-      "id": "AC-006",
-      "requirement_ids": [
-        "FR-004"
-      ],
-      "test_ids": [
-        "T-007"
-      ],
-      "threat_ids": [],
-      "verification_phase": 3
-    },
-    {
-      "id": "AC-007",
-      "requirement_ids": [
-        "FR-005"
-      ],
-      "test_ids": [
-        "T-008"
-      ],
-      "threat_ids": [
-        "TM-004"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-008",
-      "requirement_ids": [
-        "FR-006",
-        "SEC-004"
-      ],
-      "test_ids": [
-        "T-009",
-        "T-010",
-        "T-032"
-      ],
-      "threat_ids": [
-        "TM-004",
-        "TM-005"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-009",
-      "requirement_ids": [
-        "FR-007",
-        "SEC-005"
-      ],
-      "test_ids": [
-        "T-011",
-        "T-029",
-        "T-030"
-      ],
-      "threat_ids": [
-        "TM-006"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-010",
-      "requirement_ids": [
-        "FR-008",
-        "SEC-006"
-      ],
-      "test_ids": [
-        "T-012",
-        "T-031"
-      ],
-      "threat_ids": [
-        "TM-006",
-        "TM-007"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-011",
-      "requirement_ids": [
-        "FR-009",
-        "SEC-006"
-      ],
-      "test_ids": [
-        "T-013"
-      ],
-      "threat_ids": [
-        "TM-007"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-012",
-      "requirement_ids": [
-        "FR-010",
-        "SEC-008"
-      ],
-      "test_ids": [
-        "T-014"
-      ],
-      "threat_ids": [
-        "TM-010"
-      ],
-      "verification_phase": 5
-    },
-    {
-      "id": "AC-013",
-      "requirement_ids": [
-        "FR-011",
-        "SEC-001"
-      ],
-      "test_ids": [
-        "T-015",
-        "T-028"
-      ],
-      "threat_ids": [
-        "TM-001",
-        "TM-012"
-      ],
-      "verification_phase": 3
-    },
-    {
-      "id": "AC-014",
-      "requirement_ids": [
-        "FR-012"
-      ],
-      "test_ids": [
-        "T-016"
-      ],
-      "threat_ids": [
-        "TM-002"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-015",
-      "requirement_ids": [
-        "UX-001"
-      ],
-      "test_ids": [
-        "T-017"
-      ],
-      "threat_ids": [],
-      "verification_phase": 3
-    },
-    {
-      "id": "AC-016",
-      "requirement_ids": [
-        "UX-002"
-      ],
-      "test_ids": [
-        "T-018"
-      ],
-      "threat_ids": [],
-      "verification_phase": 3
-    },
-    {
-      "id": "AC-017",
-      "requirement_ids": [
-        "NFR-001"
-      ],
-      "test_ids": [
-        "T-019"
-      ],
-      "threat_ids": [
-        "TM-008"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-018",
-      "requirement_ids": [
-        "NFR-002"
-      ],
-      "test_ids": [
-        "T-020"
-      ],
-      "threat_ids": [
-        "TM-009"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-019",
-      "requirement_ids": [
-        "NFR-003",
-        "SEC-009"
-      ],
-      "test_ids": [
-        "T-021",
-        "T-037"
-      ],
-      "threat_ids": [
-        "TM-011"
-      ],
-      "verification_phase": 9
-    },
-    {
-      "id": "AC-020",
-      "requirement_ids": [
-        "SEC-001",
-        "SEC-002"
-      ],
-      "test_ids": [
-        "T-022"
-      ],
-      "threat_ids": [
-        "TM-001",
-        "TM-002"
-      ],
-      "verification_phase": 3
-    },
-    {
-      "id": "AC-021",
-      "requirement_ids": [
-        "SEC-003"
-      ],
-      "test_ids": [
-        "T-023"
-      ],
-      "threat_ids": [
-        "TM-003"
-      ],
-      "verification_phase": 4
-    },
-    {
-      "id": "AC-022",
-      "requirement_ids": [
-        "SEC-004"
-      ],
-      "test_ids": [
-        "T-024"
-      ],
-      "threat_ids": [
-        "TM-004",
-        "TM-005"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-023",
-      "requirement_ids": [
-        "SEC-005"
-      ],
-      "test_ids": [
-        "T-025",
-        "T-032"
-      ],
-      "threat_ids": [
-        "TM-006"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-024",
-      "requirement_ids": [
-        "SEC-006"
-      ],
-      "test_ids": [
-        "T-026",
-        "T-031"
-      ],
-      "threat_ids": [
-        "TM-007"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-025",
-      "requirement_ids": [
-        "SEC-007"
-      ],
-      "test_ids": [
-        "T-027",
-        "T-030",
-        "T-032"
-      ],
-      "threat_ids": [
-        "TM-010"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-026",
-      "requirement_ids": [
-        "FR-013",
-        "SEC-010"
-      ],
-      "test_ids": [
-        "T-033",
-        "T-034"
-      ],
-      "threat_ids": [
-        "TM-013"
-      ],
-      "verification_phase": 3
-    },
-    {
-      "id": "AC-027",
-      "requirement_ids": [
-        "FR-014",
-        "SEC-011",
-        "SEC-006"
-      ],
-      "test_ids": [
-        "T-035"
-      ],
-      "threat_ids": [
-        "TM-014"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-028",
-      "requirement_ids": [
-        "FR-015",
-        "SEC-013"
-      ],
-      "test_ids": [
-        "T-038"
-      ],
-      "threat_ids": [
-        "TM-002",
-        "TM-015"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-029",
-      "requirement_ids": [
-        "FR-016",
-        "SEC-012"
-      ],
-      "test_ids": [
-        "T-039"
-      ],
-      "threat_ids": [
-        "TM-004",
-        "TM-010",
-        "TM-015"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-030",
-      "requirement_ids": [
-        "FR-008",
-        "FR-017",
-        "SEC-006",
-        "SEC-012",
-        "SEC-013"
-      ],
-      "test_ids": [
-        "T-040"
-      ],
-      "threat_ids": [
-        "TM-006",
-        "TM-007",
-        "TM-014",
-        "TM-015"
-      ],
-      "verification_phase": 6
-    },
-    {
-      "id": "AC-031",
-      "requirement_ids": [
-        "NFR-004"
-      ],
-      "test_ids": [
-        "T-041"
-      ],
-      "threat_ids": [
-        "TM-009"
-      ],
-      "verification_phase": 8
-    }
-  ],
-  "gates": [
-    {
-      "phase": 0,
-      "status": "PASS",
-      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
-      "environment": "Private comzulca/Aster-desktop repository plus exact Windows checkout; authenticated repository-scoped connector and process-local Git safe.directory only",
-      "command": "git -c safe.directory='C:/Users/Rene Nehru Alvarez/Documents/aster-desktop-premium/Aster-desktop-work2' rev-parse HEAD; git -c safe.directory='C:/Users/Rene Nehru Alvarez/Documents/aster-desktop-premium/Aster-desktop-work2' status --porcelain --untracked-files=all; compare authenticated GitHub commit/tree",
-      "run_at_utc": "2026-10-01T17:44:42.1338226Z",
-      "evidence_paths": [
-        "docs/aster-builder/phase-0-inventory.md",
-        "docs/qa/LOCAL-0006.md",
-        "https://github.com/comzulca/Aster-desktop/pull/24"
-      ]
-    },
-    {
-      "phase": 1,
-      "status": "PASS",
-      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
-      "environment": "Read-only exact-source specification and traceability review on Windows NT 10.0.26300.0",
-      "command": "python C:/Users/Rene Nehru Alvarez/.agents/skills/aster-builder/scripts/harness_gate.py check --root . --through-phase 2",
-      "run_at_utc": "2026-10-01T18:08:50.4737466Z",
-      "evidence_paths": [
-        "docs/specs/SPEC-0001.md",
-        "docs/aster-builder/verification-plan.md",
-        "docs/qa/LOCAL-0006.md"
-      ]
-    },
-    {
-      "phase": 2,
-      "status": "PASS",
-      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
-      "environment": "Read-only exact-source threat/ADR/ledger review on Windows NT 10.0.26300.0",
-      "command": "python C:/Users/Rene Nehru Alvarez/.agents/skills/aster-builder/scripts/harness_gate.py check --root . --through-phase 2",
-      "run_at_utc": "2026-10-01T18:08:50.4737466Z",
-      "evidence_paths": [
-        "docs/security/THREAT-MODEL-0001.md",
-        "docs/adr/ADR-0009.md",
-        "docs/qa/LOCAL-0006.md"
-      ]
-    },
-    {
-      "phase": 3,
-      "reason": "This structural runtime ledger retains historical source 2bcacd7c6f2496eda233d4a069ec7b65a93d47b3 and its automatic PASS metadata. Delivered source 1782d337 has complete CI/package PASS and six owner-reported category PASS results dated 2026-10-02 Edinburgh/BST (docs/qa/OWNER-ACCEPTANCE-0001.md). Detailed accessibility/native GUI/secret-boundary receipts not supplied remain NOT RUN in this compound gate and are explicitly transferred to v0.2.0 review (docs/qa/V0.2.0-FOLLOW-UP-0001.md, V02-001/002/005), not fabricated or treated as production clearance.",
-      "status": "NOT RUN"
-    },
-    {
-      "phase": 4,
-      "reason": "Historical runtime-source transport fixtures retain their PASS metadata. Final 1782d337 CI/package qualification passed and the owner reports providers/history PASS (docs/qa/OWNER-ACCEPTANCE-0001.md). Per-model live receipts, counts, streaming/terminal and restart details were not supplied and transfer to V02-004 in docs/qa/V0.2.0-FOLLOW-UP-0001.md; do not infer 0/2 or 2/2 executed calls or complete this compound gate from a category statement.",
-      "status": "NOT RUN"
-    },
-    {
-      "phase": 5,
-      "reason": "Historical runtime-source private-journal/restart fixtures keep their PASS metadata. Final 1782d337 CI/package qualification passed; credentials/uninstall and providers/history are owner-reported category PASS (docs/qa/OWNER-ACCEPTANCE-0001.md). Detailed installed secret-boundary/no-history/diagnostic/recovery records are not consolidated here and transfer to V02-004/005/008/010 in docs/qa/V0.2.0-FOLLOW-UP-0001.md. Physical power loss is not proven by process termination; this compound gate remains NOT RUN.",
-      "status": "NOT RUN"
-    },
-    {
-      "phase": 6,
-      "reason": "Historical automatic T-038 through T-040 portions retain source-bound PASS; final 1782d337 build qualification and owner-reported project/files category PASS are in docs/qa/OWNER-ACCEPTANCE-0001.md. Full T-039/T-040 lack granular installed loopback/proposal-injection receipts and remain NOT RUN/deferred to V02-007/008/010. Existing replacement is hard false/proposal-only and transfers to V02-009 in docs/qa/V0.2.0-FOLLOW-UP-0001.md; no activation is authorized.",
-      "status": "NOT RUN"
-    },
-    {
-      "phase": 7,
-      "reason": "Optional web/MCP is intentionally disabled by policy and not requested for v0.1.0; no activation claim is made.",
-      "status": "NOT RUN"
-    },
-    {
-      "phase": 8,
-      "reason": "Full delivered-source 1782d337 local/CI/audit/notices/SBOM/package qualification PASS is recorded separately in docs/qa/OWNER-ACCEPTANCE-0001.md (run 37040168700 attempt 1, artifact 11243338033). Earlier cancelled/failed runs keep their historical records; two unignored off-Windows RustSec warnings remain disclosed. Performance is category PASS (owner-reported), not a measured complete T-041: numeric cold/warm/resource/latency and unavailable installed cancel/20-turn details transfer to V02-003. This historical-source compound ledger gate remains NOT RUN rather than relabelling all tests or asserting legal/production readiness.",
-      "status": "NOT RUN"
-    },
-    {
-      "phase": 9,
-      "reason": "This schema-1 structural ledger remains pinned to historical runtime source 2bcacd7 and its original PASS metadata; its null artifact and false release-verification fields are not the current installer inventory. The actual final unsigned engineering build at 1782d337 passed run 37040168700 and independent artifact 11243338033 verification, and six owner categories were accepted PASS on 2026-10-02 (docs/qa/OWNER-ACCEPTANCE-0001.md). Both v0.1.0 issues are eligible for scoped closure with explicit residual transfer to docs/qa/V0.2.0-FOLLOW-UP-0001.md. Compound full release gates remain NOT RUN; no signing/legal/distribution/production approval, replacement activation, new installer or live request is inferred.",
-      "status": "NOT RUN"
-    }
-  ],
+  "schema_version": 1,
+  "project": {
+    "name": "Aster Desktop v0.2.0",
+    "platform": "Windows-11-x64",
+    "release_class": "development",
+    "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981"
+  },
   "policy": {
     "allow_automatic_provider_fallback": false,
     "allow_automatic_retry": false,
@@ -523,37 +16,16 @@
     "storage_enabled": true,
     "web_enabled": false
   },
-  "project": {
-    "name": "Aster Desktop",
-    "platform": "Windows-11",
-    "release_class": "source_candidate",
-    "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3"
-  },
   "providers": [
     {
       "enabled": true,
-      "id": "nvidia-nemotron-3.5-lightning-30b-a3b",
-      "model_id": "nvidia/nemotron-3.5-lightning-30b-a3b",
-      "origin": "https://integrate.api.nvidia.com",
-      "protocol": "POST /v1/chat/completions; data-only SSE ending in data: [DONE]",
-      "official_source": "https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer",
-      "verified_on": "2026-10-01",
-      "contract_fixture": "docs/providers/nemotron-3.5-lightning-30b-a3b.md",
-      "bounds": {
-        "connect_timeout_ms": 10000,
-        "total_timeout_ms": 900000,
-        "max_response_bytes": 8388608
-      }
-    },
-    {
-      "enabled": true,
-      "id": "nvidia-muse-glimmer-30b",
-      "model_id": "meta/muse-glimmer-30b",
-      "origin": "https://integrate.api.nvidia.com",
-      "protocol": "POST /v1/chat/completions; data-only SSE ending in data: [DONE]",
-      "official_source": "https://docs.api.nvidia.com/nim/reference/meta-muse-glimmer-30b-infer",
-      "verified_on": "2026-10-01",
-      "contract_fixture": "docs/providers/muse-glimmer-30b.md",
+      "id": "meta_model_api",
+      "model_id": "muse-spark-1.3-contributor",
+      "origin": "https://api.meta.ai",
+      "protocol": "POST /v1/chat/completions; strict SSE with independent usage and [DONE]",
+      "official_source": "https://dev.meta.ai/docs/api-reference/chat-completions/schemas",
+      "verified_on": "2026-10-03",
+      "contract_fixture": "src-tauri/src/provider.rs",
       "bounds": {
         "connect_timeout_ms": 10000,
         "total_timeout_ms": 900000,
@@ -561,642 +33,691 @@
       }
     }
   ],
-  "release": {
-    "artifact_sha256": null,
-    "live_provider_evidence": null,
-    "live_provider_verified": false,
-    "signature_evidence": null,
-    "signed": false,
-    "target_os_evidence": null,
-    "target_os_verified": false
-  },
+  "tools": [],
   "requirements": [
     {
-      "id": "PR-001",
-      "text": "Target a local Windows 11 Tauri/Rust host and React/TypeScript renderer; the requested Windows checkout path is configurable deployment context, not source code."
+      "id": "PR-003",
+      "text": "Windows 11 engineering profile and separate verified direct Meta account eligibility"
     },
     {
-      "id": "PR-002",
-      "text": "Repository `comzulca/Aster-desktop` is private, with verified owner/collaborator roles and source revision."
+      "id": "FR-018",
+      "text": "Only Muse Spark 1.3 Contributor is the default and admitted model"
     },
     {
-      "id": "FR-001",
-      "text": "Closed catalog selects exact two NVIDIA model IDs; Nemotron is the initial default."
+      "id": "FR-019",
+      "text": "Fixed exact reviewed Meta Chat Completions body and strict bounded stream"
     },
     {
-      "id": "FR-002",
-      "text": "Stream both providers through separately validated adapters and safe text rendering."
+      "id": "FR-020",
+      "text": "Complete prompt/history public-or-synthetic admission and fresh native disclosure"
     },
     {
-      "id": "FR-003",
-      "text": "Cancel and finish each request exactly once; handle duplicate/out-of-order/framing errors."
+      "id": "FR-021",
+      "text": "Integer-only £89 local monthly spend reservation and £80.10 warning"
     },
     {
-      "id": "FR-004",
-      "text": "Present accurate unconfigured, ready, sending, cancelled, failure and recovery states."
+      "id": "FR-022",
+      "text": "Durable unknown spend and exact statement-confirmed reconciliation"
     },
     {
-      "id": "FR-005",
-      "text": "User selects a project root through a native host-controlled dialog; no default root."
+      "id": "FR-023",
+      "text": "No legacy conversation import, model fallback or credential/journal destruction"
     },
     {
-      "id": "FR-006",
-      "text": "Permit bounded UTF-8 project reads solely within a granted and revalidated root."
+      "id": "FR-024",
+      "text": "Protected persistent history and bounded display/navigation without restored authority"
     },
     {
-      "id": "FR-007",
-      "text": "Present a bounded, typed, exact-diff proposal without giving a model write authority."
+      "id": "FR-025",
+      "text": "Functional British-English local menus and help only"
     },
     {
-      "id": "FR-008",
-      "text": "After separate exact confirmation, support guarded conflict-checked new-file creation on the Windows engineering candidate; delivery credit still requires source-bound safety/recovery evidence."
+      "id": "UX-003",
+      "text": "Truthful Contributor/privacy/capability states without fictitious connection claims"
     },
     {
-      "id": "FR-009",
-      "text": "Support existing-file replacement only after equivalent native Windows race/crash/recovery proof; otherwise remain proposal-only."
+      "id": "UX-004",
+      "text": "Requested scrollable composer, Send/Stop and independent history scrolling"
     },
     {
-      "id": "FR-010",
-      "text": "Keep chat state in process memory for the session; clear it on app restart."
+      "id": "UX-005",
+      "text": "Exact new artwork, Union Jack and British-English product text"
     },
     {
-      "id": "FR-011",
-      "text": "Provision/read/delete NVIDIA credential with trusted native Windows UI and host-side Credential Manager calls."
+      "id": "NFR-005",
+      "text": "Resource, timeout and single-active/replay bounds deny without silent truncation"
     },
     {
-      "id": "FR-012",
-      "text": "Disable shell, browser, arbitrary network, MCP, and model-provided tool names or URLs in v0.1.0."
+      "id": "NFR-006",
+      "text": "Source-bound dependency, licence, binary and release verification"
     },
     {
-      "id": "UX-001",
-      "text": "Use original 1917×1137 JPG as the dark Aster visual reference, with compact-window adaptation."
+      "id": "SEC-014",
+      "text": "Closed sole provider/model registry and denial of legacy routes"
     },
     {
-      "id": "UX-002",
-      "text": "Provide keyboard navigation, visible focus, named controls, readable status, safe stream announcements, and Spanish user-facing copy."
+      "id": "SEC-015",
+      "text": "Native Meta credential and owner-window review only"
     },
     {
-      "id": "NFR-001",
-      "text": "Version policy and host state machine so fixed fixtures produce repeatable decisions and exactly one terminal outcome."
+      "id": "SEC-016",
+      "text": "No prohibited data override or renderer approval authority"
     },
     {
-      "id": "NFR-002",
-      "text": "Apply time, size, request, stream, file and proposal ceilings and fail closed on exceeded limits."
+      "id": "SEC-017",
+      "text": "No shell/web/MCP/project tools or uncontrolled egress"
     },
     {
-      "id": "NFR-003",
-      "text": "Bind engineering quality, secret/dependency scans, Windows target tests, SBOM and release claims to an exact revision/artifact."
+      "id": "SEC-018",
+      "text": "No financial reset, free post-dispatch cancellation or silent month activation"
     },
     {
-      "id": "SEC-001",
-      "text": "Credential bytes never pass through renderer/ordinary IPC, logs, repository or model context."
+      "id": "SEC-019",
+      "text": "Strict independently versioned protocol and unknown-field denial"
     },
     {
-      "id": "SEC-002",
-      "text": "Host authenticates caller and independently validates typed, bounded IPC against a closed window/command permission map."
+      "id": "SEC-020",
+      "text": "No secret/provider-body leakage into renderer/log/evidence"
     },
     {
-      "id": "SEC-003",
-      "text": "Live egress allows only fixed NVIDIA HTTPS destination and selected pair; no redirect, unintended proxy, silent retry or fallback."
+      "id": "SEC-021",
+      "text": "Protected immutable DPAPI/DACL chat/budget records, fail closed on corruption"
     },
     {
-      "id": "SEC-004",
-      "text": "All file grants bind root identity, conversation, request, resource, operation, expiry and uses; reject aliases and escape attempts."
-    },
-    {
-      "id": "SEC-005",
-      "text": "A model cannot approve a proposal; one human confirmation applies once to one exact change and cannot be replayed."
-    },
-    {
-      "id": "SEC-006",
-      "text": "Publication rechecks root/parent/target identity and old hash, journals intent, verifies outcome, and fails closed on conflict/crash."
-    },
-    {
-      "id": "SEC-007",
-      "text": "Prompt/project contents are disclosed to NVIDIA only by explicit user request; logs redact keys and private content."
-    },
-    {
-      "id": "SEC-008",
-      "text": "No persistent local chat history or unapproved import/export for v0.1.0."
-    },
-    {
-      "id": "SEC-009",
-      "text": "Dependencies, secrets, licenses and release artifacts have independent quality evidence; CI is not a live canary."
-    },
-    {
-      "id": "FR-013",
-      "text": "Provide an explicit owner-run isolated synthetic native credential GUI diagnostic preserving any existing NVIDIA credential."
-    },
-    {
-      "id": "SEC-010",
-      "text": "Credential diagnostic custody and malformed invocation fail closed before normal host initialization, excluding production credential targets, IPC, providers and network."
-    },
-    {
-      "id": "FR-014",
-      "text": "Admit the creation journal through retained NTFS pins and creation-time explicit current-process-user private directory/record descriptors."
-    },
-    {
-      "id": "SEC-011",
-      "text": "Revalidate bounded owner/protected owner-only journal DACLs by retained handles before use/success; reject weak/foreign/drifting objects unchanged, without privilege or unrelated ACL changes."
-    },
-    {
-      "id": "FR-015",
-      "text": "Protocol 2 reports exactly four Boolean project capabilities; applyExistingFile remains false and an unknown or incompatible status shape denies."
-    },
-    {
-      "id": "FR-016",
-      "text": "Native file selection exposes metadata only to the renderer; project disclosure reviews and transmits one exact serialized body once, outside continuation history."
-    },
-    {
-      "id": "FR-017",
-      "text": "Parse one strict typed proposal; permit guarded new-file CREATE_NEW only after native approval/private journal recovery, while existing replacement remains proposal-only."
-    },
-    {
-      "id": "NFR-004",
-      "text": "Measure launch, idle resource use, input/cancel responsiveness and a bounded synthetic session on the exact installed Windows 11 engineering artifact."
-    },
-    {
-      "id": "SEC-012",
-      "text": "Project plaintext never crosses renderer IPC; owner-HWND review binds the exact provider bytes to a move-only one-use approval and the host revalidates immediately before transmission or publication."
-    },
-    {
-      "id": "SEC-013",
-      "text": "Capability reporting is host-owned, closed and versioned; renderer/model content cannot enable a capability and existing-file apply is unrepresentable as ready in protocol 2."
-    }
-  ],
-  "schema_version": 1,
-  "tests": [
-    {
-      "id": "T-001",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 8
-    },
-    {
-      "id": "T-002",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 8
-    },
-    {
-      "id": "T-003",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 4
-    },
-    {
-      "id": "T-004",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 4
-    },
-    {
-      "id": "T-005",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 4
-    },
-    {
-      "id": "T-006",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 4
-    },
-    {
-      "id": "T-007",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 3
-    },
-    {
-      "id": "T-008",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-009",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-010",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-011",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-012",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-013",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-014",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 5
-    },
-    {
-      "id": "T-015",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 3
-    },
-    {
-      "id": "T-016",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-017",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 3
-    },
-    {
-      "id": "T-018",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 3
-    },
-    {
-      "id": "T-019",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-020",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-021",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 9
-    },
-    {
-      "id": "T-022",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 3
-    },
-    {
-      "id": "T-023",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 4
-    },
-    {
-      "id": "T-024",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-025",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-026",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-027",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Procedure drafted; execution evidence and pinned source revision pending.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-028",
-      "path": "docs/aster-builder/verification-plan.md",
-      "reason": "Historical credential representation/native API fixtures passed (LOCAL-0002). Credentials/uninstall category PASS is owner-reported on 2026-10-02 (docs/qa/OWNER-ACCEPTANCE-0001.md), but detailed Control Panel/secret-boundary evidence is not supplied; the compound procedure remains NOT RUN/deferred V02-005 in docs/qa/V0.2.0-FOLLOW-UP-0001.md.",
-      "status": "NOT RUN",
-      "verification_phase": 3
-    },
-    {
-      "id": "T-029",
-      "path": "docs/aster-builder/verification-plan.md",
-      "verification_phase": 6,
-      "status": "PASS",
-      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
-      "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; Rust 1.97.0; offline locked graph",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
-      "evidence_paths": ["docs/qa/LOCAL-0006.md"]
-    },
-    {
-      "id": "T-030",
-      "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "reason": "Historical lossless/bounds/encoding fixtures retain their PASS evidence. UI/project categories are owner-reported PASS (docs/qa/OWNER-ACCEPTANCE-0001.md), not receipts for every advanced native owner-HWND/consent/accessibility case; detailed compound evidence remains NOT RUN/deferred V02-002/007 in docs/qa/V0.2.0-FOLLOW-UP-0001.md.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-031",
-      "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "reason": "Historical CREATE_NEW/DPAPI/private-journal, competition and independent-process termination/restart fixtures retain PASS metadata. Owner-reported project/files category PASS does not provide detailed installed native-consent or physical power-loss proof; the compound procedure remains NOT RUN/deferred V02-008/010 (docs/qa/V0.2.0-FOLLOW-UP-0001.md), with no primary-laptop power cut authorized.",
-      "status": "NOT RUN",
-      "verification_phase": 6
-    },
-    {
-      "id": "T-032",
-      "path": "docs/aster-builder/verification-plan.md",
-      "verification_phase": 6,
-      "status": "PASS",
-      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
-      "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; Rust 1.97.0; offline locked graph",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
-      "evidence_paths": ["docs/qa/LOCAL-0006.md"]
-    },
-    {
-      "id": "T-033",
-      "path": "docs/aster-builder/verification-plan.md",
-      "verification_phase": 3,
-      "status": "PASS",
-      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
-      "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; Rust 1.97.0; offline locked graph; no real credential or GUI",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
-      "evidence_paths": ["docs/qa/LOCAL-0006.md", "docs/qa/CREDENTIAL-GUI-FIXTURE-0001.md"]
-    },
-    {
-      "id": "T-034",
-      "path": "docs/qa/CREDENTIAL-GUI-FIXTURE-0001.md",
-      "reason": "Owner reports credentials/uninstall category PASS on 2026-10-02 for non-elevated Aster (docs/qa/OWNER-ACCEPTANCE-0001.md). Specific generated-target GUI stages/ExitCode were not supplied, so full diagnostic evidence remains NOT RUN/deferred V02-005 (docs/qa/V0.2.0-FOLLOW-UP-0001.md); preserve the existing real credential.",
-      "status": "NOT RUN",
-      "verification_phase": 3
-    },
-    {
-      "id": "T-035",
-      "path": "docs/qa/JOURNAL-PRIVACY-0001.md",
-      "verification_phase": 6,
-      "status": "PASS",
-      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
-      "environment": "Windows NT 10.0.26300.0; QUARK2\\Rene Nehru Alvarez; normal owner token; Rust 1.97.0; offline locked graph",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline",
-      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
-      "evidence_paths": ["docs/qa/LOCAL-0006.md", "docs/qa/JOURNAL-PRIVACY-0001.md"]
-    },
-    {
-      "id": "T-037",
-      "path": "docs/qa/DEPENDENCY-ALIGNMENT-0001.md",
-      "verification_phase": 9,
-      "status": "PASS",
-      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
-      "environment": "Windows NT 10.0.26300.0; isolated bundled Python; exact locked source inputs",
-      "command": "python -I -B scripts/ci/check_tauri_versions.py --self-test; python -I -B scripts/ci/check_tauri_versions.py --root .",
-      "run_at_utc": "2026-10-01T17:44:42.1338226Z",
-      "evidence_paths": ["docs/qa/LOCAL-0006.md", "docs/qa/DEPENDENCY-ALIGNMENT-0001.md"]
-    },
-    {
-      "id": "T-038",
-      "path": "docs/aster-builder/verification-plan.md",
-      "verification_phase": 6,
-      "status": "PASS",
-      "source_revision": "2bcacd7c6f2496eda233d4a069ec7b65a93d47b3",
-      "environment": "Windows NT 10.0.26300.0; Rust under QUARK2\\Rene Nehru Alvarez and frontend under QUARK2\\CodexSandboxOffline",
-      "command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --offline; pnpm test",
-      "run_at_utc": "2026-10-01T17:42:30.4589499Z",
-      "evidence_paths": ["docs/qa/LOCAL-0006.md"]
-    },
-    {
-      "id": "T-039",
-      "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "verification_phase": 6,
-      "status": "NOT RUN",
-      "reason": "Historical metadata-only IPC, owner-HWND exact-body one-use dispatch and ephemeral-continuation fixtures retain PASS. Final package qualification and project/files category PASS are in docs/qa/OWNER-ACCEPTANCE-0001.md. The full installed procedure lacks granular receipts and a shipping loopback seam; it remains NOT RUN/deferred V02-007. No real/private upload or new live request is authorized by docs/qa/V0.2.0-FOLLOW-UP-0001.md."
-    },
-    {
-      "id": "T-040",
-      "path": "docs/qa/WORKSPACE-CANDIDATE-0001.md",
-      "verification_phase": 6,
-      "status": "NOT RUN",
-      "reason": "Historical proposal/new-file/private-journal, independent process termination/restart and unchanged-existing proposal-only fixtures retain PASS. Project/files category PASS is owner-reported (docs/qa/OWNER-ACCEPTANCE-0001.md); missing detailed installed proposal receipts, absent injection seam and physical power-loss proof keep the full procedure NOT RUN/deferred V02-008/010. Existing replacement stays disabled under V02-009 (docs/qa/V0.2.0-FOLLOW-UP-0001.md)."
-    },
-    {
-      "id": "T-041",
-      "path": "docs/qa/WINDOWS11-ACCEPTANCE-0001.md",
-      "verification_phase": 8,
-      "status": "NOT RUN",
-      "reason": "Performance category PASS is owner-reported on 2026-10-02 (docs/qa/OWNER-ACCEPTANCE-0001.md). Numeric launch/resource/latency values, method, raw samples and installed synthetic cancel/20-turn receipts were not supplied; complete T-041 remains NOT RUN/deferred V02-003 in docs/qa/V0.2.0-FOLLOW-UP-0001.md. No metric or exact execution clock time is invented."
+      "id": "SEC-022",
+      "text": "Restore display/eligible text, never approvals/active slots/grants/financial authority"
     }
   ],
   "threats": [
     {
-      "id": "TM-001",
+      "id": "TM-016",
       "requirement_ids": [
-        "SEC-001",
-        "SEC-002"
+        "SEC-016",
+        "FR-020"
       ]
     },
     {
-      "id": "TM-002",
+      "id": "TM-017",
       "requirement_ids": [
-        "SEC-002",
-        "FR-012",
-        "SEC-013"
+        "SEC-014",
+        "SEC-015",
+        "SEC-017",
+        "FR-018",
+        "FR-019"
       ]
     },
     {
-      "id": "TM-003",
+      "id": "TM-018",
       "requirement_ids": [
-        "SEC-003",
-        "FR-001",
-        "FR-002"
+        "SEC-018",
+        "FR-021",
+        "FR-022",
+        "NFR-005"
       ]
     },
     {
-      "id": "TM-004",
+      "id": "TM-019",
       "requirement_ids": [
-        "SEC-004",
-        "FR-005",
-        "FR-006",
-        "SEC-012"
+        "SEC-019",
+        "SEC-022",
+        "FR-023",
+        "FR-024"
       ]
     },
     {
-      "id": "TM-005",
+      "id": "TM-020",
       "requirement_ids": [
-        "SEC-004",
-        "SEC-006"
+        "UX-003",
+        "UX-004",
+        "UX-005",
+        "FR-025"
       ]
     },
     {
-      "id": "TM-006",
+      "id": "TM-021",
       "requirement_ids": [
-        "SEC-005",
-        "FR-007",
-        "FR-008"
+        "PR-003"
       ]
     },
     {
-      "id": "TM-007",
+      "id": "TM-022",
       "requirement_ids": [
-        "SEC-006",
-        "FR-008",
-        "FR-009"
+        "SEC-020",
+        "SEC-021",
+        "FR-024"
       ]
     },
     {
-      "id": "TM-008",
+      "id": "TM-023",
       "requirement_ids": [
-        "NFR-001",
-        "FR-003"
-      ]
-    },
-    {
-      "id": "TM-009",
-      "requirement_ids": [
-        "NFR-002"
-      ]
-    },
-    {
-      "id": "TM-010",
-      "requirement_ids": [
-        "SEC-007",
-        "SEC-008",
-        "SEC-012"
-      ]
-    },
-    {
-      "id": "TM-011",
-      "requirement_ids": [
-        "PR-002",
-        "SEC-009"
-      ]
-    },
-    {
-      "id": "TM-012",
-      "requirement_ids": [
-        "SEC-001"
-      ]
-    },
-    {
-      "id": "TM-013",
-      "requirement_ids": [
-        "FR-013",
-        "SEC-010"
-      ]
-    },
-    {
-      "id": "TM-014",
-      "requirement_ids": [
-        "FR-014",
-        "FR-017",
-        "SEC-011",
-        "SEC-006"
-      ]
-    },
-    {
-      "id": "TM-015",
-      "requirement_ids": [
-        "FR-015",
-        "FR-016",
-        "FR-017",
-        "SEC-012",
-        "SEC-013"
+        "SEC-018",
+        "SEC-021",
+        "SEC-022"
       ]
     }
   ],
-  "tools": [
+  "acceptance": [
     {
-      "enabled": true,
-      "id": "read_project_text",
-      "schema_path": "docs/specs/SPEC-0001.md",
-      "max_calls": 1,
-      "grant_scope": [
-        "conversation",
-        "resource",
-        "operation",
-        "expiry",
-        "uses"
+      "id": "AC-032",
+      "requirement_ids": [
+        "PR-003"
       ],
-      "mutating": false,
-      "requires_human_confirmation": true
+      "threat_ids": [
+        "TM-021"
+      ],
+      "test_ids": [
+        "T-042"
+      ],
+      "verification_phase": 8
     },
     {
-      "enabled": true,
-      "id": "propose_project_change",
-      "schema_path": "docs/specs/SPEC-0001.md",
-      "max_calls": 1,
-      "grant_scope": [
-        "conversation",
-        "resource",
-        "operation",
-        "expiry",
-        "uses"
+      "id": "AC-033",
+      "requirement_ids": [
+        "FR-018",
+        "SEC-014"
       ],
-      "mutating": false,
-      "requires_human_confirmation": true
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-043"
+      ],
+      "verification_phase": 4
     },
     {
-      "enabled": false,
-      "id": "apply_approved_change"
+      "id": "AC-034",
+      "requirement_ids": [
+        "FR-019"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-044"
+      ],
+      "verification_phase": 4
     },
     {
-      "enabled": true,
-      "id": "apply_new_file",
-      "schema_path": "docs/specs/SPEC-0001.md",
-      "max_calls": 1,
-      "grant_scope": [
-        "conversation",
-        "resource",
-        "operation",
-        "expiry",
-        "uses"
+      "id": "AC-035",
+      "requirement_ids": [
+        "FR-020",
+        "SEC-016"
       ],
-      "mutating": true,
-      "requires_human_confirmation": true
+      "threat_ids": [
+        "TM-016"
+      ],
+      "test_ids": [
+        "T-045"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-036",
+      "requirement_ids": [
+        "FR-021",
+        "SEC-018"
+      ],
+      "threat_ids": [
+        "TM-018",
+        "TM-023"
+      ],
+      "test_ids": [
+        "T-046"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-037",
+      "requirement_ids": [
+        "FR-022"
+      ],
+      "threat_ids": [
+        "TM-018"
+      ],
+      "test_ids": [
+        "T-047"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-038",
+      "requirement_ids": [
+        "FR-023"
+      ],
+      "threat_ids": [
+        "TM-019"
+      ],
+      "test_ids": [
+        "T-048"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-039",
+      "requirement_ids": [
+        "UX-003",
+        "UX-004"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-049"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-040",
+      "requirement_ids": [
+        "NFR-005"
+      ],
+      "threat_ids": [
+        "TM-018"
+      ],
+      "test_ids": [
+        "T-050"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-041",
+      "requirement_ids": [
+        "SEC-015"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-051"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-042",
+      "requirement_ids": [
+        "SEC-017"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-052"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-043",
+      "requirement_ids": [
+        "SEC-014",
+        "SEC-017"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-053"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-044",
+      "requirement_ids": [
+        "SEC-018"
+      ],
+      "threat_ids": [
+        "TM-023"
+      ],
+      "test_ids": [
+        "T-054"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-045",
+      "requirement_ids": [
+        "SEC-019"
+      ],
+      "threat_ids": [
+        "TM-019"
+      ],
+      "test_ids": [
+        "T-055"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-046",
+      "requirement_ids": [
+        "SEC-020"
+      ],
+      "threat_ids": [
+        "TM-022"
+      ],
+      "test_ids": [
+        "T-056"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-047",
+      "requirement_ids": [
+        "NFR-006"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-057"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-048",
+      "requirement_ids": [
+        "NFR-006"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-058"
+      ],
+      "verification_phase": 9
+    },
+    {
+      "id": "AC-049",
+      "requirement_ids": [
+        "PR-003"
+      ],
+      "threat_ids": [
+        "TM-021"
+      ],
+      "test_ids": [
+        "T-059"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-050",
+      "requirement_ids": [
+        "FR-024",
+        "SEC-022"
+      ],
+      "threat_ids": [
+        "TM-019",
+        "TM-022"
+      ],
+      "test_ids": [
+        "T-060"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-051",
+      "requirement_ids": [
+        "FR-025",
+        "UX-005"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-061"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-052",
+      "requirement_ids": [
+        "SEC-021",
+        "SEC-022"
+      ],
+      "threat_ids": [
+        "TM-022",
+        "TM-023"
+      ],
+      "test_ids": [
+        "T-062"
+      ],
+      "verification_phase": 5
     }
-  ]
+  ],
+  "tests": [
+    {
+      "id": "T-042",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: UK/account/tier and owner-attested direct API eligibility; live entitlement remains independent. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite. META-CATALOGUE-0001 records separately accepted catalogue authentication/entry visibility only, not live model inference or legal/financial eligibility."
+    },
+    {
+      "id": "T-043",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: One exact default model; deny legacy/third model before egress. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-044",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Exact-byte Meta serialization and strict fragmented/malformed SSE/usage. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-045",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Complete prior context local data admission plus exact native default-deny review. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite. D5 synthetic fixtures deny both Meta key prefixes in new and prior user/assistant content; interactive native full-body review remains separate."
+    },
+    {
+      "id": "T-046",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Integer reserve/settle, exact limit, +1 boundary, dated FX and conservative cache handling. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-047",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Unknown usage/restart/cancel retains reserve; separate original-account statement reconciliation. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-048",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Legacy pair import denial and preservation of older secrets/creation journal. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-049",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Interactive status, independent scrolling, busy navigation and request-bound Stop. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-050",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Body/frame/wire/UTF8/turn/timeout/global-slot/replay boundaries. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-051",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Native Meta custody, owner handle, collection/revocation/write ordering and cancellation. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite. D5 synthetic representation/decoder tests support both closed key forms; the two disposable native credential fixtures and GUI custody remain NOT RUN."
+    },
+    {
+      "id": "T-052",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Fixed HTTPS origin, no proxies/redirect/retry/fallback or unregistered tool routes. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-053",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Four false project flags and no retired commands/permissions. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-054",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Clock high-water/explicit period review, process lease and immutable append failures. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-055",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Closed protocol3 receipts/intents, no paths/secrets/approval overrides. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-056",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: No keys/text in finance/logs; cross-domain/corrupt/weak ACL denial without reset. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-057",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Format/clippy/typecheck/tests/secrets/advisories/notices/SBOM source-bound gates. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-058",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 9,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Main source/CI manifest, installer hash, complete payload and new launcher verification. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-059",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Separately authorised synthetic direct Meta live canary and valid usage/settlement. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-060",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: History restart/interrupted pending/limits/legacy denial/navigation/no authority restoration. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-061",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Exact owner assets, British-English menus/help/native/installer and keyboard/visual acceptance. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-062",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Private store process exclusion, foreign state/tamper, logical removal and no financial reset. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    }
+  ],
+  "gates": [
+    {
+      "phase": 0,
+      "status": "PASS",
+      "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981",
+      "environment": "Windows 11 x64 local source/design review; tested source b9ba052 and retained physical source manifest. Design/provenance only, not installed, live or release acceptance.",
+      "command": "Manual inventory/governance/baseline/authority review; git rev-parse HEAD and HEAD^{tree}; scripts/ci/publish_preflight.py .; review LOCAL-V020-0001 source-pinned checkpoint",
+      "run_at_utc": "2026-10-03T12:52:01Z",
+      "evidence_paths": [
+        "docs/aster-builder/phase-0-inventory.md",
+        "docs/qa/LOCAL-V020-0001.md"
+      ]
+    },
+    {
+      "phase": 1,
+      "status": "PASS",
+      "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981",
+      "environment": "Windows 11 x64 local source/design review; tested source b9ba052 and retained physical source manifest. Design/provenance only, not installed, live or release acceptance.",
+      "command": "Manual SPEC-0002 stable requirement/acceptance/non-goal review and ledger requirement/threat/acceptance/test cross-reference audit",
+      "run_at_utc": "2026-10-03T12:52:01Z",
+      "evidence_paths": [
+        "docs/specs/SPEC-0002.md",
+        "docs/aster-builder/contract.json",
+        "docs/qa/LOCAL-V020-0001.md"
+      ]
+    },
+    {
+      "phase": 2,
+      "status": "PASS",
+      "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981",
+      "environment": "Windows 11 x64 local source/design review; tested source b9ba052 and retained physical source manifest. Design/provenance only, not installed, live or release acceptance.",
+      "command": "Manual THREAT-MODEL-0002 data-flow/residual-risk review; review ADR-0010 through ADR-0015 custody, IPC, provider, finance and restoration invariants",
+      "run_at_utc": "2026-10-03T12:52:01Z",
+      "evidence_paths": [
+        "docs/security/THREAT-MODEL-0002.md",
+        "docs/adr/ADR-0010.md",
+        "docs/adr/ADR-0011.md",
+        "docs/adr/ADR-0012.md",
+        "docs/adr/ADR-0013.md",
+        "docs/adr/ADR-0014.md",
+        "docs/adr/ADR-0015.md",
+        "docs/qa/LOCAL-V020-0001.md"
+      ]
+    },
+    {
+      "phase": 3,
+      "status": "NOT RUN",
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+    },
+    {
+      "phase": 4,
+      "status": "NOT RUN",
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+    },
+    {
+      "phase": 5,
+      "status": "NOT RUN",
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+    },
+    {
+      "phase": 6,
+      "status": "NOT RUN",
+      "reason": "Tools are disabled (tools=[]). No tool activation gate is claimed; persistent storage is covered by phase 5."
+    },
+    {
+      "phase": 7,
+      "status": "NOT RUN",
+      "reason": "Web access is disabled. No web activation gate is claimed."
+    },
+    {
+      "phase": 8,
+      "status": "NOT RUN",
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+    },
+    {
+      "phase": 9,
+      "status": "NOT RUN",
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+    }
+  ],
+  "release": {
+    "artifact_sha256": null,
+    "signed": false,
+    "signature_evidence": null,
+    "target_os_verified": false,
+    "target_os_evidence": null,
+    "live_provider_verified": false,
+    "live_provider_evidence": null
+  }
 }

@@ -1,21 +1,38 @@
-//! The NVIDIA credential exists only in the trusted native host and the
+//! The Meta Model API credential exists only in the trusted native host and the
 //! current user's Windows Credential Manager. Never put it in a command DTO.
 
 use zeroize::Zeroizing;
 
-const TARGET: &str = "comzulca/aster-desktop/nvidia/integrate.api.nvidia.com";
+const TARGET: &str = "AsterDesktop/MetaModelAPI/v1";
 
 #[cfg(any(windows, test))]
 fn valid_key(key: &str) -> bool {
-    (8..=256).contains(&key.len()) && key.bytes().all(|b| b.is_ascii_graphic())
+    if !(8..=256).contains(&key.len()) || !key.bytes().all(|b| b.is_ascii_graphic()) {
+        return false;
+    }
+    // The direct API also issues opaque tokens. Do not derive an account,
+    // translate separators, trim or repair either native representation.
+    if let Some(suffix) = key.strip_prefix("LLM_") {
+        return suffix.len() >= 12
+            && suffix
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'));
+    }
+    let mut parts = key.split('|');
+    matches!((parts.next(), parts.next(), parts.next(), parts.next()),
+        (Some("LLM"), Some(id), Some(secret), None)
+        if !id.is_empty() && id.len() <= 32 && id.bytes().all(|b| b.is_ascii_digit()) && !secret.is_empty())
 }
 
-/// Generic Credential blobs are application-defined. Accept our legacy ASCII
+/// Generic Credential blobs are application-defined. Accept bounded ASCII
 /// format and native UTF-16LE ASCII passwords, never trim or repair a secret.
 #[cfg(any(windows, test))]
 fn decode_blob(blob: &[u8]) -> Result<Zeroizing<String>, CredentialError> {
     if (8..=256).contains(&blob.len()) && blob.iter().all(u8::is_ascii_graphic) {
         let key = std::str::from_utf8(blob).map_err(|_| CredentialError::Rejected)?;
+        if !valid_key(key) {
+            return Err(CredentialError::Rejected);
+        }
         return Ok(Zeroizing::new(key.to_owned()));
     }
     if !(16..=512).contains(&blob.len()) || !blob.len().is_multiple_of(2) {
@@ -47,6 +64,9 @@ fn decode_native_password(password: &[u16]) -> Result<Zeroizing<String>, Credent
     for unit in password {
         key.push(*unit as u8 as char);
     }
+    if !valid_key(&key) {
+        return Err(CredentialError::Rejected);
+    }
     Ok(key)
 }
 
@@ -58,6 +78,28 @@ fn admit_fixture_password(supplied: Zeroizing<String>) -> Result<(), CredentialE
         return Err(CredentialError::Rejected);
     }
     Ok(())
+}
+
+/// A validated prompted key stays in this zeroising allocation. Revocation is
+/// host-only and must finish durably before the explicit fixed-target writer.
+/// No key is returned to the caller or supplied to the revocation callback.
+#[cfg(any(windows, test))]
+fn save_prompt_after<B, W>(
+    supplied: Result<Zeroizing<String>, CredentialError>,
+    before_write: B,
+    write: W,
+) -> Result<bool, CredentialError>
+where
+    B: FnOnce() -> Result<(), CredentialError>,
+    W: FnOnce(&str) -> Result<(), CredentialError>,
+{
+    let supplied = supplied?;
+    if !valid_key(&supplied) {
+        return Err(CredentialError::Rejected);
+    }
+    before_write()?;
+    write(&supplied)?;
+    Ok(true)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -89,8 +131,15 @@ impl CredentialStore {
         native::configured()
     }
 
-    pub fn enter_with_native_dialog(&self) -> Result<bool, CredentialError> {
-        native::prompt_and_save()
+    pub fn enter_with_native_dialog_after<F>(
+        &self,
+        owner: usize,
+        before_write: F,
+    ) -> Result<bool, CredentialError>
+    where
+        F: FnOnce() -> Result<(), CredentialError>,
+    {
+        native::prompt_and_save_after(owner, before_write)
     }
 
     pub fn read(&self) -> Result<Zeroizing<String>, CredentialError> {
@@ -149,7 +198,13 @@ mod native {
         Err(CredentialError::Unavailable)
     }
 
-    pub fn prompt_and_save() -> Result<bool, CredentialError> {
+    pub fn prompt_and_save_after<F>(
+        _owner: usize,
+        _before_write: F,
+    ) -> Result<bool, CredentialError>
+    where
+        F: FnOnce() -> Result<(), CredentialError>,
+    {
         Err(CredentialError::Unavailable)
     }
 
@@ -165,8 +220,8 @@ mod native {
 #[cfg(windows)]
 mod native {
     use super::{
-        admit_fixture_password, decode_blob, decode_native_password, valid_key, CredentialError,
-        Zeroizing, TARGET,
+        admit_fixture_password, decode_blob, decode_native_password, save_prompt_after, valid_key,
+        CredentialError, Zeroizing, TARGET,
     };
     use std::{ffi::c_void, iter, mem, ptr};
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_NOT_FOUND};
@@ -195,15 +250,26 @@ mod native {
         }
     }
 
-    pub fn prompt_and_save() -> Result<bool, CredentialError> {
-        let supplied = prompt_at(
+    pub fn prompt_and_save_after<F>(owner: usize, before_write: F) -> Result<bool, CredentialError>
+    where
+        F: FnOnce() -> Result<(), CredentialError>,
+    {
+        crate::native_review::validate_owner_handle(owner)
+            .map_err(|_| CredentialError::Rejected)?;
+        let supplied = prompt_at_owned(
             TARGET,
-            "nvidia-api",
-            "Introduce la clave NVIDIA. Se guardará en el Administrador de credenciales de esta cuenta de Windows.",
-            "Aster Desktop: clave de NVIDIA",
+            "meta-model-api",
+            "Enter a direct Meta Model API key authorised for Aster. It will be saved in Windows Credential Manager for this Windows account. Do not use a Muse Code subscription credential.",
+            "Aster Desktop: Meta Model API key",
+            owner,
         )?;
-        write_at(TARGET, &supplied)?;
-        Ok(true)
+        save_prompt_after(Ok(supplied), before_write, |key| {
+            // A lost/foreign native owner cannot complete the write. A prior
+            // successful revocation remains conservative if this check fails.
+            crate::native_review::validate_owner_handle(owner)
+                .map_err(|_| CredentialError::Rejected)?;
+            write_at(TARGET, key)
+        })
     }
 
     // The native UI never persists implicitly. A caller must independently
@@ -214,12 +280,22 @@ mod native {
         message_text: &str,
         caption_text: &str,
     ) -> Result<Zeroizing<String>, CredentialError> {
+        prompt_at_owned(target_name, default_username, message_text, caption_text, 0)
+    }
+
+    fn prompt_at_owned(
+        target_name: &str,
+        default_username: &str,
+        message_text: &str,
+        caption_text: &str,
+        owner: usize,
+    ) -> Result<Zeroizing<String>, CredentialError> {
         let target = wide(target_name);
         let message = wide(message_text);
         let caption = wide(caption_text);
         let info = CREDUI_INFOW {
             cbSize: mem::size_of::<CREDUI_INFOW>() as u32,
-            hwndParent: ptr::null_mut(),
+            hwndParent: owner as *mut c_void,
             pszMessageText: message.as_ptr(),
             pszCaptionText: caption.as_ptr(),
             hbmBanner: ptr::null_mut(),
@@ -262,7 +338,7 @@ mod native {
     }
 
     fn write_at(target_name: &str, key: &str) -> Result<(), CredentialError> {
-        write_at_user(target_name, key, "nvidia-api")
+        write_at_user(target_name, key, "meta-model-api")
     }
 
     fn write_at_user(target_name: &str, key: &str, username: &str) -> Result<(), CredentialError> {
@@ -280,7 +356,7 @@ mod native {
 
     #[cfg(test)]
     fn write_blob_at(target_name: &str, blob: &mut [u8]) -> Result<(), CredentialError> {
-        write_blob_at_user(target_name, blob, "nvidia-api")
+        write_blob_at_user(target_name, blob, "meta-model-api")
     }
 
     fn write_blob_at_user(
@@ -503,8 +579,8 @@ mod native {
         let supplied = match prompt_at(
             fixture_name(target)?,
             crate::credential_fixture::SYNTHETIC_USERNAME,
-            "PRUEBA SINTÉTICA SIN RED. No introduzcas una clave real. Usa únicamente synthetic-fixture-key-123. Este diálogo no guarda nada automáticamente.",
-            "Aster: prueba sintética de credenciales (sin NVIDIA)",
+            "OFFLINE SYNTHETIC TEST. Never enter a real key. Use only 'LLM|0|synthetic-fixture-key-123'. This dialogue does not save anything automatically.",
+            "Aster: synthetic Meta credential test (offline)",
         ) {
             Ok(value) => value,
             Err(CredentialError::Cancelled) => return Ok(false),
@@ -554,13 +630,13 @@ mod native {
         fn fixture_metadata_admission_rejects_foreign_entries_with_known_fake_password() {
             // Pure stack-backed metadata fixtures: no Credential Manager API
             // or real target is named or called by this test.
-            let target_name = "comzulca/aster-desktop/credential-gui-fixture/00000001-00000000000000000000000000000002-0000000000000003";
+            let target_name = "AsterDesktop/MetaModelAPI/credential-gui-fixture/00000001-00000000000000000000000000000002-0000000000000003";
             let mut target = wide(target_name);
             let mut username = wide(crate::credential_fixture::SYNTHETIC_USERNAME);
             let mut foreign_username = wide("other-synthetic-fixture");
             let mut foreign_target = wide("unrelated-synthetic-target");
             let mut annotation = wide("foreign-synthetic-metadata");
-            let mut blob = b"synthetic-fixture-key-123".to_vec();
+            let mut blob = b"LLM|0|synthetic-fixture-key-123".to_vec();
             let baseline = CREDENTIALW {
                 Flags: 0,
                 Type: CRED_TYPE_GENERIC,
@@ -628,16 +704,15 @@ mod native {
 
         #[test]
         fn fixed_target_and_key_admission() {
-            assert_eq!(
-                TARGET,
-                "comzulca/aster-desktop/nvidia/integrate.api.nvidia.com"
-            );
+            assert_eq!(TARGET, "AsterDesktop/MetaModelAPI/v1");
             assert!(!valid_key(""));
             assert!(!valid_key("a key with whitespace"));
-            assert!(valid_key("nvapi-test-key"));
+            assert!(valid_key("LLM|0|synthetic-fixture-key-123"));
+            assert!(!valid_key("nvapi-test-key"));
         }
 
         #[test]
+        #[ignore = "requires separately authorised disposable native Credential Manager fixture"]
         fn synthetic_credential_round_trip_uses_a_disposable_target() {
             let unique = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -652,25 +727,26 @@ mod native {
             }
             let _cleanup = Cleanup(target.clone());
             assert!(!configured_at(&target).unwrap());
-            write_at(&target, "synthetic-fixture-key-123").unwrap();
+            write_at(&target, "LLM|0|synthetic-fixture-key-123").unwrap();
             assert!(configured_at(&target).unwrap());
             assert_eq!(
                 read_at(&target).unwrap().as_str(),
-                "synthetic-fixture-key-123"
+                "LLM|0|synthetic-fixture-key-123"
             );
             // Legacy ASCII blobs remain readable after the representation
             // change. No real app target is modified by this fixture.
-            let mut legacy = Zeroizing::new(b"synthetic-legacy-key-123".to_vec());
+            let mut legacy = Zeroizing::new(b"LLM|0|synthetic-ascii-key-123".to_vec());
             write_blob_at(&target, &mut legacy).unwrap();
             assert_eq!(
                 read_at(&target).unwrap().as_str(),
-                "synthetic-legacy-key-123"
+                "LLM|0|synthetic-ascii-key-123"
             );
             assert!(delete_at(&target).unwrap());
             assert!(!configured_at(&target).unwrap());
         }
 
         #[test]
+        #[ignore = "requires separately authorised disposable native Credential Manager fixture"]
         fn malformed_stored_blobs_are_not_configured_on_a_disposable_target() {
             let unique = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -709,6 +785,223 @@ mod native {
 #[cfg(test)]
 mod representation_tests {
     use super::*;
+
+    const OPAQUE_SYNTHETIC_KEY: &str = "LLM_0_SYNTHETIC_NOT_A_SECRET";
+
+    #[test]
+    fn opaque_synthetic_key_decodes_exact_ascii_utf16_and_native_bytes() {
+        let wide: Vec<u8> = OPAQUE_SYNTHETIC_KEY
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        let native: Vec<u16> = OPAQUE_SYNTHETIC_KEY.encode_utf16().collect();
+        assert!(valid_key(OPAQUE_SYNTHETIC_KEY));
+        assert_eq!(
+            decode_blob(OPAQUE_SYNTHETIC_KEY.as_bytes())
+                .unwrap()
+                .as_str(),
+            OPAQUE_SYNTHETIC_KEY
+        );
+        assert_eq!(decode_blob(&wide).unwrap().as_str(), OPAQUE_SYNTHETIC_KEY);
+        assert_eq!(
+            decode_native_password(&native).unwrap().as_str(),
+            OPAQUE_SYNTHETIC_KEY
+        );
+        // The diagnostic still admits its original one known value only.
+        assert_eq!(
+            admit_fixture_password(Zeroizing::new(OPAQUE_SYNTHETIC_KEY.into())),
+            Err(CredentialError::Rejected)
+        );
+    }
+
+    #[test]
+    fn opaque_syntax_length_alphabet_and_all_decoder_boundaries_are_closed() {
+        // Generated bytes are synthetic boundary cases, never a real key.
+        for suffix_length in [0, 11, 12, 252, 253] {
+            let key = format!("LLM_{}", "x".repeat(suffix_length));
+            let wide: Vec<u8> = key.encode_utf16().flat_map(u16::to_le_bytes).collect();
+            let native: Vec<u16> = key.encode_utf16().collect();
+            let accepted = (12..=252).contains(&suffix_length);
+            assert_eq!(valid_key(&key), accepted);
+            assert_eq!(decode_blob(key.as_bytes()).is_ok(), accepted);
+            assert_eq!(decode_blob(&wide).is_ok(), accepted);
+            assert_eq!(decode_native_password(&native).is_ok(), accepted);
+        }
+        let allowed = format!("LLM_{}", "xX09_-.".repeat(2));
+        assert!(valid_key(&allowed));
+        for bad in [
+            ' ', '\t', '\r', '\n', '\0', '\u{007f}', 'é', '|', '/', '+', '=', ':', '!', '"',
+        ] {
+            let key = format!("{OPAQUE_SYNTHETIC_KEY}{bad}");
+            let wide: Vec<u8> = key.encode_utf16().flat_map(u16::to_le_bytes).collect();
+            let native: Vec<u16> = key.encode_utf16().collect();
+            assert!(!valid_key(&key));
+            assert!(decode_blob(key.as_bytes()).is_err());
+            assert!(decode_blob(&wide).is_err());
+            assert!(decode_native_password(&native).is_err());
+        }
+        for prefix in ["llm_", "LLM-", "LLM.", "Bearer ", "nvapi-"] {
+            let key = format!("{prefix}{}", "x".repeat(20));
+            assert!(!valid_key(&key));
+            assert!(decode_blob(key.as_bytes()).is_err());
+        }
+        for key in [
+            format!(" {OPAQUE_SYNTHETIC_KEY}"),
+            format!("{OPAQUE_SYNTHETIC_KEY} "),
+        ] {
+            assert!(!valid_key(&key));
+            assert!(decode_blob(key.as_bytes()).is_err());
+        }
+    }
+
+    #[test]
+    fn opaque_prompt_preserves_revocation_before_exact_writer_without_real_custody() {
+        let revoked = std::cell::Cell::new(false);
+        let writes = std::cell::Cell::new(0);
+        assert_eq!(
+            save_prompt_after(
+                Ok(Zeroizing::new(OPAQUE_SYNTHETIC_KEY.into())),
+                || {
+                    revoked.set(true);
+                    Ok(())
+                },
+                |key| {
+                    assert!(revoked.get());
+                    assert_eq!(key, OPAQUE_SYNTHETIC_KEY);
+                    writes.set(writes.get() + 1);
+                    Ok(())
+                },
+            ),
+            Ok(true)
+        );
+        assert_eq!(writes.get(), 1);
+    }
+
+    #[test]
+    fn prompted_key_revokes_identity_before_the_explicit_writer() {
+        let events = std::cell::RefCell::new(Vec::new());
+        let identity_valid = std::cell::Cell::new(true);
+        assert_eq!(
+            save_prompt_after(
+                Ok(Zeroizing::new(
+                    crate::credential_fixture::SYNTHETIC_KEY.into()
+                )),
+                || {
+                    events.borrow_mut().push("durable_revocation");
+                    identity_valid.set(false);
+                    Ok(())
+                },
+                |key| {
+                    assert!(!identity_valid.get());
+                    assert_eq!(key, crate::credential_fixture::SYNTHETIC_KEY);
+                    events.borrow_mut().push("fixed_target_write");
+                    Ok(())
+                },
+            ),
+            Ok(true),
+        );
+        assert_eq!(
+            *events.borrow(),
+            ["durable_revocation", "fixed_target_write"],
+        );
+    }
+
+    #[test]
+    fn cancelled_or_invalid_prompt_never_revokes_or_writes() {
+        for (supplied, expected) in [
+            (Err(CredentialError::Cancelled), CredentialError::Cancelled),
+            (Err(CredentialError::System), CredentialError::System),
+            (
+                Ok(Zeroizing::new("invalid-prompted-value".into())),
+                CredentialError::Rejected,
+            ),
+        ] {
+            let revocations = std::cell::Cell::new(0);
+            let writes = std::cell::Cell::new(0);
+            assert_eq!(
+                save_prompt_after(
+                    supplied,
+                    || {
+                        revocations.set(revocations.get() + 1);
+                        Ok(())
+                    },
+                    |_| {
+                        writes.set(writes.get() + 1);
+                        Ok(())
+                    },
+                ),
+                Err(expected),
+            );
+            assert_eq!(revocations.get(), 0);
+            assert_eq!(writes.get(), 0);
+        }
+    }
+
+    #[test]
+    fn failed_durable_revocation_never_writes_the_prompted_key() {
+        let revocations = std::cell::Cell::new(0);
+        let writes = std::cell::Cell::new(0);
+        assert_eq!(
+            save_prompt_after(
+                Ok(Zeroizing::new(
+                    crate::credential_fixture::SYNTHETIC_KEY.into()
+                )),
+                || {
+                    revocations.set(revocations.get() + 1);
+                    Err(CredentialError::System)
+                },
+                |_| {
+                    writes.set(writes.get() + 1);
+                    Ok(())
+                },
+            ),
+            Err(CredentialError::System),
+        );
+        assert_eq!(revocations.get(), 1);
+        assert_eq!(writes.get(), 0);
+    }
+
+    #[test]
+    fn failed_key_write_does_not_restore_revoked_identity_or_retry() {
+        let identity_valid = std::cell::Cell::new(true);
+        let writes = std::cell::Cell::new(0);
+        assert_eq!(
+            save_prompt_after(
+                Ok(Zeroizing::new(
+                    crate::credential_fixture::SYNTHETIC_KEY.into()
+                )),
+                || {
+                    identity_valid.set(false);
+                    Ok(())
+                },
+                |_| {
+                    writes.set(writes.get() + 1);
+                    Err(CredentialError::System)
+                },
+            ),
+            Err(CredentialError::System),
+        );
+        assert!(!identity_valid.get());
+        assert_eq!(writes.get(), 1);
+    }
+
+    #[test]
+    fn direct_meta_key_syntax_is_closed_not_an_entitlement_claim() {
+        assert!(valid_key(crate::credential_fixture::SYNTHETIC_KEY));
+        for key in [
+            "nvapi-test-key",
+            "synthetic-fixture-key-123",
+            "LLM||fake",
+            "LLM|abc|fake",
+            "LLM|0|",
+            "LLM|0|fake|extra",
+            "llm|0|fake",
+            " LLM|0|SYNTHETIC_NOT_A_SECRET",
+        ] {
+            assert!(!valid_key(key));
+            assert!(decode_blob(key.as_bytes()).is_err());
+        }
+    }
 
     #[test]
     fn fixture_password_admission_consumes_only_the_known_synthetic_value() {
@@ -757,11 +1050,11 @@ mod representation_tests {
 
     #[test]
     fn legacy_ascii_and_native_utf16_decode_identically() {
-        let key = "synthetic-fixture-key-123";
+        let key = "LLM|0|synthetic-fixture-key-123";
         let wide: Vec<u8> = key.bytes().flat_map(|byte| [byte, 0]).collect();
         assert_eq!(decode_blob(key.as_bytes()).unwrap().as_str(), key);
         assert_eq!(decode_blob(&wide).unwrap().as_str(), key);
-        let max_key = "x".repeat(256);
+        let max_key = format!("{}{}", "LLM|0|", "x".repeat(250));
         let max_wide: Vec<u8> = max_key.bytes().flat_map(|byte| [byte, 0]).collect();
         assert!(decode_blob(&max_wide).is_ok());
     }
@@ -769,7 +1062,7 @@ mod representation_tests {
     #[test]
     fn ascii_and_utf16_password_length_boundaries_match() {
         for length in [7, 8, 256, 257] {
-            let key = "x".repeat(length);
+            let key = format!("{}{}", "LLM|0|", "x".repeat(length - 6));
             let wide: Vec<u8> = key.bytes().flat_map(|byte| [byte, 0]).collect();
             let native: Vec<u16> = key.encode_utf16().collect();
             let accepted = (8..=256).contains(&length);

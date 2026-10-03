@@ -64,7 +64,8 @@ impl ReviewDocument {
         }
         Self::from_value(serde_json::json!({
             "reviewVersion": 1,
-            "destination": "https://integrate.api.nvidia.com/v1/chat/completions",
+            "destination": "https://api.meta.ai/v1/chat/completions",
+            "dataUse": "Meta Contributor may use prompts and answers for training. Personal, sensitive and confidential content is prohibited. Cancelling after dispatch does not establish zero cost.",
             "outboundByteCount": exact_outbound_body.len(),
             "outboundSha256": digest(exact_outbound_body),
             "exactOutboundUtf8": body,
@@ -170,6 +171,11 @@ pub(crate) fn confirm_owned(
 ) -> Result<Option<NativeApproval>, ReviewError> {
     windows::validate_owner(owner)?;
     confirm_with_owner(document, owner)
+}
+
+#[cfg(windows)]
+pub(crate) fn validate_owner_handle(owner: usize) -> Result<(), ReviewError> {
+    windows::validate_owner(owner)
 }
 
 fn confirm_with_owner(
@@ -292,7 +298,7 @@ mod windows {
             0,   // menu
             0,   // default dialog class
         ];
-        words.extend(wide("Aster: revisión nativa — sólo una operación"));
+        words.extend(wide("Aster: native review — one operation only"));
         if !words.len().is_multiple_of(2) {
             words.push(0);
         }
@@ -385,7 +391,7 @@ mod windows {
                     let label = child(
                         dialog,
                         "STATIC",
-                        "Material completo (sólo lectura). Revisa el destino y todo el contenido.",
+                        "Complete material (read-only). Review the destination and all content.",
                         0,
                         (12, 10, width - 24, 36),
                         99,
@@ -410,7 +416,7 @@ mod windows {
                     let cancel = child(
                         dialog,
                         "BUTTON",
-                        "Cancelar",
+                        "Cancel",
                         WS_TABSTOP | BS_DEFPUSHBUTTON as u32,
                         (width - 234, height - 44, 100, 28),
                         IDCANCEL as usize,
@@ -418,7 +424,7 @@ mod windows {
                     let accept = child(
                         dialog,
                         "BUTTON",
-                        "Confirmar revisión",
+                        "Confirm review",
                         WS_TABSTOP | BS_PUSHBUTTON as u32,
                         (width - 126, height - 44, 114, 28),
                         ACCEPT_ID,
@@ -669,7 +675,7 @@ mod tests {
 
     #[test]
     fn disclosure_preserves_exact_outbound_bytes_not_a_rebuilt_request() {
-        let body = b"{ \"model\": \"meta/muse-glimmer-30b\", \"messages\": [{\"role\":\"user\",\"content\":\"synthetic\"}] }";
+        let body = b"{ \"model\": \"muse-spark-1.3-contributor\", \"messages\": [{\"role\":\"user\",\"content\":\"synthetic\"}] }";
         let document = ReviewDocument::disclosure(body).unwrap();
         let decoded: serde_json::Value = serde_json::from_str(&document.body).unwrap();
         assert_eq!(
@@ -678,12 +684,13 @@ mod tests {
         );
         assert_eq!(decoded["outboundSha256"], digest(body));
         assert!(ReviewDocument::disclosure(b"{\"model\":\"unregistered\"}").is_err());
+        assert!(ReviewDocument::disclosure(b"{\"model\":\"meta/muse-glimmer-30b\"}").is_err());
     }
 
     #[test]
     fn formatting_marks_are_visible_without_changing_reviewed_data() {
         let prompt = "synthetic\u{202e}text\u{2066}\u{200b}";
-        let body = serde_json::json!({"model":"meta/muse-glimmer-30b", "messages":[{"role":"user", "content":prompt}]}).to_string();
+        let body = serde_json::json!({"model":"muse-spark-1.3-contributor", "messages":[{"role":"user", "content":prompt}]}).to_string();
         let document = ReviewDocument::disclosure(body.as_bytes()).unwrap();
         assert!(!document.body.contains('\u{202e}'));
         assert!(!document.body.contains('\u{2066}'));

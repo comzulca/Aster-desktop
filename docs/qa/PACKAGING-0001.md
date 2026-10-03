@@ -1,5 +1,7 @@
 # PACKAGING-0001 — unsigned engineering installer gate
 
+Historical v0.1.0 evidence/procedure only. Its stable IDs, authorisation history, hashes and PASS receipts are preserved, not transferred to v0.2.0. Current scope is [SPEC-0002](../specs/SPEC-0002.md) and [v0.2.0 verification](../qa/LOCAL-V020-0001.md). Retired providers, ephemeral history and project permissions below do not apply to the current profile.
+
 Current status, **2026-10-02: PASS for the delivered final protocol-2 unsigned engineering package**. Exact main source `1782d3375db47466f89be6bd3cd3c6affbfa95b7`, run `37040168700` attempt 1, passed all four jobs; artifact `11243338033` passed independent five-entry ZIP/manifest/NotSigned setup/bounded NSIS payload/resource/application/delivery-alias verification. The setup and byte-identical `Aster_0.1.0_x64-setup.exe` alias are 19,017,189 bytes, SHA-256 `0357a0798714922dd6bc6dc612eb6ed0a5c9c6224197328e1f186112c0256bcb`. [OWNER-ACCEPTANCE-0001](OWNER-ACCEPTANCE-0001.md) records full identities and six owner-reported category PASS results dated 2026-10-02 Edinburgh/BST, with non-elevated Aster in the existing administrator account. Unreported detail is explicitly transferred to [v0.2.0](V0.2.0-FOLLOW-UP-0001.md). PR artifacts remain non-installable candidates. Signing, legal clearance and production promotion are not claimed; no new installer is built by this documentation update.
 
 ## Historical 2026-10-01 — retained NSIS metadata failure and bounded remedy

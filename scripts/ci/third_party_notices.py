@@ -447,7 +447,7 @@ def generate(
         raise ValueError("Every reviewed notice overlay must bind exactly one installed locked package")
 
     sections = [
-        "Aster 0.1.0 — third-party source notices\n\n",
+        "Aster 0.2.0 — third-party source notices\n\n",
         "Generated without network access from exact installed locked Rust and npm source packages. "
         "The complete inventory includes build/development sources; requiredForPackagedApp marks the "
         f"normal dependency closure filtered for {target} plus installed production npm dependencies. "

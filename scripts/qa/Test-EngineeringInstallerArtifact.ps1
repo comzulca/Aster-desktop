@@ -71,14 +71,14 @@ try {
     if ($actualZipSha256 -cne $ExpectedZipSha256) { throw 'GitHub artifact ZIP digest mismatch.' }
     $zipStream.Position = 0
     $archive = [System.IO.Compression.ZipArchive]::new($zipStream, [System.IO.Compression.ZipArchiveMode]::Read, $false)
-    $expectedNames = @('manifest.json', 'Aster Desktop_0.1.0_x64-setup.exe', 'THIRD-PARTY-NOTICES.txt', 'third-party-notice-inventory.json', 'installer-payload-list.txt')
+    $expectedNames = @('manifest.json', 'Aster Desktop_0.2.0_x64-setup.exe', 'THIRD-PARTY-NOTICES.txt', 'third-party-notice-inventory.json', 'installer-payload-list.txt')
     if ($archive.Entries.Count -ne 5) { throw 'Artifact must have exactly five entries.' }
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($entry in $archive.Entries) {
         if ($expectedNames -cnotcontains $entry.FullName -or -not $seen.Add($entry.FullName)) { throw 'Artifact contains an unexpected or duplicate entry.' }
         $attributeBits = [System.BitConverter]::ToUInt32([System.BitConverter]::GetBytes([int]$entry.ExternalAttributes), 0)
         if ((($attributeBits -shr 16) -band 0xF000) -eq 0xA000 -or ($attributeBits -band 0x400) -ne 0) { throw 'Artifact contains a link or reparse entry.' }
-        $limit = switch ($entry.FullName) { 'manifest.json' { 16384 }; 'Aster Desktop_0.1.0_x64-setup.exe' { 67108864 }; 'THIRD-PARTY-NOTICES.txt' { 33554432 }; default { 4194304 } }
+        $limit = switch ($entry.FullName) { 'manifest.json' { 16384 }; 'Aster Desktop_0.2.0_x64-setup.exe' { 67108864 }; 'THIRD-PARTY-NOTICES.txt' { 33554432 }; default { 4194304 } }
         if ($entry.Length -le 0 -or $entry.Length -gt $limit) { throw 'Artifact entry exceeds its size limit or is empty.' }
         $stream = $entry.Open()
         $memory = [System.IO.MemoryStream]::new()
@@ -93,7 +93,7 @@ try {
             $bytes=$memory.ToArray()
         } finally { $stream.Dispose(); $memory.Dispose() }
         if ($bytes.LongLength -ne $entry.Length) { throw 'Artifact entry length mismatch.' }
-        if ($entry.FullName -ceq 'manifest.json') { $manifestBytes=$bytes } elseif ($entry.FullName -ceq 'Aster Desktop_0.1.0_x64-setup.exe') { $installerBytes=$bytes } else { $evidenceBytes[$entry.FullName]=$bytes }
+        if ($entry.FullName -ceq 'manifest.json') { $manifestBytes=$bytes } elseif ($entry.FullName -ceq 'Aster Desktop_0.2.0_x64-setup.exe') { $installerBytes=$bytes } else { $evidenceBytes[$entry.FullName]=$bytes }
     }
 } finally { if ($null -ne $archive) { $archive.Dispose() } else { $zipStream.Dispose() } }
 $strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
@@ -104,7 +104,7 @@ if ($manifest.classification -cne 'unsigned-engineering-build' -or
     $manifest.source_revision -cne $ExpectedSourceRevision -or
     [string]$manifest.workflow_run_id -cne $ExpectedRunId -or
     [string]$manifest.workflow_run_attempt -cne $ExpectedRunAttempt -or
-    $manifest.filename -cne 'Aster Desktop_0.1.0_x64-setup.exe' -or
+    $manifest.filename -cne 'Aster Desktop_0.2.0_x64-setup.exe' -or
     [long]$manifest.byte_count -ne $installerBytes.LongLength -or
     $manifest.authenticode_status -cne 'NotSigned' -or $manifest.runner -cne 'Windows' -or
     $manifest.sha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Installer manifest binding does not match the expected main CI artifact.' }

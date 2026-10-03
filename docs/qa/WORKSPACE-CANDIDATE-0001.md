@@ -1,5 +1,7 @@
 # WORKSPACE-CANDIDATE-0001 — protocol-2 project capability acceptance
 
+Historical v0.1.0 evidence/procedure only. Its stable IDs, authorisation history, hashes and PASS receipts are preserved, not transferred to v0.2.0. Current scope is [SPEC-0002](../specs/SPEC-0002.md) and [v0.2.0 verification](../qa/LOCAL-V020-0001.md). Retired providers, ephemeral history and project permissions below do not apply to the current profile.
+
 Reconciled 2026-10-02, Edinburgh (`Europe/London`, BST, UTC+01:00). Related: issue #12, ADR-0003/0004/0006/0009, AC-008–AC-011, AC-022–AC-025, AC-028–AC-030, T-028–T-040. This document defines the unchanged capability boundary and reference procedures. The owner reports **PASS for project/files and engineering scope acceptance** on the delivered build, using the principal administrator account with Aster non-elevated; see [OWNER-ACCEPTANCE-0001.md](OWNER-ACCEPTANCE-0001.md). Detailed observations not supplied by that category-level report are explicitly tracked for [v0.2.0 review](V0.2.0-FOLLOW-UP-0001.md), not reconstructed as individual test results.
 
 ## Capability boundary

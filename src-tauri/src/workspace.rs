@@ -2509,7 +2509,7 @@ mod tests {
             .compose_project_prompt("revoked", "req", "revoke.txt", &read.sha256, "inspect")
             .unwrap();
         let body = crate::provider::exact_body(
-            crate::policy::Model::Nemotron,
+            crate::policy::Model::MuseSpark,
             &[crate::policy::ChatMessage {
                 role: "user",
                 content: prompt,
@@ -2593,7 +2593,7 @@ mod tests {
             .read_project_file(conversation, request, "disclosure.txt")
             .unwrap();
         let exact = crate::provider::exact_body(
-            crate::policy::Model::Nemotron,
+            crate::policy::Model::MuseSpark,
             &[crate::policy::ChatMessage {
                 role: "user",
                 content: format!("Review this explicit synthetic snapshot:\n{}", read.content),
@@ -2751,7 +2751,7 @@ mod tests {
             .read_project_file("conv", "req", "disclosure.txt")
             .unwrap();
         let old_body = crate::provider::exact_body(
-            crate::policy::Model::Nemotron,
+            crate::policy::Model::MuseSpark,
             &[crate::policy::ChatMessage {
                 role: "user",
                 content: old.content,
