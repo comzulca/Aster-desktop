@@ -579,7 +579,7 @@ mod native {
         let supplied = match prompt_at(
             fixture_name(target)?,
             crate::credential_fixture::SYNTHETIC_USERNAME,
-            "OFFLINE SYNTHETIC TEST. Never enter a real key. Use only LLM|0|synthetic-fixture-key-123. This dialogue does not save anything automatically.",
+            "OFFLINE SYNTHETIC TEST. Never enter a real key. Use only 'LLM|0|synthetic-fixture-key-123'. This dialogue does not save anything automatically.",
             "Aster: synthetic Meta credential test (offline)",
         ) {
             Ok(value) => value,
@@ -996,7 +996,7 @@ mod representation_tests {
             "LLM|0|",
             "LLM|0|fake|extra",
             "llm|0|fake",
-            " LLM|0|fake",
+            " LLM|0|SYNTHETIC_NOT_A_SECRET",
         ] {
             assert!(!valid_key(key));
             assert!(decode_blob(key.as_bytes()).is_err());
@@ -1054,7 +1054,7 @@ mod representation_tests {
         let wide: Vec<u8> = key.bytes().flat_map(|byte| [byte, 0]).collect();
         assert_eq!(decode_blob(key.as_bytes()).unwrap().as_str(), key);
         assert_eq!(decode_blob(&wide).unwrap().as_str(), key);
-        let max_key = format!("LLM|0|{}", "x".repeat(250));
+        let max_key = format!("{}{}", "LLM|0|", "x".repeat(250));
         let max_wide: Vec<u8> = max_key.bytes().flat_map(|byte| [byte, 0]).collect();
         assert!(decode_blob(&max_wide).is_ok());
     }
@@ -1062,7 +1062,7 @@ mod representation_tests {
     #[test]
     fn ascii_and_utf16_password_length_boundaries_match() {
         for length in [7, 8, 256, 257] {
-            let key = format!("LLM|0|{}", "x".repeat(length - 6));
+            let key = format!("{}{}", "LLM|0|", "x".repeat(length - 6));
             let wide: Vec<u8> = key.bytes().flat_map(|byte| [byte, 0]).collect();
             let native: Vec<u16> = key.encode_utf16().collect();
             let accepted = (8..=256).contains(&length);

@@ -19,7 +19,12 @@ MAX_SOURCE_BYTES = 4 * 1024 * 1024
 SKIP_DIRS = {".git", ".pnpm-store", "node_modules", "target", "dist", "coverage", "reports"}
 PATTERNS = {
     "Meta direct API token": re.compile(
-        r"\b(?:LLM\|[0-9]{1,32}\|[A-Za-z0-9_-]{12,256}|LLM_[A-Za-z0-9_.-]{12,})"
+        # Native pipe secrets admit ASCII-graphic punctuation, not just a
+        # base64-like alphabet. Quotes/backticks delimit source text here;
+        # their literal/escaped use inside secrets still needs manual review.
+        # Require the full source token so a later pipe cannot cause a partial
+        # match, and a punctuation suffix cannot inherit a fixture exemption.
+        r"""\b(?:LLM\|[0-9]{1,32}\|(?:(?![|'"`])[\x21-\x7e])+(?![^\s'"`])|LLM_[A-Za-z0-9_.-]{12,})"""
     ),
     "NVIDIA token": re.compile(r"\bnvapi-[A-Za-z0-9_-]{20,}\b"),
     "GitHub token": re.compile(r"\b(?:gh[opsur]_[A-Za-z0-9_]{30,}|github_pat_[A-Za-z0-9_]{50,})\b"),
@@ -71,6 +76,25 @@ def self_test() -> None:
     assert findings_for("LLM|123|" + "a" * 40) == [("Meta direct API token", 1)]
     assert not findings_for("LLM|0|synthetic-fixture-key-123")
     assert findings_for("LLM|0|synthetic-fixture-key-123" + "-extra")
+    # Pipe secrets admit ASCII punctuation natively. These generated values
+    # contain no real key; extending a fixture must never inherit its exemption.
+    pipe_synthetic = "LLM|0|synthetic-fixture-key-123"
+    for suffix in ["+extra", "/extra", "=extra"]:
+        extended = pipe_synthetic + suffix
+        assert findings_for(extended), "Extended pipe fixture was exempted"
+        for delimiter in ["'", '"', "`"]:
+            assert findings_for(f"{delimiter}{extended}{delimiter}")
+    for punctuation in ["!", "+", "/", "=", ".", ":", "@", "~"]:
+        generated = "LLM|1|" + punctuation * 12
+        assert findings_for(generated) == [("Meta direct API token", 1)]
+        for delimiter in ["'", '"', "`"]:
+            quoted = f"{delimiter}{generated}{delimiter}"
+            assert findings_for(quoted) == [("Meta direct API token", 1)]
+            assert PATTERNS["Meta direct API token"].search(quoted).group() == generated
+    for delimiter in ["'", '"', "`"]:
+        quoted = f"{delimiter}{pipe_synthetic}{delimiter}"
+        assert not findings_for(quoted)
+        assert PATTERNS["Meta direct API token"].search(quoted).group() == pipe_synthetic
     assert not findings_for('api_key="$NVIDIA_API_KEY"\nNVIDIA_API_KEY="<enter on Windows>"')
     opaque_synthetic = "LLM_0_SYNTHETIC_NOT_A_SECRET"
     for opaque in ["LLM_" + "a" * 12, "LLM_" + "aA09_.-" * 40]:
