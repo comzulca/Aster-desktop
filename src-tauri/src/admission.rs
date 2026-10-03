@@ -58,6 +58,7 @@ pub fn admissible_text(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
     let prohibited = [
         "llm|",
+        "llm_",
         "nvapi-",
         "-----begin private key",
         "-----begin rsa private key",
@@ -139,6 +140,33 @@ mod tests {
             },
         ];
         assert!(validate_context(&history).is_err());
+    }
+
+    #[test]
+    fn both_meta_key_prefixes_deny_new_and_prior_messages() {
+        for text in [
+            "LLM|0|SYNTHETIC_NOT_A_SECRET",
+            "LLM_0_SYNTHETIC_NOT_A_SECRET",
+            "llm_0_synthetic_not_a_secret",
+            "Public example: LlM_0_SYNTHETIC_NOT_A_SECRET.",
+        ] {
+            for class in ["synthetic", "public_eligible"] {
+                assert!(validate_new_message(class, text).is_err());
+            }
+            for role in ["user", "assistant"] {
+                let history = [
+                    ChatMessage {
+                        role,
+                        content: text.into(),
+                    },
+                    ChatMessage {
+                        role: "user",
+                        content: "Continue the invented ownership example.".into(),
+                    },
+                ];
+                assert!(validate_context(&history).is_err());
+            }
+        }
     }
 
     #[test]
