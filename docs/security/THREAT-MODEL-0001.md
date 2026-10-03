@@ -1,5 +1,7 @@
 # THREAT-MODEL-0001 — Aster-desktop v0.1.0
 
+Historical v0.1.0 evidence/procedure only. Its stable IDs, authorisation history, hashes and PASS receipts are preserved, not transferred to v0.2.0. Current scope is [SPEC-0002](../specs/SPEC-0002.md) and [v0.2.0 verification](../qa/LOCAL-V020-0001.md). Retired providers, ephemeral history and project permissions below do not apply to the current profile.
+
 Status: versioned threat assessment, created 2026-09-24 UTC; protocol-2 assessment retained from 2026-10-01 UTC and current evidence/scope reconciled 2026-10-02. Scope: Windows 11 app, local project, native credential custody, two NVIDIA hosted models, private source repository. Code presence is not acceptance; each mitigation is credited only at its tested boundary and source revision. Source of normative IDs: `docs/specs/SPEC-0001.md`. Decisions: `docs/adr/ADR-0001.md` through `ADR-0006.md`, `ADR-0008.md`, and `ADR-0009.md`.
 
 ## Current v0.1.0 engineering disposition — 2026-10-02

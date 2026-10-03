@@ -1,3 +1,77 @@
+# Meta hosted text transport — v0.2.0
+
+Reviewed against primary documentation on **2 October 2026**. Active implementation contract: [SPEC-0002](../specs/SPEC-0002.md), [ADR-0010](../adr/ADR-0010.md) and [ADR-0011](../adr/ADR-0011.md). The only admitted pair is Meta Model API / `muse-spark-1.3-contributor`. This supersedes the active v0.1.0 transport; the retired text remains below as historical evidence.
+
+**Evidence reconciliation, 3 October 2026:** fresh headed local suites record **142 Rust PASS with two ignored credential fixtures**, format/check/Clippy PASS and **38 frontend cases PASS** with typecheck/build PASS. These include local Meta transport, isolated native-store and post-review regressions, not a final source revision. [LOCAL-V020-0001](../qa/LOCAL-V020-0001.md) preserves the earlier 132-Rust checkpoint, preliminary failures and provenance limits; source remains uncommitted/`UNPINNED`. Account entitlement, credential GUI/native Windows journeys, paid/live Meta canary and v0.2.0 packaged/installed acceptance are **NOT RUN**. Contract review and fake-server tests never establish live compatibility; no historical PASS transfers to this adapter.
+
+The 38-case frontend/build and local package observations predate a later review finding of unsent draft loss after native denial. Corrective draft/late-receipt fixtures and affected frontend/build/package reruns are pending; the unchanged Rust fixture checkpoint is not a result for that changed UI.
+
+## Closed destination and reviewed body
+
+| Property | Active Aster contract |
+| --- | --- |
+| Destination | HTTPS POST `https://api.meta.ai/v1/chat/completions` only; no renderer/model origin, route or header override. |
+| Authentication | Host-only Bearer direct Model API credential from fixed Windows target `AsterDesktop/MetaModelAPI/v1`; no key bytes through ordinary IPC, prompts, repository, logs or CI. |
+| Request | JSON UTF-8; `Accept: text/event-stream`; only the model-specific closed fields documented in [the model contract](meta-muse-spark-1.3-contributor.md). |
+| Transport | Standard TLS certificate/hostname verification, HTTPS-only, redirects disabled, unintended proxies disabled. |
+| Dispatch | One immutable owner-window-reviewed byte allocation sent once; no rebuild, automatic retry or provider/model fallback. |
+| Tools | Omitted and independently denied in responses. All four project capabilities are false; no files, attachments, proposals, shell, browser, web/MCP or generic tool channel. |
+
+The provider's authentication and endpoint are documented in [Authentication](https://dev.meta.ai/docs/authentication) and [Chat Completions](https://dev.meta.ai/docs/protocols/chat-completions). The local implementation is stricter than a generic compatible SDK. It uses one fixed developer instruction, then alternating visible user/assistant text ending with a user turn. External Chat Completions does not preserve private reasoning; Aster never renders, logs, stores or replays `reasoning_content`. [Reasoning](https://dev.meta.ai/docs/reasoning)
+
+Before every request, the host validates protocol/policy 3, sole-model identity, globally exclusive request/replay limits and full context eligibility. Native terms/eligibility acknowledgement is owner attestation, not verified account access. The host builds one immutable body and displays its exact bytes in a default-deny owner-window native review. After approval it durably reserves budget and persists the pending transcript, reads the native Meta credential, then durably marks possible dispatch before transmitting that allocation. A proven-unsent key/preflight failure can release a reservation; uncertain network failures cannot. A renderer Boolean, document, generated answer or restored record cannot manufacture approval.
+
+Contributor permits training and excludes personal, confidential and sensitive data; `store:false` is not a privacy exemption. Only host-admitted synthetic or eligible public text may be sent, and public availability alone is insufficient. No project content is automatically appended. [Terms, 2 October 2026](https://dev.meta.ai/legal/terms-of-service), [ADR-0012](../adr/ADR-0012.md)
+
+## Streaming closure and outcomes
+
+Meta documents data-only SSE and an exact `[DONE]` marker. Usage, when requested, arrives in a final empty-choices chunk and may be absent on interruption. [Chat Completions schemas](https://dev.meta.ai/docs/api-reference/chat-completions/schemas), [Streaming responses](https://dev.meta.ai/docs/cookbook/streaming-responses)
+
+The following stricter rules are **Aster policy and fixture expectations**, not claims that Meta advertises every local bound:
+
+- Decode complete LF/CRLF SSE frames only, preserving UTF-8 fragmented across reads. Bound raw bytes, frame size/count and accumulated visible text.
+- Require fixed non-empty chunk `id`, exact `model`, constant `created`, `object=chat.completion.chunk` and single choice index 0. Reject unknown fields outside the closed supported shape and duplicate JSON members, including escaped-name duplicates.
+- Admit null/absent usage on ordinary chunks. An empty `choices` usage chunk is admitted only after a valid finish, at most once. Invalid or duplicate usage cannot become settlement data.
+- `stop` needs non-empty visible text, valid terminal marker and clean HTTP body closure. `length` is truncated; refusal/filter output is refused, including content-free filter/truncation outcomes. Returned tool/function calls deny.
+- After `[DONE]`, continue bounded reading to HTTP EOF to reject trailing/duplicate terminal events. EOF before valid terminal framing fails; keeping partial text does not prove completion.
+- Cancellation, timeouts, HTTP errors, malformed input and premature EOF retain available partial visible text with an explicit non-completed outcome. No automatic continuation uses failed, cancelled, truncated, refused or interrupted output.
+- Safe local error classes replace provider error bodies; raw responses, keys, private reasoning and user text are not diagnostic log material.
+
+The host receives a structured result: visible answer, `Completed | Truncated | Refused | Cancelled | Failed`, optional safe failure, independently validated optional token usage and a marker that dispatch may have occurred. Cancellation cannot silently become completed continuation. A possible-dispatch marker is not proof of billing.
+
+## Limits and financial settlement
+
+| Resource | Aster ceiling |
+| --- | --- |
+| User input / reviewed body and context | 32 KiB UTF-8 / 512 KiB |
+| Completed continuation / process identifiers | 20 turns / 32 conversation IDs and 64 request IDs |
+| Concurrent request | One globally active request |
+| Completion | 8,192 tokens including reasoning |
+| SSE frame / raw wire / answer | 256 KiB / 8 MiB / 512 KiB |
+| SSE events | 262,144 |
+| Connect / headers / frame inactivity / total | 10s / 30s / 60s / 900s |
+
+Reject excess; do not silently trim/summarise. These local values are independently versioned policy, not Meta service quotas.
+
+Usage validation requires non-negative integer counts, `prompt+completion=total`, prompt/total at most 1,048,576, completion at most 8,192, cached input no greater than prompt and reasoning no greater than completion. Optional absent details imply no claimed cache discount or extra reasoning charge. Reasoning is already part of completion; never double-count it. Invalid/duplicate/contradictory usage clears settlement eligibility. Missing usage can coexist with a completed visible answer but leaves spending unresolved.
+
+The independent financial journal uses a **£89.00 monthly admission ceiling and £80.10 warning**, not an account balance. Native-confirmed dated owner FX/margin/tax/payment assumptions are required; no fabricated conversion is allowed. The current dated price/terms policy expires at **2026-11-02T00:00:00Z** and configuration cannot exceed it or 31 days. Conservatively reserve USD 0.106496 before conversion, assuming maximum input and completion with no cache.
+
+Settlement uses consistent request/model-bound usage independently of terminal classification: a stopped/failed request may still be charged, and validated usage already received must not be lost solely because cancellation follows. Unknown usage retains its reservation across restarts and month changes, and any unresolved reservation blocks fresh dispatch. One exact reservation may be reconciled only against an independently native-confirmed owner statement/dashboard charge for its original account and quote; this is labelled owner-confirmed, not API-measured. No retry, history deletion, credential rotation or restart frees ambiguous spend. [ADR-0014](../adr/ADR-0014.md)
+
+## Restart and fixture boundaries
+
+The owner's persistent-history decision overrides the plan's ephemeral-only assumption. Display history uses a separately protected host store; restored complete text is merely candidate context and must pass fresh admission/full-body review. Incomplete restored requests become interrupted. No active request, grant, approval, credential or money authority is deserialised. Removal is a native-confirmed tombstone, not secure erasure; financial and historical recovery records remain independent. [ADR-0015](../adr/ADR-0015.md)
+
+Offline fixtures cover exact reviewed bytes, closed model/effort/field admission, zero dispatch on pre-cancel/invalid body, split UTF-8/CRLF, wrong identity/object/model/index, unknown or duplicate JSON, usage-only termination, missing/impossible/duplicate usage, refusal/truncation/tools, duplicate/trailing terminal, cancellation before headers and during an open stream, premature EOF, bounds and local HTTP error classification with no retry. Private loopback seams and known synthetic keys are test-only; they are not configurable production destinations. The integrated suite must establish its own source-bound outcome before promotion.
+
+## Retired v0.1.0 transport evidence
+
+The following original record is **RETIRED**. Its NVIDIA origin, protocol 2, defaults, capabilities, authorisations and PASS reports belong only to the named v0.1.0 source/artifact. They do not register a provider, transfer authority, authorise a new request or demonstrate v0.2.0 acceptance. Legacy provider-specific pages remain historical with retirement banners; old credentials are untouched.
+
+<details>
+<summary>Original v0.1.0 contract and release evidence (retired)</summary>
+
 # NVIDIA hosted chat transport contract (draft v0.1.0)
 
 **Reviewed:** 2026-10-01 UTC against the official model/endpoint pages; acceptance status reconciled 2026-10-02, Edinburgh (`Europe/London`, BST, UTC+01:00). **Scope:** Aster Desktop's host-side adapter for exactly two allowed NVIDIA-hosted model IDs. Final source/Windows package binding is PASS at source `1782d3375db47466f89be6bd3cd3c6affbfa95b7`, main CI run `37040168700` attempt 1, artifact `11243338033`. The owner reports **providers/history PASS** on the matching delivered/installed build; see [OWNER-ACCEPTANCE-0001.md](../qa/OWNER-ACCEPTANCE-0001.md). This category-level owner report is distinct from independently recorded per-model canary/transport details, which are assigned to [v0.2.0 review](../qa/V0.2.0-FOLLOW-UP-0001.md) where not supplied. It is not production certification.
@@ -38,3 +112,5 @@ The historical pre-installation checkpoint recorded live canaries for each model
 - NVIDIA [Muse Glimmer endpoint schema](https://docs.api.nvidia.com/nim/reference/meta-muse-glimmer-30b-infer), reviewed 2026-09-24.
 - NVIDIA [Nemotron hosted code example](https://build.nvidia.com/nvidia/nemotron-3.5-lightning-30b-a3b), reviewed 2026-09-24.
 - User-provided endpoint examples: `01-nemotron-3.5-lightning-30b-a3b.txt` (SHA-256 `826261f2c1ae3ebba7f365b7ad8a865ad46f2e0b3ecb347a35c1e22482db63dc`) and `02-muse-glimmer-30b.txt` (SHA-256 `9a44533e93b5fdd645e174e6a6f4f397216e1090d0ff4c1c1d8220fbb0562407`); both contained only a literal `$NVIDIA_API_KEY` placeholder.
+
+</details>

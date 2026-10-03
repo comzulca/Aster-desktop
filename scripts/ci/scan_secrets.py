@@ -18,19 +18,20 @@ ROOT = Path(__file__).resolve().parents[2]
 MAX_SOURCE_BYTES = 4 * 1024 * 1024
 SKIP_DIRS = {".git", ".pnpm-store", "node_modules", "target", "dist", "coverage", "reports"}
 PATTERNS = {
+    "Meta direct API token": re.compile(r"\bLLM\|[0-9]{1,32}\|[A-Za-z0-9_-]{12,256}"),
     "NVIDIA token": re.compile(r"\bnvapi-[A-Za-z0-9_-]{20,}\b"),
     "GitHub token": re.compile(r"\b(?:gh[opsur]_[A-Za-z0-9_]{30,}|github_pat_[A-Za-z0-9_]{50,})\b"),
     "private key": re.compile(r"-----BEGIN (?:RSA |DSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----"),
     "assigned credential": re.compile(
-        r"(?im)^\s*(?:export\s+)?(?:NVIDIA_API_KEY|GITHUB_TOKEN|GH_TOKEN|API_KEY|SECRET_KEY)"
+        r"(?im)^\s*(?:export\s+)?(?:META_API_KEY|NVIDIA_API_KEY|GITHUB_TOKEN|GH_TOKEN|API_KEY|SECRET_KEY)"
         r"\s*[:=]\s*['\"]?(?!\$|<|\*|YOUR_|REPLACE_|EXAMPLE_)[A-Za-z0-9_+/=-]{24,}"
     ),
 }
 
 
-def tracked_paths() -> list[Path]:
+def tracked_paths(include_untracked: bool = False) -> list[Path]:
     result = subprocess.run(
-        ["git", "ls-files", "--cached", "-z"],
+        ["git", "ls-files", "--cached", *( ["--others", "--exclude-standard"] if include_untracked else [] ), "-z"],
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
@@ -49,6 +50,9 @@ def findings_for(source: str) -> list[tuple[str, int]]:
         (label, source.count("\n", 0, match.start()) + 1)
         for label, pattern in PATTERNS.items()
         for match in pattern.finditer(source)
+        if not (label == "Meta direct API token" and match.group() in {
+            "LLM|0|synthetic-fixture-key-123", "LLM|0|synthetic-ascii-key-123", "LLM|0|SYNTHETIC_NOT_A_SECRET"
+        })
     ]
 
 
@@ -56,14 +60,17 @@ def self_test() -> None:
     positive = "nvapi-" + "a" * 40 + "\n" + "-----BEGIN " + "PRIVATE KEY-----"
     labels = {label for label, _ in findings_for(positive)}
     assert labels == {"NVIDIA token", "private key"}
+    assert findings_for("LLM|123|" + "a" * 40) == [("Meta direct API token", 1)]
+    assert not findings_for("LLM|0|synthetic-fixture-key-123")
+    assert findings_for("LLM|0|synthetic-fixture-key-123" + "-extra")
     assert not findings_for('api_key="$NVIDIA_API_KEY"\nNVIDIA_API_KEY="<enter on Windows>"')
 
 
-def scan() -> int:
+def scan(include_untracked: bool = False) -> int:
     errors = 0
     inspected = 0
     try:
-        paths = sorted(tracked_paths())
+        paths = sorted(set(tracked_paths(include_untracked)))
     except RuntimeError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -104,12 +111,13 @@ def scan() -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--include-untracked", action="store_true", help="Include non-ignored local source before committing")
     args = parser.parse_args()
     if args.self_test:
         self_test()
         print("Secret guard synthetic positive and placeholder checks passed.")
         return 0
-    return scan()
+    return scan(args.include_untracked)
 
 
 if __name__ == "__main__":

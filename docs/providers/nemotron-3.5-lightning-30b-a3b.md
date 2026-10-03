@@ -1,5 +1,7 @@
 # Contract: NVIDIA Nemotron 3.5 Lightning 30B A3B
 
+> **RETIRED — v0.1.0 historical evidence, 2 October 2026.** This pair is absent from the active v0.2.0 registry and cannot be selected, used as fallback or restored as conversation context. The original body below is retained for provenance: its defaults, transport links, fixture PASS, owner acceptance and deferred checks apply only to the named historical source/artifact. They are not new requirements or v0.2.0/live-provider proof. No old credential is read, reused, renamed or deleted. Use [the current Meta-only contract](meta-muse-spark-1.3-contributor.md) and [SPEC-0002](../specs/SPEC-0002.md) for the active profile.
+
 **Registry key:** `nvidia/nemotron-3.5-lightning-30b-a3b`
 
 **Status, reconciled 2026-10-02 (Edinburgh, `Europe/London`, BST, UTC+01:00):** implemented fixture contract; protocol-2 automatic loopback/exact-body fixtures pass locally at immutable runtime source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`. Final source/package binding is PASS at source `1782d3375db47466f89be6bd3cd3c6affbfa95b7`, main CI run `37040168700` attempt 1, artifact `11243338033`. The owner reports providers/history PASS on the matching installed build in [OWNER-ACCEPTANCE-0001.md](../qa/OWNER-ACCEPTANCE-0001.md). The historical 2026-10-01 canary NOT RUN checkpoint is retained; no separate Nemotron request count, timestamp or trace was supplied, so detailed per-model verification is explicitly assigned to [v0.2.0 review](../qa/V0.2.0-FOLLOW-UP-0001.md), not inferred from the category report.

@@ -6,9 +6,9 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use tokio::sync::watch;
 
-pub const POLICY_VERSION: u32 = 2;
-pub const DEFAULT_MODEL: &str = "nvidia/nemotron-3.5-lightning-30b-a3b";
-pub const MAX_MESSAGE_BYTES: usize = 64 * 1024;
+pub const POLICY_VERSION: u32 = 3;
+pub const DEFAULT_MODEL: &str = "muse-spark-1.3-contributor";
+pub const MAX_MESSAGE_BYTES: usize = 32 * 1024;
 pub const MAX_CONTEXT_BYTES: usize = 512 * 1024;
 const MAX_TURNS: usize = 20;
 const MAX_CONVERSATIONS: usize = 32;
@@ -17,23 +17,20 @@ const MAX_ACTIVE_REQUESTS: usize = 1;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Model {
-    Nemotron,
-    Muse,
+    MuseSpark,
 }
 
 impl Model {
     pub fn parse(id: &str) -> Option<Self> {
         match id {
-            DEFAULT_MODEL => Some(Self::Nemotron),
-            "meta/muse-glimmer-30b" => Some(Self::Muse),
+            DEFAULT_MODEL => Some(Self::MuseSpark),
             _ => None,
         }
     }
 
     pub fn id(self) -> &'static str {
         match self {
-            Self::Nemotron => DEFAULT_MODEL,
-            Self::Muse => "meta/muse-glimmer-30b",
+            Self::MuseSpark => DEFAULT_MODEL,
         }
     }
 }
@@ -144,6 +141,7 @@ impl SessionState {
 
     // Project dispatch reviews the exact outbound request and never retains
     // the project prompt or derived answer in ordinary continuation history.
+    #[cfg(test)]
     pub(crate) fn reserve_ephemeral(
         &mut self,
         conversation_id: &str,
@@ -230,6 +228,56 @@ impl SessionState {
         })
     }
 
+    /// Restore completed host-validated text only; never restore requests,
+    /// approvals, cancellation channels, replay IDs, grants or finances.
+    pub fn restore_completed(
+        &mut self,
+        conversation_id: &str,
+        turns: &[(String, String)],
+    ) -> Result<(), AdmissionError> {
+        if !valid_id(conversation_id) {
+            return Err(AdmissionError::InvalidInput);
+        }
+        if !self.active.is_empty() {
+            return Err(AdmissionError::Busy);
+        }
+        if !self.conversation_ids.contains(conversation_id)
+            && self.conversation_ids.len() >= MAX_CONVERSATIONS
+        {
+            return Err(AdmissionError::SessionLimit);
+        }
+        if turns.len() > MAX_TURNS {
+            return Err(AdmissionError::ContextLimit);
+        }
+        let mut total = 0usize;
+        for (prompt, answer) in turns {
+            if !valid_prompt(prompt)
+                || answer.trim().is_empty()
+                || answer.contains('\0')
+                || answer.len() > MAX_CONTEXT_BYTES
+            {
+                return Err(AdmissionError::InvalidInput);
+            }
+            total = total
+                .checked_add(prompt.len())
+                .and_then(|n| n.checked_add(answer.len()))
+                .filter(|n| *n <= MAX_CONTEXT_BYTES)
+                .ok_or(AdmissionError::ContextLimit)?;
+        }
+        self.completed.insert(
+            (conversation_id.to_owned(), DEFAULT_MODEL),
+            turns
+                .iter()
+                .map(|(prompt, answer)| CompletedTurn {
+                    prompt: prompt.clone(),
+                    answer: answer.clone(),
+                })
+                .collect(),
+        );
+        self.conversation_ids.insert(conversation_id.to_owned());
+        Ok(())
+    }
+
     pub fn mark_streaming(&mut self, conversation_id: &str, request_id: &str) -> bool {
         match self.active.get_mut(conversation_id) {
             Some(active)
@@ -284,6 +332,21 @@ impl SessionState {
         }
         match outcome {
             TransportOutcome::Completed(answer) => {
+                let prior = self
+                    .completed
+                    .get(&(conversation_id.to_owned(), active.model.id()));
+                let total = prior
+                    .map_or(0, |turns| {
+                        turns.iter().fold(0usize, |sum, turn| {
+                            sum.saturating_add(turn.prompt.len())
+                                .saturating_add(turn.answer.len())
+                        })
+                    })
+                    .saturating_add(active.prompt.len())
+                    .saturating_add(answer.len());
+                if answer.trim().is_empty() || answer.contains('\0') || total > MAX_CONTEXT_BYTES {
+                    return Some(FinishDisposition::Failed);
+                }
                 if active.retain_history {
                     let key = (conversation_id.to_string(), active.model.id());
                     self.completed.entry(key).or_default().push(CompletedTurn {
@@ -305,15 +368,22 @@ mod tests {
 
     #[test]
     fn registry_is_closed_and_default_is_exact() {
-        assert_eq!(Model::parse(DEFAULT_MODEL), Some(Model::Nemotron));
-        assert_eq!(Model::parse("meta/muse-glimmer-30b"), Some(Model::Muse));
+        assert_eq!(Model::parse(DEFAULT_MODEL), Some(Model::MuseSpark));
+        for retired in [
+            "meta/muse-glimmer-30b",
+            "nvidia/nemotron-3.5-lightning-30b-a3b",
+            "muse-spark-1.3",
+            "muse-spark-1.2-contributor",
+        ] {
+            assert_eq!(Model::parse(retired), None);
+        }
         assert_eq!(Model::parse("attacker/unknown"), None);
     }
 
     #[test]
     fn repeated_input_has_same_decision_and_one_terminal() {
         let mut state = SessionState::default();
-        let first = state.reserve("c_1", "r_1", Model::Nemotron, "hola".to_owned());
+        let first = state.reserve("c_1", "r_1", Model::MuseSpark, "hola".to_owned());
         assert!(first.is_ok());
         assert!(state.mark_streaming("c_1", "r_1"));
         assert!(state.cancel("r_1"));
@@ -324,13 +394,13 @@ mod tests {
         assert_eq!(state.finish("c_1", "r_1", TransportOutcome::Failed), None);
         assert_eq!(
             state
-                .reserve("c_1", "r_1", Model::Nemotron, "hola".to_owned())
+                .reserve("c_1", "r_1", Model::MuseSpark, "hola".to_owned())
                 .err(),
             Some(AdmissionError::RequestReplayed)
         );
         let mut other = SessionState::default();
         assert!(other
-            .reserve("c_1", "r_1", Model::Nemotron, "hola".to_owned())
+            .reserve("c_1", "r_1", Model::MuseSpark, "hola".to_owned())
             .is_ok());
         assert!(other.mark_streaming("c_1", "r_1"));
         assert!(other.cancel("r_1"));
@@ -342,25 +412,25 @@ mod tests {
     }
 
     #[test]
-    fn model_context_is_separated_and_bounded() {
+    fn single_model_context_is_retained_and_bounded() {
         let mut state = SessionState::default();
         state
-            .reserve("c", "r1", Model::Nemotron, "first".into())
+            .reserve("c", "r1", Model::MuseSpark, "first".into())
             .unwrap();
         state.finish("c", "r1", TransportOutcome::Completed("answer".into()));
         let muse = state
-            .reserve("c", "r2", Model::Muse, "second".into())
+            .reserve("c", "r2", Model::MuseSpark, "second".into())
             .unwrap();
-        assert_eq!(muse.messages.len(), 1);
+        assert_eq!(muse.messages.len(), 3);
         state.finish("c", "r2", TransportOutcome::Failed);
-        let nemotron = state
-            .reserve("c", "r3", Model::Nemotron, "third".into())
+        let again = state
+            .reserve("c", "r3", Model::MuseSpark, "third".into())
             .unwrap();
-        assert_eq!(nemotron.messages.len(), 3);
-        assert_eq!(nemotron.messages[1].content, "answer");
+        assert_eq!(again.messages.len(), 3);
+        assert_eq!(again.messages[1].content, "answer");
         assert_eq!(
             state
-                .reserve("c", "r4", Model::Nemotron, "busy".into())
+                .reserve("c", "r4", Model::MuseSpark, "busy".into())
                 .err(),
             Some(AdmissionError::Busy)
         );
@@ -368,7 +438,8 @@ mod tests {
 
     #[test]
     fn ephemeral_project_turn_and_derived_answer_never_enter_continuation() {
-        for model in [Model::Nemotron, Model::Muse] {
+        {
+            let model = Model::MuseSpark;
             let mut state = SessionState::default();
             state
                 .reserve("c", "ordinary", model, "ordinary prompt".into())
@@ -424,7 +495,7 @@ mod tests {
         let mut state = SessionState::default();
         assert_eq!(
             state
-                .reserve_ephemeral("c", "invalid", Model::Nemotron, "invalid\0prompt".into())
+                .reserve_ephemeral("c", "invalid", Model::MuseSpark, "invalid\0prompt".into())
                 .err(),
             Some(AdmissionError::InvalidInput)
         );
@@ -433,7 +504,7 @@ mod tests {
                 .reserve_ephemeral(
                     "c",
                     "oversized",
-                    Model::Nemotron,
+                    Model::MuseSpark,
                     "x".repeat(MAX_MESSAGE_BYTES + 1)
                 )
                 .err(),
@@ -443,13 +514,13 @@ mod tests {
             .reserve_ephemeral(
                 "c",
                 "project",
-                Model::Nemotron,
+                Model::MuseSpark,
                 "RESTRICTED_PROJECT_CONTENT".into(),
             )
             .unwrap();
         assert_eq!(
             state
-                .reserve("other", "parallel", Model::Muse, "ordinary".into())
+                .reserve("other", "parallel", Model::MuseSpark, "ordinary".into())
                 .err(),
             Some(AdmissionError::Busy)
         );
@@ -465,7 +536,7 @@ mod tests {
         assert_eq!(state.finish("c", "project", TransportOutcome::Failed), None);
         assert_eq!(
             state
-                .reserve_ephemeral("c", "project", Model::Nemotron, "replayed".into())
+                .reserve_ephemeral("c", "project", Model::MuseSpark, "replayed".into())
                 .err(),
             Some(AdmissionError::RequestReplayed)
         );
@@ -473,7 +544,7 @@ mod tests {
             .reserve_ephemeral(
                 "c",
                 "failed",
-                Model::Nemotron,
+                Model::MuseSpark,
                 "RESTRICTED_FAILED_CONTENT".into(),
             )
             .unwrap();
@@ -482,7 +553,7 @@ mod tests {
             Some(FinishDisposition::Failed)
         );
         let next = state
-            .reserve("c", "next", Model::Nemotron, "ordinary".into())
+            .reserve("c", "next", Model::MuseSpark, "ordinary".into())
             .unwrap();
         assert_eq!(next.messages.len(), 1);
         assert_eq!(next.messages[0].content, "ordinary");
@@ -493,11 +564,11 @@ mod tests {
     fn forged_conversation_ids_cannot_inflate_concurrent_external_calls() {
         let mut state = SessionState::default();
         state
-            .reserve("c0", "r0", Model::Nemotron, "send".into())
+            .reserve("c0", "r0", Model::MuseSpark, "send".into())
             .unwrap();
         assert_eq!(
             state
-                .reserve("c1", "r1", Model::Muse, "parallel".into())
+                .reserve("c1", "r1", Model::MuseSpark, "parallel".into())
                 .err(),
             Some(AdmissionError::Busy)
         );
@@ -507,7 +578,7 @@ mod tests {
             let conversation = format!("c{i}");
             let request = format!("r{i}");
             state
-                .reserve(&conversation, &request, Model::Nemotron, "send".into())
+                .reserve(&conversation, &request, Model::MuseSpark, "send".into())
                 .unwrap();
             state.finish(
                 &conversation,
@@ -517,7 +588,7 @@ mod tests {
         }
         assert_eq!(
             state
-                .reserve("new_33", "r33", Model::Nemotron, "send".into())
+                .reserve("new_33", "r33", Model::MuseSpark, "send".into())
                 .err(),
             Some(AdmissionError::SessionLimit)
         );
@@ -527,13 +598,13 @@ mod tests {
             let conversation = format!("failed_c{i}");
             let request = format!("failed_r{i}");
             failed
-                .reserve(&conversation, &request, Model::Muse, "send".into())
+                .reserve(&conversation, &request, Model::MuseSpark, "send".into())
                 .unwrap();
             failed.finish(&conversation, &request, TransportOutcome::Failed);
         }
         assert_eq!(
             failed
-                .reserve("other", "new", Model::Muse, "send".into())
+                .reserve("other", "new", Model::MuseSpark, "send".into())
                 .err(),
             Some(AdmissionError::SessionLimit)
         );
@@ -543,7 +614,7 @@ mod tests {
     fn cancellation_and_completion_are_linearized_by_one_host_lock() {
         let mut cancelled_first = SessionState::default();
         cancelled_first
-            .reserve("c", "r1", Model::Nemotron, "prompt".into())
+            .reserve("c", "r1", Model::MuseSpark, "prompt".into())
             .unwrap();
         assert!(cancelled_first.cancel("r1"));
         assert!(!cancelled_first.mark_streaming("c", "r1"));
@@ -552,13 +623,13 @@ mod tests {
             Some(FinishDisposition::Cancelled)
         );
         let next = cancelled_first
-            .reserve("c", "r2", Model::Nemotron, "new prompt".into())
+            .reserve("c", "r2", Model::MuseSpark, "new prompt".into())
             .unwrap();
         assert_eq!(next.messages.len(), 1, "cancelled answer must not persist");
 
         let mut finished_first = SessionState::default();
         finished_first
-            .reserve("c", "r1", Model::Nemotron, "prompt".into())
+            .reserve("c", "r1", Model::MuseSpark, "prompt".into())
             .unwrap();
         assert_eq!(
             finished_first.finish("c", "r1", TransportOutcome::Completed("answer".into())),
@@ -569,8 +640,67 @@ mod tests {
             "late cancellation must not be acknowledged"
         );
         let next = finished_first
-            .reserve("c", "r2", Model::Nemotron, "new prompt".into())
+            .reserve("c", "r2", Model::MuseSpark, "new prompt".into())
             .unwrap();
         assert_eq!(next.messages.len(), 3);
+    }
+    #[test]
+    fn restore_completed_never_restores_authority_or_resets_replay_ids() {
+        let mut state = SessionState::default();
+        state
+            .restore_completed("saved", &[("question".into(), "answer".into())])
+            .unwrap();
+        assert_eq!(state.active_count(), 0);
+        assert_eq!(
+            state
+                .reserve("saved", "once", Model::MuseSpark, "follow-up".into())
+                .unwrap()
+                .messages
+                .len(),
+            3
+        );
+        assert_eq!(
+            state.restore_completed("other", &[]),
+            Err(AdmissionError::Busy)
+        );
+        state.finish("saved", "once", TransportOutcome::Failed);
+        state.restore_completed("saved", &[]).unwrap();
+        assert_eq!(
+            state
+                .reserve("saved", "once", Model::MuseSpark, "again".into())
+                .err(),
+            Some(AdmissionError::RequestReplayed)
+        );
+        assert_eq!(
+            state.restore_completed("../bad", &[]),
+            Err(AdmissionError::InvalidInput)
+        );
+        assert_eq!(
+            state.restore_completed("saved", &vec![("p".into(), "a".into()); MAX_TURNS + 1]),
+            Err(AdmissionError::ContextLimit)
+        );
+        assert_eq!(
+            state.restore_completed("saved", &[("p".into(), "x".repeat(MAX_CONTEXT_BYTES))]),
+            Err(AdmissionError::ContextLimit)
+        );
+        assert_eq!(
+            state.restore_completed("saved", &[("p".into(), "a\0b".into())]),
+            Err(AdmissionError::InvalidInput)
+        );
+    }
+
+    #[test]
+    fn utf8_input_and_restored_conversation_capacity_are_bounded() {
+        assert!(valid_prompt(&"é".repeat(MAX_MESSAGE_BYTES / 2)));
+        assert!(!valid_prompt(&"é".repeat(MAX_MESSAGE_BYTES / 2 + 1)));
+        let mut state = SessionState::default();
+        for i in 0..MAX_CONVERSATIONS {
+            state.restore_completed(&format!("c{i}"), &[]).unwrap();
+        }
+        assert_eq!(
+            state.restore_completed("extra", &[]),
+            Err(AdmissionError::SessionLimit)
+        );
+        assert!(state.restore_completed("c0", &[]).is_ok());
     }
 }

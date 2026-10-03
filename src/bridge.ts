@@ -1,28 +1,26 @@
-import type { AppStatus, Bridge, StreamEvent } from './types';
-
-function isNative(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
+import type { Bridge, StreamEvent } from './types';
 
 async function callHost<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  if (!isNative()) throw new Error('HOST_UNAVAILABLE');
+  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) throw new Error('host_unavailable');
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<T>(command, args);
 }
-
 export const nativeBridge: Bridge = {
-  getStatus: () => callHost<AppStatus>('get_app_status'),
-  async subscribe(callback: (event: StreamEvent) => void) {
-    if (!isNative()) throw new Error('HOST_UNAVAILABLE');
+  getStatus: () => callHost('get_app_status'),
+  async subscribe(callback) {
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) throw new Error('host_unavailable');
     const { listen } = await import('@tauri-apps/api/event');
-    return listen<StreamEvent>('aster://stream', (event) => callback(event.payload));
+    return listen<StreamEvent>('aster://stream', event => callback(event.payload));
   },
-  configureCredential: () => callHost('configure_nvidia_credential'),
-  removeCredential: () => callHost('remove_nvidia_credential'),
-  selectProject: () => callHost('select_project_root'),
-  selectProjectFile: (args) => callHost('select_project_file', { input: args }),
-  sendMessage: (args) => callHost('send_message', { input: args }),
-  sendProjectMessage: (args) => callHost('send_project_message', { input: args }),
-  reviewProjectProposal: (args) => callHost('review_project_proposal', { input: args }),
-  cancelMessage: (requestId) => callHost('cancel_message', { requestId }),
+  configureCredential: () => callHost('configure_meta_credential'),
+  removeCredential: () => callHost('remove_meta_credential'),
+  acceptContributorTerms: () => callHost('accept_contributor_terms'),
+  configureBudget: input => callHost('configure_budget', { input }),
+  reconcileBudget: input => callHost('reconcile_budget', { input }),
+  listConversations: () => callHost('list_conversations'),
+  createConversation: () => callHost('create_conversation'),
+  loadConversation: input => callHost('load_conversation', { input }),
+  deleteConversation: input => callHost('delete_conversation', { input }),
+  sendMessage: input => callHost('send_message', { input }),
+  cancelMessage: requestId => callHost('cancel_message', { requestId }),
 };

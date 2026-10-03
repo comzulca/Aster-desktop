@@ -4,9 +4,9 @@
 pub(crate) const FLAG: &str = "--aster-credential-gui-fixture";
 const DIAGNOSTIC_PREFIX: &str = "--aster-credential";
 #[cfg(any(windows, test))]
-const NAMESPACE: &str = "comzulca/aster-desktop/credential-gui-fixture/";
+const NAMESPACE: &str = "AsterDesktop/MetaModelAPI/credential-gui-fixture/";
 #[cfg(any(windows, test))]
-pub(crate) const SYNTHETIC_KEY: &str = "synthetic-fixture-key-123";
+pub(crate) const SYNTHETIC_KEY: &str = "LLM|0|synthetic-fixture-key-123";
 #[cfg(windows)]
 pub(crate) const SYNTHETIC_USERNAME: &str = "aster-synthetic-fixture";
 
@@ -207,7 +207,7 @@ mod windows {
 
     fn message(text: &str, consent: bool) -> Result<bool, FixtureError> {
         let text: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
-        let caption: Vec<u16> = "Aster: prueba sintética SIN RED"
+        let caption: Vec<u16> = "Aster: OFFLINE synthetic credential test"
             .encode_utf16()
             .chain(std::iter::once(0))
             .collect();
@@ -242,14 +242,14 @@ mod windows {
         ) -> Result<bool, FixtureError> {
             let name = target.validated_name().ok_or(FixtureError::Target)?;
             let instruction = match step {
-                Step::AddInControlPanel => "En Windows Credential Manager > Credenciales de Windows > Agregar una credencial genérica, agrega SOLO la dirección sintética de abajo, con el usuario y contraseña falsos indicados. No introduzcas ni cambies una clave real. Vuelve aquí y pulsa Aceptar para validar; Cancelar termina sin limpieza automática.",
-                Step::RemoveInControlPanel => "Entrada manual GUI validada como el valor sintético esperado. Elimina SOLO esta dirección sintética en Windows Credential Manager. No toques otra credencial. Pulsa Aceptar para verificar ausencia; Cancelar termina sin limpieza automática.",
-                Step::CancelNativeEntry => "Ausencia verificada. Al pulsar Aceptar se abrirá un diálogo nativo de entrada. En ese siguiente diálogo elige Cancelar/cerrar; no introduzcas una clave. Esta etapa debe terminar sin guardar nada.",
-                Step::AcceptNativeEntry => "Cancelación nativa y ausencia verificadas. Al pulsar Aceptar se abrirá otro diálogo nativo. Introduce SOLO la contraseña falsa indicada. Cualquier otro valor se rechaza y se borra de memoria; nunca uses una clave real.",
+                Step::AddInControlPanel => "In Windows Credential Manager > Windows Credentials > Add a generic credential, add ONLY the synthetic target below with the supplied fake username and password. Never enter or change a real key. Return here and choose OK to validate; Cancel ends without automatic clean-up.",
+                Step::RemoveInControlPanel => "The manual entry matches the expected synthetic value. Delete ONLY this synthetic target in Windows Credential Manager. Do not touch any other credential. Choose OK to verify absence; Cancel ends without automatic clean-up.",
+                Step::CancelNativeEntry => "Absence verified. Choose OK to open a native entry dialogue. Cancel or close that dialogue; do not enter a key. This stage must end without saving anything.",
+                Step::AcceptNativeEntry => "Native cancellation and absence verified. Choose OK to open another native dialogue. Enter ONLY the supplied fake password. Other values are rejected and cleared from memory; never use a real key.",
                 _ => return Err(FixtureError::Native),
             };
             message(
-                &format!("{instruction}\n\nDirección sintética completa:\n{name}\n\nUsuario: {SYNTHETIC_USERNAME}\nContraseña falsa NO SECRETA: {SYNTHETIC_KEY}\n\nNo se realiza ninguna solicitud a NVIDIA."),
+                &format!("{instruction}\n\nFull synthetic target:\n{name}\n\nUsername: {SYNTHETIC_USERNAME}\nNON-SECRET fake password: {SYNTHETIC_KEY}\n\nNo request is sent to Meta."),
                 true,
             )
         }
@@ -277,11 +277,11 @@ mod windows {
         ) -> Result<bool, FixtureError> {
             let name = target.validated_name().ok_or(FixtureError::Target)?;
             let instruction = match step {
-                Step::DeclineDeletion => "PRUEBA DE DENEGACIÓN: elige Cancelar/cerrar. La credencial sintética debe permanecer. Pulsar Aceptar aquí es un fallo de esta etapa y NO elimina nada.",
-                Step::AcceptDeletion => "Denegación verificada: la credencial sintética sigue intacta. Esta confirmación independiente permite eliminar SOLO la dirección sintética siguiente. Aceptar elimina tras revalidación; Cancelar termina y la conserva.",
+                Step::DeclineDeletion => "DENIAL TEST: choose Cancel or close. The synthetic credential must remain. Choosing OK fails this stage and does NOT delete anything.",
+                Step::AcceptDeletion => "Denial verified: the synthetic credential remains intact. This separate confirmation allows deletion of ONLY the synthetic target below. OK deletes after revalidation; Cancel ends and preserves it.",
                 _ => return Err(FixtureError::Native),
             };
-            message(&format!("{instruction}\n\n{name}\n\nNo se modifica ninguna otra dirección; no hay limpieza automática."), true)
+            message(&format!("{instruction}\n\n{name}\n\nNo other target is modified; there is no automatic clean-up."), true)
         }
 
         fn delete(
@@ -305,21 +305,21 @@ mod windows {
             Ok(Ok(Outcome::Completed)) => (
                 "synthetic_gui_completed",
                 0,
-                "Todas las etapas sintéticas completadas; ausencia final verificada. Esto no certifica el handler Tauri de producción ni una conexión NVIDIA.",
+                "All synthetic stages completed; final absence verified. This does not certify the production Tauri handler or a Meta connection.",
             ),
             Ok(Ok(Outcome::Denied)) => (
                 "synthetic_gui_denied_no_cleanup",
                 2,
-                "Prueba denegada/cancelada. No hay limpieza automática. Puede quedar la dirección sintética indicada; no elimines entradas ambiguas o ajenas.",
+                "Test declined or cancelled. There is no automatic clean-up. The supplied synthetic target may remain; do not delete ambiguous or unrelated entries.",
             ),
             _ => (
                 "synthetic_gui_failed_closed",
                 3,
-                "Fallo cerrado / requiere revisión. No hay limpieza automática ni reparación de datos. Puede quedar la dirección sintética indicada; no elimines entradas ambiguas o ajenas.",
+                "Failed closed; review required. No automatic clean-up or data repair occurs. The supplied synthetic target may remain; do not delete ambiguous or unrelated entries.",
             ),
         };
         if let Some(name) = target.validated_name() {
-            let _ = message(&format!("Resultado: {classification}\n\n{summary}\n\nDirección sintética de esta prueba:\n{name}"), false);
+            let _ = message(&format!("Result: {classification}\n\n{summary}\n\nSynthetic target for this test:\n{name}"), false);
         }
         (classification, exit_code)
     }
