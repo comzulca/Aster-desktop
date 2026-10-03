@@ -15,6 +15,7 @@ fn main() {
             "delete_conversation",
             "send_message",
             "cancel_message",
+            "window_action",
         ]),
     ))
     .expect("Tauri capability generation must succeed");

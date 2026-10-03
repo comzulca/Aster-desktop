@@ -1,5 +1,9 @@
 # DEPENDENCIES-0001 — dependency and declared-license inventory
 
+**v0.2.2 applicability, 3 October 2026:** retained requirements/contracts apply only where unchanged; retired providers, disabled capabilities and older dated results are not current authority or new-source PASS. [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md) and [LOCAL-V022-0001](../qa/LOCAL-V022-0001.md) govern active zoom/startup changes and fresh evidence. Earlier evidence remains source-bound history; the later owner-reported v0.2.1 startup flash is recorded separately. The entire original v0.2.1 checkout/installer is unchanged.
+
+**Historical applicability, reconciled 3 October 2026:** the dated record/procedures below retain their original version, identifiers, authority limits and PASS/FAIL observations. They do not qualify or authorise changed v0.2.1 source, current key activation, retired providers or disabled project capabilities. Active scope is [SPEC-0003](../specs/SPEC-0003.md) and fresh verification is [LOCAL-V021-0001](LOCAL-V021-0001.md); no old PASS transfers.
+
 ## Current engineering disposition — 2026-10-02
 
 Final source `1782d3375db47466f89be6bd3cd3c6affbfa95b7` / main run `37040168700` attempt 1 / artifact `11243338033` passed full audit/SBOM/schema-2 notices and independent extracted NSIS-resource qualification. It reproduced the counts and notice hash recorded below. The owner reports engineering-scope acceptance PASS for internal unsigned evaluation dated 2026-10-02, Edinburgh/BST; [OWNER-ACCEPTANCE-0001](OWNER-ACCEPTANCE-0001.md) binds that decision. Detailed notice/advisory dispositions not supplied are explicitly deferred under V02-006 in [v0.2.0 follow-up](V0.2.0-FOLLOW-UP-0001.md). The two disclosed off-Windows broad-lock warnings remain; no ignore, warning-free audit, external-distribution clearance or legal/production approval is inferred.

@@ -1,5 +1,9 @@
 # DEPENDENCY-ALIGNMENT-0001 — coordinated Tauri candidate plan
 
+**v0.2.2 applicability, 3 October 2026:** retained requirements/contracts apply only where unchanged; retired providers, disabled capabilities and older dated results are not current authority or new-source PASS. [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md) and [LOCAL-V022-0001](../qa/LOCAL-V022-0001.md) govern active zoom/startup changes and fresh evidence. Earlier evidence remains source-bound history; the later owner-reported v0.2.1 startup flash is recorded separately. The entire original v0.2.1 checkout/installer is unchanged.
+
+**Historical applicability, reconciled 3 October 2026:** the dated record/procedures below retain their original version, identifiers, authority limits and PASS/FAIL observations. They do not qualify or authorise changed v0.2.1 source, current key activation, retired providers or disabled project capabilities. Active scope is [SPEC-0003](../specs/SPEC-0003.md) and fresh verification is [LOCAL-V021-0001](LOCAL-V021-0001.md); no old PASS transfers.
+
 Current outcome, 2026-10-02: the coordinated dependency update is integrated. The final protocol-2 source `1782d3375db47466f89be6bd3cd3c6affbfa95b7` separately passed complete local/CI/audit/73-case alignment and package qualification in main run `37040168700` attempt 1, artifact `11243338033` (100 Rust/25 frontend tests). [OWNER-ACCEPTANCE-0001](OWNER-ACCEPTANCE-0001.md) records the owner-reported six category PASS and the exact final binary; [v0.2.0 follow-up](V0.2.0-FOLLOW-UP-0001.md) records the explicit residual transfer. Dependency alignment alone is not installed or production acceptance.
 
 ## Historical integration outcome — 2026-10-01 UTC

@@ -16,6 +16,8 @@ mod new_file; // Shared file identity types and frozen recovery, no IPC routes.
 mod policy;
 mod private_store;
 mod provider;
+mod window_controls;
+mod window_guard;
 #[allow(dead_code)]
 mod workspace; // Shared privacy error types/frozen recovery, no v0.2 capability.
 
@@ -58,6 +60,7 @@ const COMMANDS: &[&str] = &[
     "delete_conversation",
     "send_message",
     "cancel_message",
+    "window_action",
 ];
 
 struct Persistence {
@@ -79,6 +82,7 @@ struct Host {
     sessions: Mutex<SessionState>,
     persistent: Mutex<Result<Persistence, StoreError>>,
     native_dialog_open: AtomicBool,
+    window_close: window_guard::CloseState,
 }
 struct NativeDialogGuard<'a>(&'a AtomicBool);
 impl Drop for NativeDialogGuard<'_> {
@@ -88,12 +92,23 @@ impl Drop for NativeDialogGuard<'_> {
 }
 impl Host {
     fn enter_native_dialog(&self) -> Result<NativeDialogGuard<'_>, String> {
-        self.native_dialog_open
+        if self.window_close.is_closing() {
+            return Err("window_closing".into());
+        }
+        let guard = self
+            .native_dialog_open
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .map(|_| NativeDialogGuard(&self.native_dialog_open))
-            .map_err(|_| "native_dialog_busy".into())
+            .map_err(|_| "native_dialog_busy".to_owned())?;
+        if self.window_close.is_closing() {
+            return Err("window_closing".into());
+        }
+        Ok(guard)
     }
     fn idle(&self) -> Result<(), String> {
+        if self.window_close.is_closing() {
+            return Err("window_closing".into());
+        }
         if self
             .sessions
             .lock()
@@ -629,7 +644,6 @@ async fn send_message(
         p.budget.mark_dispatch(&input.request_id,dispatch_time).map_err(code)?;
         Ok::<_,String>((body,key,remaining))
     }.await;
-    drop(guard);
     let (body, key, remaining) = match prepared {
         Ok(value) => value,
         Err(mut error) => {
@@ -668,6 +682,9 @@ async fn send_message(
                     }
                 }
             }
+            // Closing remains excluded until both slot and existing durable
+            // error cleanup finish. Zero active slots alone is not quiescence.
+            drop(guard);
             return Err(error);
         }
     };
@@ -675,6 +692,9 @@ async fn send_message(
         .lock()
         .map_err(|_| "state_unavailable")?
         .mark_streaming(&input.conversation_id, &input.request_id);
+    // The active slot now independently excludes close for the entire stream
+    // and final persistent history/financial completion.
+    drop(guard);
     let receipt = Accepted {
         request_id: input.request_id.clone(),
         accepted: true,
@@ -924,6 +944,7 @@ pub fn run() {
                 sessions: Mutex::new(SessionState::default()),
                 persistent: Mutex::new(persistence),
                 native_dialog_open: AtomicBool::new(false),
+                window_close: window_guard::CloseState::default(),
             });
             Ok(())
         })
@@ -939,8 +960,10 @@ pub fn run() {
             load_conversation,
             delete_conversation,
             send_message,
-            cancel_message
+            cancel_message,
+            window_controls::window_action
         ])
+        .on_window_event(window_controls::on_window_event)
         .run(tauri::generate_context!())
         .expect("Aster Desktop host failed to start");
 }
@@ -1016,10 +1039,49 @@ mod tests {
             "fs:",
             "http:",
             "core:event:allow-emit",
+            "core:window:",
+            "core:app:allow-exit",
             "\"windows\": [\"*\"]",
         ] {
             assert!(!cap.contains(permission));
         }
+    }
+
+    #[test]
+    fn native_guard_retained_through_idle_preparation_cleanup_excludes_close() {
+        let host = Host {
+            credentials: CredentialStore,
+            sessions: Mutex::new(SessionState::default()),
+            persistent: Mutex::new(Err(StoreError::Unavailable)),
+            native_dialog_open: AtomicBool::new(false),
+            window_close: window_guard::CloseState::default(),
+        };
+        let guard = host.enter_native_dialog().unwrap();
+        let conversation = "a".repeat(32);
+        let request = "b".repeat(32);
+        host.sessions
+            .lock()
+            .unwrap()
+            .reserve(
+                &conversation,
+                &request,
+                Model::MuseSpark,
+                "Synthetic example".into(),
+            )
+            .unwrap();
+        host.sessions
+            .lock()
+            .unwrap()
+            .finish(&conversation, &request, TransportOutcome::Failed);
+        assert_eq!(host.sessions.lock().unwrap().active_count(), 0);
+        // A close command uses this same admission gate, including the interval
+        // after slot removal but before durable preparation-error cleanup ends.
+        assert!(matches!(host.enter_native_dialog(), Err(error) if error == "native_dialog_busy"));
+        drop(guard);
+        assert!(host.enter_native_dialog().is_ok());
+        host.window_close.arm().unwrap();
+        assert_eq!(host.idle(), Err("window_closing".into()));
+        assert!(matches!(host.enter_native_dialog(), Err(error) if error == "window_closing"));
     }
     #[test]
     fn closed_launch_selector_denies_unknown_and_extra_arguments() {

@@ -1,0 +1,92 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import nativeConfig from '../src-tauri/tauri.conf.json';
+import entryHtml from '../index.html?raw';
+
+// These are bounded source/DOM fixtures, not installed WebView2 launch evidence.
+// Vitest intentionally stubs CSS imports; read only these fixed repository
+// sources through Node's existing built-in module instead of adding a loader.
+const { existsSync, readFileSync } = await vi.importActual<{
+  existsSync(path: string): boolean;
+  readFileSync(path: string, encoding: 'utf8'): string;
+}>('node:fs');
+const startupSource = 'public/startup.css';
+const startupStyles = existsSync(startupSource) ? readFileSync(startupSource, 'utf8') : '';
+const rendererCss = readFileSync('src/styles.css', 'utf8');
+const DARK_CANVAS = '#1b1f20';
+const DARK_CANVAS_RGB = 'rgb(27, 31, 32)';
+const ORIGINAL_CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost";
+const stylesAdded: HTMLStyleElement[] = [];
+const nodesAdded: HTMLElement[] = [];
+
+afterEach(() => {
+  stylesAdded.splice(0).forEach(style => style.remove());
+  nodesAdded.splice(0).forEach(node => node.remove());
+});
+
+function paintUnhydratedRoot() {
+  const style = document.createElement('style');
+  style.textContent = startupStyles;
+  document.head.append(style);
+  stylesAdded.push(style);
+  const root = document.createElement('div');
+  root.id = 'root';
+  document.body.append(root);
+  nodesAdded.push(root);
+  return root;
+}
+
+describe('dark native and pre-module startup surfaces (T-073 / T-074)', () => {
+  it('uses the existing opaque dark canvas on the main window and WebView, with one zoom owner', () => {
+    const main = nativeConfig.app.windows[0] as typeof nativeConfig.app.windows[0] & {
+      backgroundColor?: string; theme?: string; zoomHotkeysEnabled?: boolean;
+    };
+    expect(main.label).toBe('main');
+    expect(main.backgroundColor).toBe(DARK_CANVAS);
+    expect(main.theme).toBe('Dark');
+    expect(main.zoomHotkeysEnabled).toBe(false);
+    expect(main).not.toHaveProperty('transparent');
+    expect(main).not.toHaveProperty('additionalBrowserArgs');
+    expect(main).not.toHaveProperty('visible');
+  });
+
+  it('links one local render-blocking stylesheet in the head before the application module', () => {
+    const entry = new DOMParser().parseFromString(entryHtml, 'text/html');
+    const links = [...entry.head.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')];
+    expect(links).toHaveLength(1);
+    expect(links[0]?.getAttribute('href')).toBe('/startup.css');
+    expect(links[0]?.hasAttribute('media')).toBe(false);
+    expect(links[0]?.hasAttribute('disabled')).toBe(false);
+    expect(links[0]?.hasAttribute('onload')).toBe(false);
+    expect(entry.head.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(DARK_CANVAS);
+    expect(entry.head.querySelector('meta[name="color-scheme"]')?.getAttribute('content')).toBe('dark');
+    expect(entry.querySelectorAll('style, script:not([src]), [style]')).toHaveLength(0);
+    expect(entryHtml.indexOf('href="/startup.css"')).toBeGreaterThan(0);
+    expect(entryHtml.indexOf('href="/startup.css"')).toBeLessThan(entryHtml.indexOf('src="/src/main.tsx"'));
+  });
+
+  it('keeps html, body and an empty root opaque and visible before module loading or after failed hydration', () => {
+    expect(existsSync(startupSource)).toBe(true);
+    const root = paintUnhydratedRoot();
+    for (const element of [document.documentElement, document.body, root]) {
+      const style = getComputedStyle(element);
+      expect(style.backgroundColor).toBe(DARK_CANVAS_RGB);
+      expect(style.visibility).not.toBe('hidden');
+      expect(style.display).not.toBe('none');
+      expect(style.opacity).not.toBe('0');
+    }
+    root.textContent = 'The native host is unavailable. No paid request was made.';
+    expect(root.textContent).toContain('unavailable');
+    expect(getComputedStyle(root).backgroundColor).toBe(DARK_CANVAS_RGB);
+    expect(getComputedStyle(root).display).not.toBe('none');
+  });
+
+  it('leaves policy, local-only loading and the existing renderer canvas intact', () => {
+    expect(nativeConfig.app.security.csp).toBe(ORIGINAL_CSP);
+    expect(nativeConfig.app.security.capabilities).toEqual(['main']);
+    expect(rendererCss).toContain(`--canvas:${DARK_CANVAS}`);
+    const startup = startupStyles;
+    expect(startup).not.toMatch(/@import|url\(|animation|transition|display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0/i);
+    expect(startup).toMatch(/color-scheme\s*:\s*dark/);
+    expect(entryHtml).not.toMatch(/http[s]?:\/\/|onload=|location\.|setTimeout/);
+  });
+});

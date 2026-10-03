@@ -1,5 +1,7 @@
 # LOCAL-0004 — dormant journal privacy candidate verification
 
+**v0.2.2 applicability, 3 October 2026:** retained requirements/contracts apply only where unchanged; retired providers, disabled capabilities and older dated results are not current authority or new-source PASS. [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md) and [LOCAL-V022-0001](../qa/LOCAL-V022-0001.md) govern active zoom/startup changes and fresh evidence. Earlier evidence remains source-bound history; the later owner-reported v0.2.1 startup flash is recorded separately. The entire original v0.2.1 checkout/installer is unchanged.
+
 Started: 2026-09-30 UTC; continued: 2026-10-01 UTC. Current status: **reviewed owner offline Rust suite PASS after a second test-only setup repair, source `649c4a13e5b1f8b74c660752095d82e841e3604e`; fresh hosted CI pending**. The prior local PASS, initial native FAIL, hosted run72 FAIL and technical Application Control block remain separately recorded below. Observations cannot transfer to changed runtime bytes. Trace: ADR-0006 / FR-014 / SEC-011 / TM-014 / AC-027 / T-035. No capability activation or release promotion is claimed.
 
 ## Source and authority

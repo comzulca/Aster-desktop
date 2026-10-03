@@ -1,5 +1,9 @@
 # THREAT-MODEL-0001 — Aster-desktop v0.1.0
 
+**v0.2.2 applicability, 3 October 2026:** retained requirements/contracts apply only where unchanged; retired providers, disabled capabilities and older dated results are not current authority or new-source PASS. [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md) and [LOCAL-V022-0001](../qa/LOCAL-V022-0001.md) govern active zoom/startup changes and fresh evidence. Earlier evidence remains source-bound history; the later owner-reported v0.2.1 startup flash is recorded separately. The entire original v0.2.1 checkout/installer is unchanged.
+
+**Historical applicability, reconciled 3 October 2026:** the dated record/procedures below retain their original version, identifiers, authority limits and PASS/FAIL observations. They do not qualify or authorise changed v0.2.1 source, current key activation, retired providers or disabled project capabilities. Active scope is [SPEC-0003](../specs/SPEC-0003.md) and fresh verification is [LOCAL-V021-0001](../qa/LOCAL-V021-0001.md); no old PASS transfers.
+
 Historical v0.1.0 evidence/procedure only. Its stable IDs, authorisation history, hashes and PASS receipts are preserved, not transferred to v0.2.0. Current scope is [SPEC-0002](../specs/SPEC-0002.md) and [v0.2.0 verification](../qa/LOCAL-V020-0001.md). Retired providers, ephemeral history and project permissions below do not apply to the current profile.
 
 Status: versioned threat assessment, created 2026-09-24 UTC; protocol-2 assessment retained from 2026-10-01 UTC and current evidence/scope reconciled 2026-10-02. Scope: Windows 11 app, local project, native credential custody, two NVIDIA hosted models, private source repository. Code presence is not acceptance; each mitigation is credited only at its tested boundary and source revision. Source of normative IDs: `docs/specs/SPEC-0001.md`. Decisions: `docs/adr/ADR-0001.md` through `ADR-0006.md`, `ADR-0008.md`, and `ADR-0009.md`.

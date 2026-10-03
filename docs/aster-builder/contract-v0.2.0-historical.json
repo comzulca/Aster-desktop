@@ -1,0 +1,723 @@
+{
+  "schema_version": 1,
+  "project": {
+    "name": "Aster Desktop v0.2.0",
+    "platform": "Windows-11-x64",
+    "release_class": "development",
+    "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981"
+  },
+  "policy": {
+    "allow_automatic_provider_fallback": false,
+    "allow_automatic_retry": false,
+    "host_enforces_privileges": true,
+    "human_confirms_mutations": true,
+    "model_may_commit": false,
+    "secrets_in_renderer": false,
+    "storage_enabled": true,
+    "web_enabled": false
+  },
+  "providers": [
+    {
+      "enabled": true,
+      "id": "meta_model_api",
+      "model_id": "muse-spark-1.3-contributor",
+      "origin": "https://api.meta.ai",
+      "protocol": "POST /v1/chat/completions; strict SSE with independent usage and [DONE]",
+      "official_source": "https://dev.meta.ai/docs/api-reference/chat-completions/schemas",
+      "verified_on": "2026-10-03",
+      "contract_fixture": "src-tauri/src/provider.rs",
+      "bounds": {
+        "connect_timeout_ms": 10000,
+        "total_timeout_ms": 900000,
+        "max_response_bytes": 8388608
+      }
+    }
+  ],
+  "tools": [],
+  "requirements": [
+    {
+      "id": "PR-003",
+      "text": "Windows 11 engineering profile and separate verified direct Meta account eligibility"
+    },
+    {
+      "id": "FR-018",
+      "text": "Only Muse Spark 1.3 Contributor is the default and admitted model"
+    },
+    {
+      "id": "FR-019",
+      "text": "Fixed exact reviewed Meta Chat Completions body and strict bounded stream"
+    },
+    {
+      "id": "FR-020",
+      "text": "Complete prompt/history public-or-synthetic admission and fresh native disclosure"
+    },
+    {
+      "id": "FR-021",
+      "text": "Integer-only £89 local monthly spend reservation and £80.10 warning"
+    },
+    {
+      "id": "FR-022",
+      "text": "Durable unknown spend and exact statement-confirmed reconciliation"
+    },
+    {
+      "id": "FR-023",
+      "text": "No legacy conversation import, model fallback or credential/journal destruction"
+    },
+    {
+      "id": "FR-024",
+      "text": "Protected persistent history and bounded display/navigation without restored authority"
+    },
+    {
+      "id": "FR-025",
+      "text": "Functional British-English local menus and help only"
+    },
+    {
+      "id": "UX-003",
+      "text": "Truthful Contributor/privacy/capability states without fictitious connection claims"
+    },
+    {
+      "id": "UX-004",
+      "text": "Requested scrollable composer, Send/Stop and independent history scrolling"
+    },
+    {
+      "id": "UX-005",
+      "text": "Exact new artwork, Union Jack and British-English product text"
+    },
+    {
+      "id": "NFR-005",
+      "text": "Resource, timeout and single-active/replay bounds deny without silent truncation"
+    },
+    {
+      "id": "NFR-006",
+      "text": "Source-bound dependency, licence, binary and release verification"
+    },
+    {
+      "id": "SEC-014",
+      "text": "Closed sole provider/model registry and denial of legacy routes"
+    },
+    {
+      "id": "SEC-015",
+      "text": "Native Meta credential and owner-window review only"
+    },
+    {
+      "id": "SEC-016",
+      "text": "No prohibited data override or renderer approval authority"
+    },
+    {
+      "id": "SEC-017",
+      "text": "No shell/web/MCP/project tools or uncontrolled egress"
+    },
+    {
+      "id": "SEC-018",
+      "text": "No financial reset, free post-dispatch cancellation or silent month activation"
+    },
+    {
+      "id": "SEC-019",
+      "text": "Strict independently versioned protocol and unknown-field denial"
+    },
+    {
+      "id": "SEC-020",
+      "text": "No secret/provider-body leakage into renderer/log/evidence"
+    },
+    {
+      "id": "SEC-021",
+      "text": "Protected immutable DPAPI/DACL chat/budget records, fail closed on corruption"
+    },
+    {
+      "id": "SEC-022",
+      "text": "Restore display/eligible text, never approvals/active slots/grants/financial authority"
+    }
+  ],
+  "threats": [
+    {
+      "id": "TM-016",
+      "requirement_ids": [
+        "SEC-016",
+        "FR-020"
+      ]
+    },
+    {
+      "id": "TM-017",
+      "requirement_ids": [
+        "SEC-014",
+        "SEC-015",
+        "SEC-017",
+        "FR-018",
+        "FR-019"
+      ]
+    },
+    {
+      "id": "TM-018",
+      "requirement_ids": [
+        "SEC-018",
+        "FR-021",
+        "FR-022",
+        "NFR-005"
+      ]
+    },
+    {
+      "id": "TM-019",
+      "requirement_ids": [
+        "SEC-019",
+        "SEC-022",
+        "FR-023",
+        "FR-024"
+      ]
+    },
+    {
+      "id": "TM-020",
+      "requirement_ids": [
+        "UX-003",
+        "UX-004",
+        "UX-005",
+        "FR-025"
+      ]
+    },
+    {
+      "id": "TM-021",
+      "requirement_ids": [
+        "PR-003"
+      ]
+    },
+    {
+      "id": "TM-022",
+      "requirement_ids": [
+        "SEC-020",
+        "SEC-021",
+        "FR-024"
+      ]
+    },
+    {
+      "id": "TM-023",
+      "requirement_ids": [
+        "SEC-018",
+        "SEC-021",
+        "SEC-022"
+      ]
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "AC-032",
+      "requirement_ids": [
+        "PR-003"
+      ],
+      "threat_ids": [
+        "TM-021"
+      ],
+      "test_ids": [
+        "T-042"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-033",
+      "requirement_ids": [
+        "FR-018",
+        "SEC-014"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-043"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-034",
+      "requirement_ids": [
+        "FR-019"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-044"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-035",
+      "requirement_ids": [
+        "FR-020",
+        "SEC-016"
+      ],
+      "threat_ids": [
+        "TM-016"
+      ],
+      "test_ids": [
+        "T-045"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-036",
+      "requirement_ids": [
+        "FR-021",
+        "SEC-018"
+      ],
+      "threat_ids": [
+        "TM-018",
+        "TM-023"
+      ],
+      "test_ids": [
+        "T-046"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-037",
+      "requirement_ids": [
+        "FR-022"
+      ],
+      "threat_ids": [
+        "TM-018"
+      ],
+      "test_ids": [
+        "T-047"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-038",
+      "requirement_ids": [
+        "FR-023"
+      ],
+      "threat_ids": [
+        "TM-019"
+      ],
+      "test_ids": [
+        "T-048"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-039",
+      "requirement_ids": [
+        "UX-003",
+        "UX-004"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-049"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-040",
+      "requirement_ids": [
+        "NFR-005"
+      ],
+      "threat_ids": [
+        "TM-018"
+      ],
+      "test_ids": [
+        "T-050"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-041",
+      "requirement_ids": [
+        "SEC-015"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-051"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-042",
+      "requirement_ids": [
+        "SEC-017"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-052"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-043",
+      "requirement_ids": [
+        "SEC-014",
+        "SEC-017"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-053"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-044",
+      "requirement_ids": [
+        "SEC-018"
+      ],
+      "threat_ids": [
+        "TM-023"
+      ],
+      "test_ids": [
+        "T-054"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-045",
+      "requirement_ids": [
+        "SEC-019"
+      ],
+      "threat_ids": [
+        "TM-019"
+      ],
+      "test_ids": [
+        "T-055"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-046",
+      "requirement_ids": [
+        "SEC-020"
+      ],
+      "threat_ids": [
+        "TM-022"
+      ],
+      "test_ids": [
+        "T-056"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-047",
+      "requirement_ids": [
+        "NFR-006"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-057"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-048",
+      "requirement_ids": [
+        "NFR-006"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-058"
+      ],
+      "verification_phase": 9
+    },
+    {
+      "id": "AC-049",
+      "requirement_ids": [
+        "PR-003"
+      ],
+      "threat_ids": [
+        "TM-021"
+      ],
+      "test_ids": [
+        "T-059"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-050",
+      "requirement_ids": [
+        "FR-024",
+        "SEC-022"
+      ],
+      "threat_ids": [
+        "TM-019",
+        "TM-022"
+      ],
+      "test_ids": [
+        "T-060"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-051",
+      "requirement_ids": [
+        "FR-025",
+        "UX-005"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-061"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-052",
+      "requirement_ids": [
+        "SEC-021",
+        "SEC-022"
+      ],
+      "threat_ids": [
+        "TM-022",
+        "TM-023"
+      ],
+      "test_ids": [
+        "T-062"
+      ],
+      "verification_phase": 5
+    }
+  ],
+  "tests": [
+    {
+      "id": "T-042",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: UK/account/tier and owner-attested direct API eligibility; live entitlement remains independent. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite. META-CATALOGUE-0001 records separately accepted catalogue authentication/entry visibility only, not live model inference or legal/financial eligibility."
+    },
+    {
+      "id": "T-043",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: One exact default model; deny legacy/third model before egress. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-044",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Exact-byte Meta serialization and strict fragmented/malformed SSE/usage. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-045",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Complete prior context local data admission plus exact native default-deny review. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite. D5 synthetic fixtures deny both Meta key prefixes in new and prior user/assistant content; interactive native full-body review remains separate."
+    },
+    {
+      "id": "T-046",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Integer reserve/settle, exact limit, +1 boundary, dated FX and conservative cache handling. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-047",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Unknown usage/restart/cancel retains reserve; separate original-account statement reconciliation. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-048",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Legacy pair import denial and preservation of older secrets/creation journal. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-049",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Interactive status, independent scrolling, busy navigation and request-bound Stop. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-050",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Body/frame/wire/UTF8/turn/timeout/global-slot/replay boundaries. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-051",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Native Meta custody, owner handle, collection/revocation/write ordering and cancellation. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite. D5 synthetic representation/decoder tests support both closed key forms; the two disposable native credential fixtures and GUI custody remain NOT RUN."
+    },
+    {
+      "id": "T-052",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Fixed HTTPS origin, no proxies/redirect/retry/fallback or unregistered tool routes. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-053",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Four false project flags and no retired commands/permissions. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-054",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Clock high-water/explicit period review, process lease and immutable append failures. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-055",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Closed protocol3 receipts/intents, no paths/secrets/approval overrides. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-056",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: No keys/text in finance/logs; cross-domain/corrupt/weak ACL denial without reset. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-057",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Format/clippy/typecheck/tests/secrets/advisories/notices/SBOM source-bound gates. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-058",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 9,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Main source/CI manifest, installer hash, complete payload and new launcher verification. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-059",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Separately authorised synthetic direct Meta live canary and valid usage/settlement. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-060",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: History restart/interrupted pending/limits/legacy denial/navigation/no authority restoration. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-061",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Exact owner assets, British-English menus/help/native/installer and keyboard/visual acceptance. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    },
+    {
+      "id": "T-062",
+      "path": "docs/qa/LOCAL-V020-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "Full compound acceptance not yet complete for source b9ba0526008818b5881efba66dc2691654ea8981: Private store process exclusion, foreign state/tamper, logical removal and no financial reset. Source-pinned automated portions are recorded in LOCAL-V020-0001; native/live/main-CI and final promotion portions remain separate. This status is not a failed automated suite."
+    }
+  ],
+  "gates": [
+    {
+      "phase": 0,
+      "status": "PASS",
+      "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981",
+      "environment": "Windows 11 x64 local source/design review; tested source b9ba052 and retained physical source manifest. Design/provenance only, not installed, live or release acceptance.",
+      "command": "Manual inventory/governance/baseline/authority review; git rev-parse HEAD and HEAD^{tree}; scripts/ci/publish_preflight.py .; review LOCAL-V020-0001 source-pinned checkpoint",
+      "run_at_utc": "2026-10-03T12:52:01Z",
+      "evidence_paths": [
+        "docs/aster-builder/phase-0-inventory.md",
+        "docs/qa/LOCAL-V020-0001.md"
+      ]
+    },
+    {
+      "phase": 1,
+      "status": "PASS",
+      "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981",
+      "environment": "Windows 11 x64 local source/design review; tested source b9ba052 and retained physical source manifest. Design/provenance only, not installed, live or release acceptance.",
+      "command": "Manual SPEC-0002 stable requirement/acceptance/non-goal review and ledger requirement/threat/acceptance/test cross-reference audit",
+      "run_at_utc": "2026-10-03T12:52:01Z",
+      "evidence_paths": [
+        "docs/specs/SPEC-0002.md",
+        "docs/aster-builder/contract.json",
+        "docs/qa/LOCAL-V020-0001.md"
+      ]
+    },
+    {
+      "phase": 2,
+      "status": "PASS",
+      "source_revision": "b9ba0526008818b5881efba66dc2691654ea8981",
+      "environment": "Windows 11 x64 local source/design review; tested source b9ba052 and retained physical source manifest. Design/provenance only, not installed, live or release acceptance.",
+      "command": "Manual THREAT-MODEL-0002 data-flow/residual-risk review; review ADR-0010 through ADR-0015 custody, IPC, provider, finance and restoration invariants",
+      "run_at_utc": "2026-10-03T12:52:01Z",
+      "evidence_paths": [
+        "docs/security/THREAT-MODEL-0002.md",
+        "docs/adr/ADR-0010.md",
+        "docs/adr/ADR-0011.md",
+        "docs/adr/ADR-0012.md",
+        "docs/adr/ADR-0013.md",
+        "docs/adr/ADR-0014.md",
+        "docs/adr/ADR-0015.md",
+        "docs/qa/LOCAL-V020-0001.md"
+      ]
+    },
+    {
+      "phase": 3,
+      "status": "NOT RUN",
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+    },
+    {
+      "phase": 4,
+      "status": "NOT RUN",
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+    },
+    {
+      "phase": 5,
+      "status": "NOT RUN",
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+    },
+    {
+      "phase": 6,
+      "status": "NOT RUN",
+      "reason": "Tools are disabled (tools=[]). No tool activation gate is claimed; persistent storage is covered by phase 5."
+    },
+    {
+      "phase": 7,
+      "status": "NOT RUN",
+      "reason": "Web access is disabled. No web activation gate is claimed."
+    },
+    {
+      "phase": 8,
+      "status": "NOT RUN",
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+    },
+    {
+      "phase": 9,
+      "status": "NOT RUN",
+      "reason": "Compound phase acceptance is incomplete for tested source b9ba0526008818b5881efba66dc2691654ea8981; see LOCAL-V020-0001 for source-pinned local PASS portions and explicit native/live/main-CI gaps. No historical PASS transfer or final delivery."
+    }
+  ],
+  "release": {
+    "artifact_sha256": null,
+    "signed": false,
+    "signature_evidence": null,
+    "target_os_verified": false,
+    "target_os_evidence": null,
+    "live_provider_verified": false,
+    "live_provider_evidence": null
+  }
+}

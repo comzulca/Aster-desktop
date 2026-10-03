@@ -2,6 +2,7 @@ export const DEFAULT_MODEL = 'muse-spark-1.3-contributor' as const;
 export type ModelId = typeof DEFAULT_MODEL;
 export type DataClass = 'synthetic' | 'public_eligible';
 export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+export type WindowAction = 'minimise' | 'toggle_maximise' | 'toggle_fullscreen' | 'start_dragging' | 'close';
 export type TerminalState = 'completed' | 'failed' | 'cancelled' | 'truncated' | 'refused';
 export type EntryState = TerminalState | 'interrupted';
 
@@ -67,6 +68,8 @@ export interface StreamEvent {
   errorCode?: string;
 }
 export interface Bridge {
+  windowAction?(input: { action: WindowAction }): Promise<{ maximised: boolean; fullscreen: boolean }>;
+  subscribeClose?(callback: () => void): Promise<() => void>;
   getStatus(): Promise<AppStatus>;
   subscribe(callback: (event: StreamEvent) => void): Promise<() => void>;
   configureCredential(): Promise<{ configured: boolean }>;
