@@ -4,7 +4,7 @@
     "name": "Aster Desktop v0.2.3",
     "platform": "Windows-11-x64",
     "release_class": "development",
-    "source_revision": "20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac"
+    "source_revision": "fd49bf5f29001d69df9bb003bdb28f16006294db"
   },
   "policy": {
     "allow_automatic_provider_fallback": false,
@@ -1183,28 +1183,28 @@
     {
       "phase": 0,
       "status": "PASS",
-      "source_revision": "20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac",
+      "source_revision": "fd49bf5f29001d69df9bb003bdb28f16006294db",
       "environment": "Manual design-only review by Codex custody subagent; QUARK2\\CodexSandboxOffline; Microsoft Windows NT 10.0.26300.0; no app/native/provider execution or owner-session acceptance",
-      "command": "Manual inventory/provenance review: git rev-parse HEAD; git rev-parse 20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac^{tree}; git show --format='%H %T %P' --no-patch 20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac; Get-Content -LiteralPath AGENTS.md and docs/aster-builder/phase-0-inventory.md; exact read steps/results in DESIGN-V023-0001",
-      "run_at_utc": "2026-10-04T11:17:41.1101682Z",
+      "command": "Manual P3 inventory/provenance review: git rev-parse fd49bf5f29001d69df9bb003bdb28f16006294db; git rev-parse fd49bf5f29001d69df9bb003bdb28f16006294db^{tree}; git show --no-patch --format=fuller fd49bf5f29001d69df9bb003bdb28f16006294db; git diff --name-status 181d3e42f51822f12eb19e4e605cdb3e51d6eaff fd49bf5f29001d69df9bb003bdb28f16006294db; fixed-source inventory/docs reads and UTC/principal/OS in DESIGN-V023-0001 P3 section; no runtime execution",
+      "run_at_utc": "2026-10-04T12:12:08.0631124Z",
       "evidence_paths": ["docs/qa/DESIGN-V023-0001.md", "docs/aster-builder/phase-0-inventory.md"]
     },
     {
       "phase": 1,
       "status": "PASS",
-      "source_revision": "20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac",
+      "source_revision": "fd49bf5f29001d69df9bb003bdb28f16006294db",
       "environment": "Manual design-only review by Codex custody subagent; QUARK2\\CodexSandboxOffline; Microsoft Windows NT 10.0.26300.0; no fixture execution or runtime qualification",
-      "command": "Manual specification/trace review: Get-Content -LiteralPath docs/specs/SPEC-0005.md, docs/aster-builder/contract.json and docs/aster-builder/verification-plan.md; map stable requirements to AC/T IDs and non-goals; fixed P1 source/fixture inspection and steps in DESIGN-V023-0001",
-      "run_at_utc": "2026-10-04T11:17:41.1101682Z",
+      "command": "Manual P3 specification/trace review: git show fd49bf5f29001d69df9bb003bdb28f16006294db:docs/specs/SPEC-0005.md and fixed-source contract/inventory/verification reads; git diff P2 P3 for changed codecs, worker, dependency, fixture and documentation files; git grep -n -E control/negative names at P3; mapping and actual 12:07:43.7056550Z-12:12:08.0631124Z review in DESIGN-V023-0001; no fixture execution",
+      "run_at_utc": "2026-10-04T12:12:08.0631124Z",
       "evidence_paths": ["docs/qa/DESIGN-V023-0001.md", "docs/specs/SPEC-0005.md", "docs/aster-builder/verification-plan.md"]
     },
     {
       "phase": 2,
       "status": "PASS",
-      "source_revision": "20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac",
+      "source_revision": "fd49bf5f29001d69df9bb003bdb28f16006294db",
       "environment": "Manual design-only review by Codex custody subagent; QUARK2\\CodexSandboxOffline; Microsoft Windows NT 10.0.26300.0; native enforcement/resource/financial/provider qualification remains independent and unproved",
-      "command": "Manual threat/crossing review: Get-Content -LiteralPath docs/security/THREAT-MODEL-0005.md and docs/adr/ADR-0018.md, ADR-0019.md, ADR-0020.md; inspect P1 host, worker, review, provider, history and negative-fixture definitions with rg/Get-Content/git show; map controls/residual owners in DESIGN-V023-0001; no tests executed",
-      "run_at_utc": "2026-10-04T11:17:41.1101682Z",
+      "command": "Manual P3 threat/crossing review: git show fd49bf5f29001d69df9bb003bdb28f16006294db:docs/security/THREAT-MODEL-0005.md and fixed-source ADR-0018/0019/0020; git show/git diff/git grep inspect strict codecs, exact Job/PID memory witness, owned finite cancellation cleanup, identity fixture and CI provenance; pinned primary codec/API source reads; controls/negative definitions/residual owners in DESIGN-V023-0001 P3 section; no native enforcement or validator execution",
+      "run_at_utc": "2026-10-04T12:12:08.0631124Z",
       "evidence_paths": ["docs/qa/DESIGN-V023-0001.md", "docs/security/THREAT-MODEL-0005.md", "docs/adr/ADR-0018.md", "docs/adr/ADR-0019.md", "docs/adr/ADR-0020.md"]
     },
     {

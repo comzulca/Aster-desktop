@@ -35,6 +35,8 @@ jobs:
         run: |
           test -s pnpm-lock.yaml
           python3 -m json.tool docs/aster-builder/contract.json > /dev/null
+          python3 -I scripts/ci/verify_vendored_sources.py --self-test
+          python3 -I scripts/ci/verify_vendored_sources.py --root .
       - name: Require aligned locked Tauri API and Rust versions
         run: |
           python3 -I scripts/ci/check_tauri_versions.py --self-test
@@ -78,8 +80,23 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  codec-source-fixtures:
+    needs: source-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check exact production codec module with closed synthetic fixtures
+        run: |
+          git rev-parse HEAD
+          rustup toolchain install 1.97.0 --profile minimal
+          cargo +1.97.0 test --manifest-path scripts/qa/codec-fixtures/Cargo.toml --locked
+          cargo +1.97.0 test --manifest-path scripts/qa/zune-unit-fixtures/Cargo.toml --locked --lib --no-default-features --features std
+
   windows-host:
-    needs: [source-policy, frontend]
+    needs: [source-policy, frontend, codec-source-fixtures]
     runs-on: windows-2025
     timeout-minutes: 60
     steps:

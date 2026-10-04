@@ -373,13 +373,40 @@ def npm_installed_packages(project: Path) -> tuple[list[dict[str, Any]], set[Pat
     return packages, required
 
 
+def cargo_source_identity(package: dict[str, Any], root_id: str, project: Path) -> str | None:
+    source = package.get("source")
+    if source:
+        return str(source)
+    if package["id"] == root_id:
+        return None
+    # A local patch is third-party source too: never omit it merely because
+    # Cargo's registry source/checksum is absent. Admit only the reviewed patch.
+    expected = project / "src-tauri" / "vendor" / "zune-jpeg-0.5.15"
+    directory = Path(package["manifest_path"]).parent
+    if (
+        package["name"] != "zune-jpeg"
+        or package["version"] != "0.5.15"
+        or is_link(directory)
+        or any(is_link(ancestor) for ancestor in (
+            project / "src-tauri", project / "src-tauri" / "vendor", expected))
+        or directory.resolve(strict=True) != expected.resolve(strict=True)
+    ):
+        raise ValueError("Unreviewed non-root Cargo path dependency")
+    read_regular(directory / "Cargo.toml", expected, MAX_TEXT)
+    return "locally-modified-vendored:src-tauri/vendor/zune-jpeg-0.5.15; see ASTER-PROVENANCE.json"
+
+
 def source_packages(
     metadata: dict[str, Any], required_metadata: dict[str, Any], project: Path
 ) -> list[dict[str, Any]]:
     required_cargo = cargo_required_ids(required_metadata)
+    root_id = metadata.get("resolve", {}).get("root")
+    if not isinstance(root_id, str):
+        raise ValueError("Cargo inventory has no exact application root")
     packages: list[dict[str, Any]] = []
     for package in metadata.get("packages", []):
-        if package.get("source"):
+        source = cargo_source_identity(package, root_id, project)
+        if source is not None:
             directory = Path(package["manifest_path"]).parent.resolve(strict=True)
             packages.append(
                 {
@@ -389,7 +416,7 @@ def source_packages(
                     "license": package.get("license") or "UNKNOWN",
                     "repository": repository_value(package.get("repository")),
                     "directory": directory,
-                    "source": str(package["source"]),
+                    "source": source,
                     "required": package["id"] in required_cargo,
                 }
             )
@@ -446,8 +473,12 @@ def generate(
     if set(used_overlays) != set(overlays) or any(count != 1 for count in used_overlays.values()):
         raise ValueError("Every reviewed notice overlay must bind exactly one installed locked package")
 
+    root_id = metadata["resolve"]["root"]
+    app = next((package for package in metadata["packages"] if package["id"] == root_id), None)
+    if not app or app["name"] != "aster-desktop" or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", app["version"]):
+        raise ValueError("Notice title has no valid exact application version")
     sections = [
-        "Aster 0.2.2 — third-party source notices\n\n",
+        f"Aster {app['version']} — third-party source notices\n\n",
         "Generated without network access from exact installed locked Rust and npm source packages. "
         "The complete inventory includes build/development sources; requiredForPackagedApp marks the "
         f"normal dependency closure filtered for {target} plus installed production npm dependencies. "
@@ -605,6 +636,24 @@ def self_test() -> None:
         must_fail("wrong overlay VCS", lambda: bind_reviewed_overlay(package, expected))
 
         must_fail("wrong target", lambda: generate({}, {}, root, "x86_64-unknown-linux-gnu"))
+        root_package = {"id": "root", "source": None}
+        if cargo_source_identity(root_package, "root", root) is not None:
+            raise AssertionError("application root must not become a third-party notice")
+        vendored = root / "src-tauri" / "vendor" / "zune-jpeg-0.5.15"
+        vendored.mkdir(parents=True)
+        write_output(vendored / "Cargo.toml", b"synthetic fixture only\n")
+        local_package = {
+            "id": "local", "source": None, "name": "zune-jpeg", "version": "0.5.15",
+            "manifest_path": str(vendored / "Cargo.toml"),
+        }
+        if not cargo_source_identity(local_package, "root", root).startswith("locally-modified-vendored:"):
+            raise AssertionError("local patched third-party source was omitted")
+        must_fail("unknown path dependency", lambda: cargo_source_identity(
+            {**local_package, "name": "unreviewed"}, "root", root))
+        must_fail("wrong local version", lambda: cargo_source_identity(
+            {**local_package, "version": "0.5.16"}, "root", root))
+        must_fail("outside local dependency", lambda: cargo_source_identity(
+            {**local_package, "manifest_path": str(crate / "Cargo.toml")}, "root", root))
         if not has_blocking_gaps({"requiredMissingTextCount": 1, "requiredUnknownLicenseCount": 0}):
             raise AssertionError("required missing-text fixture did not block")
         if has_blocking_gaps({"requiredMissingTextCount": 0, "requiredUnknownLicenseCount": 0}):

@@ -830,6 +830,141 @@ mod tests {
     }
 
     #[test]
+    fn valid_short_baseline_and_progressive_jpeg_keep_all_pixels() {
+        use base64::Engine;
+
+        // Pillow 12.3.0 generated synthetic RGB fixtures in memory only,
+        // quality=90/progressive=true; no user images or live parser execution.
+        const TINY_PROGRESSIVE: &str = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wgARCAACAAMDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUAQEAAAAAAAAAAAAAAAAAAAAG/9oADAMBAAIQAxAAAAGXhcR//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABAP/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPxB//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPxB//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxB//9k=";
+        const CHECKER_PROGRESSIVE: &str = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wgARCAAQABADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAVAQEBAAAAAAAAAAAAAAAAAAAFBv/aAAwDAQACEAMQAAABlxTM/wD/xAAUEAEAAAAAAAAAAAAAAAAAAAAg/9oACAEBAAEFAh//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/AX//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/AX//xAAUEAEAAAAAAAAAAAAAAAAAAAAg/9oACAEBAAY/Ah//xAAVEAEBAAAAAAAAAAAAAAAAAADw4f/aAAgBAQABPyEUUUX/2gAMAwEAAgADAAAAEP8A/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPxB//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPxB//8QAGxAAAgEFAAAAAAAAAAAAAAAAETFhAEFRgbH/2gAIAQEAAT8QcnZ7mXc1cnZ7mXc1cnZ7mXc1cnZ7mXc1/9k=";
+        let mut cases = vec![
+            (
+                3,
+                2,
+                base64::engine::general_purpose::STANDARD
+                    .decode(TINY_PROGRESSIVE)
+                    .unwrap(),
+            ),
+            (
+                16,
+                16,
+                base64::engine::general_purpose::STANDARD
+                    .decode(CHECKER_PROGRESSIVE)
+                    .unwrap(),
+            ),
+        ];
+        for (width, height) in [(1, 1), (3, 2), (32, 32)] {
+            let mut jpeg = Vec::new();
+            image::codecs::jpeg::JpegEncoder::new(&mut jpeg)
+                .encode(
+                    &vec![50u8; width as usize * height as usize * 3],
+                    width,
+                    height,
+                    image::ExtendedColorType::Rgb8,
+                )
+                .unwrap();
+            cases.push((width, height, jpeg));
+        }
+        for (width, height, source) in cases {
+            let ProcessedContent::Pages(pages) =
+                process_in_worker(InputKind::Jpeg, &source).unwrap().content
+            else {
+                panic!("pages")
+            };
+            assert_eq!(pages.len(), 1);
+            assert_eq!((pages[0].width, pages[0].height), (width, height));
+            assert_eq!(pages[0].rgba.len(), width as usize * height as usize * 4);
+            if (width, height) == (16, 16) {
+                // The synthetic checker has alternating luminance in every
+                // row. 4:2:0 chroma subsampling may blend its original RGB,
+                // but neither a blank row nor default fill may pass.
+                for row in pages[0].rgba.chunks_exact(width as usize * 4) {
+                    for pair in row.chunks_exact(8) {
+                        let contrast: u32 = (0..3)
+                            .map(|channel| u32::from(pair[channel].abs_diff(pair[channel + 4])))
+                            .sum();
+                        assert!(contrast > 12, "missing progressive checker content");
+                    }
+                }
+            } else {
+                let expected = if source.windows(2).any(|marker| marker == b"\xff\xc2") {
+                    [20u8, 80, 130]
+                } else {
+                    [50u8; 3]
+                };
+                for pixel in pages[0].rgba.chunks_exact(4) {
+                    assert_eq!(pixel[3], 255);
+                    for channel in 0..3 {
+                        assert!(
+                            pixel[channel].abs_diff(expected[channel]) <= 5,
+                            "missing flat synthetic JPEG content"
+                        );
+                    }
+                }
+            }
+            let scan = source
+                .windows(2)
+                .position(|marker| marker == b"\xff\xda")
+                .unwrap();
+            let length = u16::from_be_bytes([source[scan + 2], source[scan + 3]]) as usize;
+            let mut zero_entropy = source[..scan + 2 + length].to_vec();
+            zero_entropy.extend_from_slice(b"\xff\xd9");
+            assert!(process_in_worker(InputKind::Jpeg, &zero_entropy).is_err());
+        }
+    }
+
+    #[test]
+    fn jpeg_restart_segments_require_their_nonfinal_marker() {
+        use base64::Engine;
+
+        // Pillow 12.3.0: in-memory RGB 32x16 flat (20,80,130), quality90,
+        // subsampling=0, restart_marker_blocks=1. Eight real MCUs, seven RSTs.
+        const RESTART_JPEG: &str = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAAQACADAREAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/90ABAAB/9oADAMBAAIRAxEAPwD5fr9dPyQ//9D5fr9dPyQ//9H5fr9dPyQ//9L5fr9dPyQ//9P5fr9dPyQ//9T5fr9dPyQ//9X5fr9dPyQ//9b5fr9dPyQ//9k=";
+        let source = base64::engine::general_purpose::STANDARD
+            .decode(RESTART_JPEG)
+            .unwrap();
+        let restarts: Vec<_> = source
+            .windows(2)
+            .enumerate()
+            .filter_map(|(index, marker)| {
+                (marker[0] == 0xff && (0xd0..=0xd7).contains(&marker[1])).then_some(index)
+            })
+            .collect();
+        assert_eq!(restarts.len(), 7);
+        let ProcessedContent::Pages(pages) =
+            process_in_worker(InputKind::Jpeg, &source).unwrap().content
+        else {
+            panic!("pages")
+        };
+        assert_eq!(pages.len(), 1);
+        assert_eq!((pages[0].width, pages[0].height), (32, 16));
+        assert_eq!(pages[0].rgba.len(), 32 * 16 * 4);
+        for pixel in pages[0].rgba.chunks_exact(4) {
+            assert_eq!(pixel[3], 255);
+            for (actual, expected) in pixel[..3].iter().zip([20u8, 80, 130]) {
+                assert!(
+                    actual.abs_diff(expected) <= 5,
+                    "missing restart JPEG content"
+                );
+            }
+        }
+        let first = restarts[0];
+        assert!(first < restarts[1]); // Not the final restart boundary.
+        let mut missing_restart = source.clone();
+        drop(missing_restart.drain(first..first + 2));
+        assert!(
+            process_in_worker(InputKind::Jpeg, &missing_restart).is_err(),
+            "missing nonfinal restart must not concatenate entropy segments"
+        );
+        let mut garbage = source.clone();
+        drop(garbage.splice(first..first, [0x12, 0x34]));
+        assert!(
+            process_in_worker(InputKind::Jpeg, &garbage).is_err(),
+            "extra entropy before a restart must not be skipped"
+        );
+    }
+
+    #[test]
     fn rgba_and_page_aggregate_limits_are_fail_closed() {
         assert!(matches!(
             page_from_rgba(1, 1, vec![0; 3]),

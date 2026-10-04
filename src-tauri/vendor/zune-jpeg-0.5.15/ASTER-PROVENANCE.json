@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "name": "zune-jpeg",
+  "version": "0.5.15",
+  "upstream": {
+    "registry": "registry+https://github.com/rust-lang/crates.io-index",
+    "archiveSha256": "27bc9d5b815bc103f142aa054f561d9187d191692ec7c2d1e2b4737f8dbd7296",
+    "vcsRevision": "31d81fed7551c8ccea456d9d8e2b1fd8bebb6995",
+    "vcsPath": "crates/zune-jpeg",
+    "files": [
+      {
+        "path": ".cargo_vcs_info.json",
+        "sha256": "d4d2001e82c8ce49f692132594557f20691b99891eddb273957d2cac07002d9e"
+      },
+      {
+        "path": ".gitignore",
+        "sha256": "937456f730114c410243b25f3587e29a6c608b3a79356adafeefb6b960e004b2"
+      },
+      {
+        "path": "Benches.md",
+        "sha256": "5e0a2292e9a2b6d5d7923f4b847a9aead7ab656326ef58018d30dfa46c53cf20"
+      },
+      {
+        "path": "Cargo.lock",
+        "sha256": "3aa365b4633487152c3e09cef84eb10234b3d01cbab1a000df4b8af7066934a9"
+      },
+      {
+        "path": "Cargo.toml",
+        "sha256": "0ff579eaf0dbe4cb0529bc3e5256cd25eff1ae146289f40a4f77442171b5995b"
+      },
+      {
+        "path": "Cargo.toml.orig",
+        "sha256": "2997b9ae39b90e388eec2165272176d8a2fd9ce261c24e1e26d82f0f419fb1b5"
+      },
+      {
+        "path": "Changelog.md",
+        "sha256": "296a9f6db2fbc8813357d0cafb9c041efce7177d1f7b6026a7af81031defb879"
+      },
+      {
+        "path": "LICENSE-APACHE",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "path": "LICENSE-MIT",
+        "sha256": "d30047bca3b516639339a3c279bb84c3483124fb5a9dafe3c75056a85090e745"
+      },
+      {
+        "path": "LICENSE-ZLIB",
+        "sha256": "d201d14804d3bcd3b944147173175e4abfbd838b7c8069b6bd3452496bf13e6c"
+      },
+      {
+        "path": "README.md",
+        "sha256": "d58a4403ff2b9f7eba16f1284a9b4a4c7125bc92dacd8f0fac1ee112e3a8b8ee"
+      },
+      {
+        "path": "src/bitstream.rs",
+        "sha256": "0f053b8d4443b8818fe187be90304a4f3c645ee43bc9984b8baad4c8b39ce387"
+      },
+      {
+        "path": "src/color_convert.rs",
+        "sha256": "e401a9c71beffd50a0b17330a5f64de82ad944e7f7cfe42a8a8bbf6b24ac245a"
+      },
+      {
+        "path": "src/color_convert/avx.rs",
+        "sha256": "7be52b218a32ca06d8727dbd5d9ff18f0e09ee05c2147e2469e1b78f25e4f1f5"
+      },
+      {
+        "path": "src/color_convert/neon64.rs",
+        "sha256": "7f7f1bf474a9a4778d1a021ebddba7cd98bbd256f14e8158c37c364592fe14d5"
+      },
+      {
+        "path": "src/color_convert/scalar.rs",
+        "sha256": "daf7a7595775ce00bec28997330bc72f0fd3cd113d764cf742a7b502ca93c108"
+      },
+      {
+        "path": "src/components.rs",
+        "sha256": "1699aab5b99818e51bdbfc43afb9567e4ac0ac67e68fbda9bfb3ac86b62489ea"
+      },
+      {
+        "path": "src/decoder.rs",
+        "sha256": "7fdf4e5f585a1f7bfdba51b3ab3a851fb519a326324fdb9f44a236864c26a554"
+      },
+      {
+        "path": "src/errors.rs",
+        "sha256": "106e9bca458efccd9b290ff5cf9365ad195d7afc3e414108111cc88b9c344e8f"
+      },
+      {
+        "path": "src/headers.rs",
+        "sha256": "95d98217434a99171cc17453018658475659516eacefad63f4136550407b6147"
+      },
+      {
+        "path": "src/huffman.rs",
+        "sha256": "921649bd61aeeecb11bf91d7e76afad583e54717255824bf0c2d4bb6160d6b10"
+      },
+      {
+        "path": "src/idct.rs",
+        "sha256": "be856aec47d17f28dfaa98072f2317eb78be0f6b9dc9535f5d309e97da5cf8e8"
+      },
+      {
+        "path": "src/idct/avx2.rs",
+        "sha256": "7e2d93e1e0cfe6735a75562866162f3a5d78072301d6189b7b02fba4dfbd2d88"
+      },
+      {
+        "path": "src/idct/neon.rs",
+        "sha256": "33ef1506f2d14889f2039e483988ad3afe58c7daadd2d241be61e69908dd32dc"
+      },
+      {
+        "path": "src/idct/scalar.rs",
+        "sha256": "1994c32030ac7ff9ab904f3b890dcd44dfa231551bd033749faab565c014b3f9"
+      },
+      {
+        "path": "src/lib.rs",
+        "sha256": "31cfd2c21b47b86595dde3b39e93e2754031541f35deb35a43ee8a56488de68d"
+      },
+      {
+        "path": "src/marker.rs",
+        "sha256": "10014f879004c0b1ca4bca66155eb2385820cce02ae6e48a9e9b37ca60ecd294"
+      },
+      {
+        "path": "src/mcu.rs",
+        "sha256": "b2234b35227ee76fc43df76b64f5b68e44a395250d187016765d5922849dcfb3"
+      },
+      {
+        "path": "src/mcu_prog.rs",
+        "sha256": "bfeba9b8f801baf0ce66b73ed9c688fd789244fe380d7223d3ea39d1ece26fa1"
+      },
+      {
+        "path": "src/misc.rs",
+        "sha256": "1ba8300b38095fc0cb2e91f615d401d7a6b45d20115f314df66153add7b776da"
+      },
+      {
+        "path": "src/unsafe_utils.rs",
+        "sha256": "8fa830ca67b7f701461fe2382f8843faa33c98b5f83f1845f60c8ef788143c75"
+      },
+      {
+        "path": "src/unsafe_utils_avx2.rs",
+        "sha256": "2e2a8294a8c8c6ca3e92356b47a088090c2c62853b37cfcadeba4ab55f545721"
+      },
+      {
+        "path": "src/unsafe_utils_neon.rs",
+        "sha256": "1c869e09726cec6ae699fddcc8c0551a9e798ebaa5d55b3514b3bfb4874282c5"
+      },
+      {
+        "path": "src/upsampler.rs",
+        "sha256": "81ca309c31baf578b293abc6dbeb4d37b69f14b0e2811d15fe3bb9aa637cc01a"
+      },
+      {
+        "path": "src/upsampler/avx2.rs",
+        "sha256": "3416787605115cee9f7eb918b3dd05f6596c8ed15e4942d18a12d301f5d843bc"
+      },
+      {
+        "path": "src/upsampler/neon.rs",
+        "sha256": "91465d872b387de31919d1e29688bd33ca54046f8e1825056bd61f2a28c6b6c8"
+      },
+      {
+        "path": "src/upsampler/portable_simd.rs",
+        "sha256": "36bfef56cc9c36c796cfccca77c13c7e394042c9ebf53bb18ffaaeba2311913d"
+      },
+      {
+        "path": "src/upsampler/scalar.rs",
+        "sha256": "cc86288e29db2d6cbb25f5238f3064e3ad30179d0c1cfdab35d51fd54b074710"
+      },
+      {
+        "path": "src/worker.rs",
+        "sha256": "6f939fa614844d11b826c196ea56ea13846ba7725025da0e2418b2d453fecc6d"
+      }
+    ]
+  },
+  "modifications": [
+    {
+      "sha256": "8ebf6f17bb3d3f47d554e802a79c86d2c772f7ce10f06d561673905b266e5c8d",
+      "path": "src/bitstream.rs",
+      "reason": "Strict-only real entropy consumption and scan/restart completeness; upstream non-strict recovery preserved."
+    },
+    {
+      "sha256": "14325fef602b6218773bb4e58d613f11a8b75bcd3f0fbed25087071146283e1d",
+      "path": "src/mcu.rs",
+      "reason": "Strict-only real entropy consumption and scan/restart completeness; upstream non-strict recovery preserved."
+    },
+    {
+      "sha256": "4cae7a3709fd99c9532fdde98a9578cf806c0b156e9e1fa4b8c27f310e586ae0",
+      "path": "src/mcu_prog.rs",
+      "reason": "Strict-only real entropy consumption and scan/restart completeness; upstream non-strict recovery preserved."
+    }
+  ],
+  "addedFiles": [
+    {
+      "sha256": "0a84877b9bea7eae76989c9420a09fdf8fc7db199447f14ff5b3b3b03fa5b6d5",
+      "path": "ASTER-PATCH.md"
+    }
+  ],
+  "validation": {
+    "sourceInventory": "Hashes independently read from verified published .crate archive; exact upstream files retained, only three audited source files modified.",
+    "format": "rustfmt 1.97.0, edition2021, skip_children=true: exit 0, not codec execution.",
+    "historicalFailure": {
+      "run": 37200835238,
+      "job": 111432154845,
+      "utc": "2026-10-04T12:20:30Z",
+      "test": "complete_jpeg_refuses_missing_eoi_partial_entropy_and_suffixes",
+      "case": 2,
+      "status": "FAIL"
+    },
+    "changedSourceCodecTests": "NOT RUN at initial freeze; hosted successor required.",
+    "localNativeExecution": "NOT RUN: no retry of Windows Application Control blocked helper."
+  }
+}
