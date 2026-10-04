@@ -1,10 +1,20 @@
-# FRONTEND-V023-0001 — dirty-checkpoint renderer evidence
+# FRONTEND-V023-0001 — source-bound renderer evidence
+
+Current whole-workflow disposition: P4 [run 37204516581](https://github.com/comzulca/Aster-desktop/actions/runs/37204516581) completed FAIL, with four successful jobs but an installer stdout OS232/missing-receipt failure after bundling. The scoped renderer results below remain PASS at their actual source; they do not qualify a package or any fifteen-codec/six-resource executable outcome. Later CI capture/test-only credential amendments require fresh evidence; no renderer behaviour changes or installed cure are asserted. See [CI-V023-0001](CI-V023-0001.md).
+
+## Published P4 renderer checks — 13:03/13:08 UTC, 4 October
+
+Clean local source P4 `7eee831fe3a775884992c20928a1f232e311eb13`, tree `bf165533fffe0370605e389f17106c5956c858f7`, passed typecheck, all 100 renderer tests/eight files and Vite production build. Receipt `reports/frontend-20261004T130317407Z/receipt.json` records `2026-10-04T13:03:17.5149633Z`–`13:03:31.9520371Z`, `QUARK2\CodexSandboxOffline`, Windows NT `10.0.26300.0`; the checkout was independently clean before the canonical `Run-LocalEngineeringChecks.ps1 -Stage frontend` invocation. Separate command intervals: typecheck `13:03:17.5208032Z`–`13:03:18.3049430Z`, tests `13:03:18.3078331Z`–`13:03:30.8578123Z`, build `13:03:30.8584236Z`–`13:03:31.9453129Z`. Later documentation amendments are excluded from this clean-source claim.
+
+Hosted frontend job `111442839641` in [run 37204516581](https://github.com/comzulca/Aster-desktop/actions/runs/37204516581), actual tested merge-ref `c3839b52a012f83aa112f97dac5590681e5e23ef`, independently passes 100 tests/eight files at `13:08:28.6912886Z`–`13:08:28.6929812Z`, plus type/build/advisory and inventory steps. These exact renderer successes do not prove native rendering, complete Windows qualification, installed flash correction, accessibility, provider entitlement or an installer. [CI-V023-0001](CI-V023-0001.md) owns whole-source status, retained failures and exact publication boundaries. No normal owner app/setup, key or Meta call occurred.
+
+## Retained earlier dirty-checkpoint introduction
 
 Status on 4 October 2026: **implemented engineering draft; fresh final-source/native/installed qualification pending**. Renderer and host source controls exist; the results below are scoped dirty-checkpoint receipts, not proof of complete native implementation, execution or release. Code Integrity currently blocks the local build helper, and the two disclosed cargo-audit warnings remain in [LOCAL-V023-0001](LOCAL-V023-0001.md). No full Cargo/native PDF/installed/Meta PASS or flicker cure is implied.
 
 Date: 4 October 2026, Edinburgh / Europe/London. Scope: renderer/type/build portions on the isolated development working tree, **not final clean-source qualification, native processing/viewer, installed acceptance or release evidence**. Root LOCAL-V023-0001 and the active control ledger retain the final gate disposition. Any later relevant source change invalidates dependent portions of this checkpoint.
 
-## Latest dirty checkpoint — 10:52 UTC, 100 tests
+## Retained latest dirty checkpoint before publication — 10:52 UTC, 100 tests
 
 Receipt `reports/frontend-20261004T105233523Z/receipt.json` records `2026-10-04T10:52:33.6564404Z`–`10:52:47.7447242Z`, principal `QUARK2\CodexSandboxOffline`, Windows NT `10.0.26300.0`, against predecessor HEAD `7f8de9c1db74de92672976eb5af3ee9f54e68fef` / tree `846bb82a537240f25b8b859108ac418f8a6ae00c` plus explicit uncommitted v0.2.3 source. Canonical runner remains `scripts/qa/Run-LocalEngineeringChecks.ps1 -Stage frontend` with the configured bundled runtime. No clean final revision is asserted.
 

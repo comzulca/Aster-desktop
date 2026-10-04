@@ -196,6 +196,51 @@ jobs:
         run: |
           cargo test --manifest-path src-tauri/Cargo.toml --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run owner-authorised disposable synthetic credential fixtures
+        shell: pwsh
+        run: |
+          # Owner approval on 4 October 2026 is limited to these two existing
+          # fixtures on this ephemeral hosted runner, never the owner's laptop.
+          # Production target/key/Meta and normal app bootstrap are not entered.
+          $credentialCases = @(
+            'credential::native::tests::synthetic_credential_round_trip_uses_a_disposable_target'
+            'credential::native::tests::malformed_stored_blobs_are_not_configured_on_a_disposable_target'
+          )
+          $credentialResults = @()
+          foreach ($credentialCase in $credentialCases) {
+            $started = (Get-Date).ToUniversalTime().ToString('o')
+            $testOutput = @(& cargo test --manifest-path src-tauri/Cargo.toml --locked --lib $credentialCase -- --ignored --exact --test-threads=1 2>&1)
+            $testExit = $LASTEXITCODE
+            $testOutput | Write-Output
+            $textOutput = ($testOutput | ForEach-Object { [string]$_ }) -join "`n"
+            if ($testExit -ne 0 -or
+                $textOutput -cnotmatch '(?m)^running 1 test\r?$' -or
+                $textOutput -cnotmatch ('(?m)^test ' + [regex]::Escape($credentialCase) + ' \.\.\. ok\r?$') -or
+                $textOutput -cnotmatch '(?m)^test result: ok\. 1 passed; 0 failed; 0 ignored;') {
+              throw 'Exact disposable credential fixture did not execute and pass.'
+            }
+            $credentialResults += [ordered]@{
+              case = $credentialCase
+              status = 'PASS'
+              started_at_utc = $started
+              completed_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+            }
+          }
+          $revision = & git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $revision -cne $env:GITHUB_SHA -or $credentialResults.Count -ne 2) { throw 'Disposable credential source/case binding changed.' }
+          [ordered]@{
+            classification = 'hosted-disposable-synthetic-credential-fixtures-not-owner-session'
+            source_revision = $revision
+            workflow_run_id = $env:GITHUB_RUN_ID
+            workflow_run_attempt = $env:GITHUB_RUN_ATTEMPT
+            principal = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            os_version = [System.Environment]::OSVersion.VersionString
+            real_credential_target_used = $false
+            owner_laptop_used = $false
+            app_bootstrap_entered = $false
+            live_meta_called = $false
+            cases = $credentialResults
+          } | ConvertTo-Json -Depth 5 | Tee-Object -FilePath reports/native-synthetic-credential-fixture.json
       - name: RustSec advisory gate
         run: |
           cargo install cargo-audit --locked --version 0.22.2
@@ -278,7 +323,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # Synthetic pre-bootstrap checks only: no GUI, owner stores, key,
           # Meta endpoint or normal application startup is entered.
-          $diagnostic = @(& .\src-tauri\target\release\aster-desktop.exe --aster-attachment-fixture)
+          # Release uses the Windows GUI subsystem. A terminal unredirected
+          # native command may return before exit in PowerShell, closing its
+          # stdout pipe. An explicit consumer keeps capture alive until exit;
+          # preserve the actual native exit and all fifteen/six strict checks.
+          $diagnostic = @(& .\src-tauri\target\release\aster-desktop.exe --aster-attachment-fixture | ForEach-Object { $_ })
           $diagnosticExit = $LASTEXITCODE
           $diagnostic | Set-Content -LiteralPath reports/attachment-worker-fixture.json -Encoding utf8NoBOM
           $diagnostic | Write-Output
