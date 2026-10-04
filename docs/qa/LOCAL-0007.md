@@ -1,5 +1,7 @@
 # LOCAL-0007 — corrected-NSIS exact-source validation
 
+**v0.2.2 applicability, 3 October 2026:** retained requirements/contracts apply only where unchanged; retired providers, disabled capabilities and older dated results are not current authority or new-source PASS. [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md) and [LOCAL-V022-0001](../qa/LOCAL-V022-0001.md) govern active zoom/startup changes and fresh evidence. Earlier evidence remains source-bound history; the later owner-reported v0.2.1 startup flash is recorded separately. The entire original v0.2.1 checkout/installer is unchanged.
+
 Observed 2026-10-01 UTC. Current classification: **complete local automatic source/frontend/native/dependency gates PASS for immutable source `9796d75a98b14d247d3f86e1803300727b3d0229`, tree `405c61c22f65df81d56fac02dcffeb1a3fd2861e`; final-main package and owner manual gates remain independent and incomplete**. Parent main is `dff78ec355056754eb99132716cd03b30c2b9ce8`. The primary external record was read in full from `C:\Users\Rene Nehru Alvarez\Documents\aster-desktop-premium\engineering-tools\FINAL-SOURCE-CHECKS-9796d75-20261001.md` (10,236 bytes, SHA-256 `9d5478879cff81151ff5a2463817927aced236b64075c55f9f8f565b3836733f`). This in-repository summary does not self-hash or transfer its PASS results to the later documentation-reconciliation revision.
 
 ## Narrow source scope and retained package failures

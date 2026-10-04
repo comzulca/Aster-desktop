@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { nativeBridge } from './bridge';
 import { formatGbp, parseGbp, MAX_CONVERSATION_BYTES, MAX_MESSAGE_BYTES, MODEL_LABEL, REASONING_EFFORTS, utf8Bytes, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
-import { DEFAULT_MODEL, type AppStatus, type Bridge, type BudgetIntent, type Conversation, type ConversationEntry, type ConversationSummary, type DataClass, type ReasoningEffort } from './types';
+import { DEFAULT_MODEL, type AppStatus, type Bridge, type BudgetIntent, type Conversation, type ConversationEntry, type ConversationSummary, type DataClass, type ReasoningEffort, type WindowAction } from './types';
 import wordmark from './assets/aster-wordmark.png';
 import readyArtwork from './assets/aster-ready.png';
+import { DraftMemory, editSelection, findMatches, helpTitles, menuGroups, shortcutAction, type HelpPage, type LocalAction, type MenuName } from './local-ui';
+import packageInfo from '../package.json';
+import launcherIcon from '../src-tauri/icons/32x32.png';
 
 type DisplayEntry = Omit<ConversationEntry, 'state'> & { state: ConversationEntry['state'] | 'streaming' };
-type MenuName = 'File' | 'Edit' | 'View' | 'Help';
 const uuid = () => crypto.randomUUID();
 const availabilityText: Record<AppStatus['availability'], string> = {
   needs_terms: 'Review Contributor terms in Settings before sending.',
@@ -122,10 +124,20 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [compact, setCompact] = useState(false);
+  const [zoom, setZoom] = useState(100);
+  const [zoomFeedback, setZoomFeedback] = useState(false);
+  const zoomRef = useRef(100);
+  const zoomTimeout = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const [windowState, setWindowState] = useState({ maximised: false, fullscreen: false });
+  const [findOpen, setFindOpen] = useState(false);
+  const [find, setFind] = useState('');
+  const [helpPage, setHelpPage] = useState<HelpPage>('documentation');
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [menu, setMenu] = useState<MenuName | null>(null);
-  const [dialog, setDialog] = useState<'settings' | 'help' | null>(null);
+  const [dialog, setDialog] = useState<'settings' | 'help' | 'quit' | null>(null);
   const [budgetFields, setBudgetFields] = useState({ rate: '', margin: '', tax: '', payment: '', validUntil: '' });
   const [reconciliationCharges, setReconciliationCharges] = useState<Record<string, string>>({});
   const newAccountId = useRef(uuid().replaceAll('-', ''));
@@ -134,10 +146,18 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const statusRef = useRef<AppStatus | null>(null);
   const conversationRef = useRef<string | null>(null);
   const dialogRef = useRef<HTMLElement>(null);
-  const dialogStateRef = useRef<'settings' | 'help' | null>(null);
+  const dialogStateRef = useRef<'settings' | 'help' | 'quit' | null>(null);
   const dialogOpener = useRef<HTMLElement | null>(null);
   const settingsButton = useRef<HTMLButtonElement>(null);
   const draftRef = useRef<HTMLTextAreaElement>(null);
+  const draftValue = useRef('');
+  const drafts = useRef(new DraftMemory());
+  const localEdits = useRef(new DraftMemory());
+  const editTarget = useRef<{ element: HTMLInputElement | HTMLTextAreaElement; start: number; end: number; text: string } | null>(null);
+  const copiedSelection = useRef('');
+  const findRef = useRef<HTMLInputElement>(null);
+  const localActionRef = useRef<(action: LocalAction, opener?: HTMLElement) => void>(() => {});
+  const quitRef = useRef<() => void>(() => {});
   const searchRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<HTMLElement>(null);
   const menuRegion = useRef<HTMLDivElement>(null);
@@ -146,10 +166,18 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const endRef = useRef<HTMLDivElement>(null);
   const locked = busy || Boolean(activeRequest) || Boolean(status?.activeRequest);
 
+  function draftKey() { return conversationRef.current ?? '$unsaved'; }
+  function changeDraft(value: string) { drafts.current.write(draftKey(), value); draftValue.current = value; setDraft(value); }
+  function preserveDraft() {
+    if (!drafts.current.write(draftKey(), draftValue.current)) { setNotice('Reduce the draft to 32,768 UTF-8 bytes before navigating. No text was discarded.'); return false; }
+    return true;
+  }
+
   function adopt(value: Conversation | null) {
     conversationRef.current = value?.id ?? null;
     setConversation(value); setEntries(value?.entries ?? []);
-    setDraft(''); setDataClass(''); setNotice(null);
+    const restored = drafts.current.read(value?.id ?? '$unsaved'); draftValue.current = restored;
+    setDraft(restored); setDataClass(''); setNotice(null); setFind('');
   }
   async function refreshStatus() {
     const value: unknown = await bridge.getStatus();
@@ -171,6 +199,12 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   function isLocked() { return busyRef.current || Boolean(activeRef.current) || Boolean(statusRef.current?.activeRequest); }
   function markBusy(value: boolean) { busyRef.current = value; setBusy(value); }
 
+  useEffect(() => {
+    const query = window.matchMedia?.('(max-width: 750px)');
+    if (!query) return;
+    const changed = () => setCompact(query.matches); changed(); query.addEventListener('change', changed);
+    return () => query.removeEventListener('change', changed);
+  }, []);
   useEffect(() => {
     let disposed = false;
     let unsubscribe: (() => void) | undefined;
@@ -217,6 +251,11 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     void initialize();
     return () => { disposed = true; unsubscribe?.(); };
   }, [bridge]);
+  useEffect(() => {
+    let disposed = false; let unsubscribe: (() => void) | undefined;
+    void bridge.subscribeClose?.(() => quitRef.current()).then(value => { if (disposed) value(); else unsubscribe = value; }).catch(() => setNotice('Native close notifications are unavailable. Use Quit Aster; no draft was discarded.'));
+    return () => { disposed = true; unsubscribe?.(); };
+  }, [bridge]);
 
   useEffect(() => {
     const area = draftRef.current;
@@ -225,7 +264,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   useEffect(() => { endRef.current?.scrollIntoView?.({ block: 'end', behavior: 'auto' }); }, [entries]);
   useEffect(() => {
     dialogStateRef.current = dialog;
-    if (dialog) dialogRef.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus();
+    if (dialog) (dialogRef.current?.querySelector<HTMLElement>('[data-default-cancel]') ?? dialogRef.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)'))?.focus();
     else if (dialogOpener.current) {
       const previous = dialogOpener.current; dialogOpener.current = null;
       (previous.isConnected && !(previous as HTMLButtonElement).disabled ? previous : settingsButton.current)?.focus();
@@ -233,43 +272,69 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }, [dialog]);
   useEffect(() => {
     function shortcut(event: globalThis.KeyboardEvent) {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-      const key = event.key.toLowerCase();
-      if (!['n', 'k'].includes(key)) return;
+      const action = shortcutAction(event);
+      if (!action) return;
+      // Inputs in the local Settings dialogue keep their own ordinary editing;
+      // shortcuts never reach native credential/disclosure dialogue controls.
+      if (dialogStateRef.current) {
+        const target = event.target;
+        const ordinaryEdit = dialogStateRef.current === 'settings' && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && !target.disabled && ['undo','redo','cut','copy','paste','select'].includes(action);
+        if (!ordinaryEdit) event.preventDefault();
+        return;
+      }
+      captureEdit(document.activeElement); captureVisibleSelection();
       event.preventDefault();
-      if (dialogStateRef.current) return;
-      if (key === 'n') void newConversation();
-      else { setSidebarOpen(true); setSearchOpen(true); requestAnimationFrame(() => { if (!dialogStateRef.current) searchRef.current?.focus(); }); }
+      localActionRef.current(action);
     }
     function outside(event: MouseEvent) { if (menuRegion.current && !menuRegion.current.contains(event.target as Node)) setMenu(null); }
-    window.addEventListener('keydown', shortcut); window.addEventListener('mousedown', outside);
-    return () => { window.removeEventListener('keydown', shortcut); window.removeEventListener('mousedown', outside); };
+    function wheel(event: WheelEvent) {
+      if (!event.ctrlKey) return;
+      // Native/page zoom is never a second owner, even when local zoom is denied.
+      event.preventDefault();
+      if (event.altKey || event.shiftKey || !Number.isFinite(event.deltaY) || event.deltaY === 0) return;
+      localActionRef.current(event.deltaY < 0 ? 'zoomIn' : 'zoomOut');
+    }
+    window.addEventListener('keydown', shortcut); window.addEventListener('mousedown', outside); window.addEventListener('wheel', wheel, { passive: false });
+    return () => {
+      window.removeEventListener('keydown', shortcut); window.removeEventListener('mousedown', outside); window.removeEventListener('wheel', wheel);
+      if (zoomTimeout.current !== null) { window.clearTimeout(zoomTimeout.current); zoomTimeout.current = null; }
+    };
   }, []);
 
   async function newConversation() {
-    if (isLocked() || !statusRef.current?.historyAvailable) return;
+    if (isLocked() || !statusRef.current?.historyAvailable || !preserveDraft()) return;
     markBusy(true); setMenu(null);
     try {
+      await materialiseDraft();
       const saved: unknown = await bridge.createConversation();
       if (!validConversation(saved)) throw new Error('history_unavailable');
       adopt(saved); await refreshList(); setSidebarOpen(false); draftRef.current?.focus();
     } catch (error) { setNotice(safeError(error, 'A new conversation could not be created. Existing history is unchanged.')); }
-    finally { markBusy(false); }
+    finally { markBusy(false); requestAnimationFrame(() => { if (!dialogStateRef.current) draftRef.current?.focus(); }); }
   }
   async function chooseConversation(id: string) {
-    if (isLocked() || !statusRef.current?.historyAvailable) return;
+    if (isLocked() || !statusRef.current?.historyAvailable || !preserveDraft()) return;
     markBusy(true);
-    try { adopt(await readConversation(id)); setSidebarOpen(false); draftRef.current?.focus(); }
+    try { await materialiseDraft(); adopt(await readConversation(id)); setSidebarOpen(false); draftRef.current?.focus(); }
     catch (error) { setNotice(safeError(error, 'The conversation could not be loaded. Existing history is unchanged.')); }
-    finally { markBusy(false); }
+    finally { markBusy(false); requestAnimationFrame(() => { if (!dialogStateRef.current) draftRef.current?.focus(); }); }
+  }
+  async function materialiseDraft() {
+    if (conversationRef.current || !draftValue.current) return;
+    const saved: unknown = await bridge.createConversation();
+    if (!validConversation(saved)) throw new Error('history_unavailable');
+    if (!drafts.current.write(saved.id, draftValue.current)) throw new Error('history_limit');
+    drafts.current.forget('$unsaved'); adopt(saved); await refreshList();
   }
   async function removeConversation() {
     const id = conversationRef.current;
     if (!id || isLocked()) return;
+    if (draftValue.current.length) { setNotice('Keep or clear the current unsent draft before removing this conversation. No draft was discarded.'); return; }
     markBusy(true); setMenu(null);
     try {
       const result = await bridge.deleteConversation({ conversationId: id });
       if (result.deleted) {
+        drafts.current.forget(id);
         const list = await refreshList(); adopt(list.length ? await readConversation(list[0].id) : null);
         setNotice('Removed from visible history. Encrypted recovery records remain; spending and credentials are unchanged.');
       }
@@ -296,12 +361,13 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
         const value: unknown = await bridge.createConversation();
         if (!validConversation(value)) throw new Error('history_unavailable');
         id = value.id; conversationRef.current = id; setConversation(value); setEntries(value.entries); await refreshList();
+        drafts.current.write(id, message); drafts.current.forget('$unsaved');
       }
       const requestId = uuid().replaceAll('-', '');
       issuedRequestId = requestId;
       activeRef.current = requestId; setActiveRequest(requestId); terminal.current.delete(requestId);
       setEntries(current => [...current, { id: uuid(), role: 'user', content: message, requestId, state: 'completed' }, { id: uuid(), role: 'assistant', content: '', requestId, state: 'streaming' }]);
-      setDraft('');
+      changeDraft(''); drafts.current.forget(draftKey());
       const response = await bridge.sendMessage({ conversationId: id, requestId, modelId: DEFAULT_MODEL, message, dataClass: classification, reasoningEffort });
       if (response.requestId !== requestId || response.accepted !== true) throw new Error('request_denied');
     } catch (error) {
@@ -309,7 +375,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       // A declined native review has no saved intent. Keep the exact unsent
       // draft, but never replace a newer draft after a terminal-winning race.
       if (conversationRef.current === id && (!issuedRequestId || activeRef.current === issuedRequestId)) {
-        setDraft(message); setDataClass(classification);
+        changeDraft(message); setDataClass(classification);
       }
       const requestId = activeRef.current;
       if (requestId) {
@@ -330,7 +396,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     } catch { if (activeRef.current === id) setNotice('The stop request could not be confirmed. Spending remains unresolved until the host verifies usage.'); }
     finally { setCancelling(false); }
   }
-  function openDialog(next: 'settings' | 'help', opener: HTMLElement) {
+  function openDialog(next: 'settings' | 'help' | 'quit', opener: HTMLElement) {
     dialogOpener.current = opener.closest('.menu-group')?.querySelector<HTMLElement>('[data-menu]') ?? opener;
     dialogStateRef.current = next; setMenu(null); setDialog(next);
   }
@@ -344,11 +410,139 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
   function menuKeys(event: KeyboardEvent<HTMLElement>) {
     if (event.key === 'Escape') { setMenu(null); menuRegion.current?.querySelector<HTMLButtonElement>(`[data-menu="${menu}"]`)?.focus(); return; }
+    if (event.key === 'Tab') { setMenu(null); return; }
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault(); const names: MenuName[] = ['File', 'Edit', 'View', 'Help'];
+      const next = names[(names.indexOf(menu!) + (event.key === 'ArrowRight' ? 1 : -1) + names.length) % names.length];
+      setMenu(next); requestAnimationFrame(() => menuRegion.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()); return;
+    }
     if (!['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
     const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'));
     if (!items.length) return;
     event.preventDefault(); const index = items.indexOf(document.activeElement as HTMLButtonElement);
-    items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+    const next = items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length];
+    next.focus(); next.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }
+  function captureEdit(element: EventTarget | null) {
+    if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) || element.type === 'password' || element.selectionStart === null || element.selectionEnd === null) return;
+    editTarget.current = { element, start: element.selectionStart, end: element.selectionEnd, text: element.value };
+    const key = element.dataset.editKey;
+    if (key) localEdits.current.write(key, element.value);
+  }
+  function captureVisibleSelection() {
+    const selection = window.getSelection();
+    const text = selection?.toString() ?? '';
+    const withinVisibleContent = Boolean(selection?.anchorNode && document.getElementById('main')?.contains(selection.anchorNode));
+    copiedSelection.current = withinVisibleContent && utf8Bytes(text) <= MAX_MESSAGE_BYTES ? text : '';
+    if (withinVisibleContent && text) editTarget.current = null;
+  }
+  function editable() {
+    const target = editTarget.current;
+    return target && target.element.isConnected && !target.element.disabled && !target.element.readOnly && target.element.value === target.text ? target : null;
+  }
+  function applyEdit(value: string, caret: number) {
+    const target = editable(); if (!target) return;
+    const key = target.element.dataset.editKey;
+    if (target.element === draftRef.current) changeDraft(value);
+    else if (key === 'search') setSearch(value);
+    else if (key === 'find') setFind(value);
+    else if (key?.startsWith('budget:')) setBudgetFields(current => ({ ...current, [key.slice(7)]: value }));
+    else if (key?.startsWith('charge:')) setReconciliationCharges(current => ({ ...current, [key.slice(7)]: value }));
+    else return;
+    if (key) localEdits.current.write(key, value);
+    const pending = { ...target, text: value, start: caret, end: caret }; editTarget.current = pending;
+    requestAnimationFrame(() => { if (editTarget.current === pending && target.element.value === value && !dialogStateRef.current && target.element.isConnected) { target.element.focus(); target.element.setSelectionRange(caret, caret); captureEdit(target.element); } });
+  }
+  async function editAction(action: LocalAction) {
+    if (isLocked() || dialogStateRef.current) return;
+    const target = editable();
+    const current = target?.element === draftRef.current;
+    const history = current ? drafts.current : localEdits.current;
+    const key = current ? draftKey() : target?.element.dataset.editKey;
+    if (action === 'undo' || action === 'redo') {
+      if (!target || !key || !(action === 'undo' ? history.canUndo(key) : history.canRedo(key))) return;
+      const text = action === 'undo' ? history.undo(key) : history.redo(key);
+      // applyEdit must not append the undo result as a fresh edit.
+      if (current) { draftValue.current = text; setDraft(text); }
+      else {
+        applyEdit(text, text.length);
+      }
+      const pending = { ...target, text, start: text.length, end: text.length }; editTarget.current = pending;
+      requestAnimationFrame(() => { if (editTarget.current === pending && target.element.value === text && !dialogStateRef.current && target.element.isConnected) { target.element.focus(); target.element.setSelectionRange(text.length, text.length); captureEdit(target.element); } }); return;
+    }
+    if (action === 'select') { if (target) { target.element.focus(); target.element.select(); captureEdit(target.element); } return; }
+    const selected = target ? target.text.slice(target.start, target.end) : copiedSelection.current;
+    if ((action === 'copy' || action === 'cut') && !selected) return;
+    if ((action === 'copy' || action === 'cut') && utf8Bytes(selected) > MAX_MESSAGE_BYTES) { setNotice('Select no more than 32,768 UTF-8 bytes for clipboard editing. No text was copied or changed.'); return; }
+    if (action === 'delete') { if (target && target.start !== target.end) { const result = editSelection(target.text, target.start, target.end, ''); if (result) applyEdit(result.text, result.caret); } return; }
+    try {
+      if (action === 'copy' || action === 'cut') await navigator.clipboard.writeText(selected);
+      const pasted = action === 'paste' ? await navigator.clipboard.readText() : '';
+      if (action === 'copy') return;
+      if (!target || editable() !== target || isLocked() || dialogStateRef.current) return;
+      const result = editSelection(target.text, target.start, target.end, pasted);
+      if (!result) { setNotice('The edit exceeds 32,768 UTF-8 bytes or the selected range is invalid. No text was changed.'); return; }
+      applyEdit(result.text, result.caret);
+    } catch { setNotice('Clipboard access was refused or is unavailable. No text was changed or sent.'); }
+  }
+  async function windowAction(action: WindowAction) {
+    if (!bridge.windowAction || isLocked()) return;
+    markBusy(true);
+    try {
+      const result = await bridge.windowAction({ action });
+      if (!result || typeof result.maximised !== 'boolean' || typeof result.fullscreen !== 'boolean') throw new Error('invalid_window_state');
+      setWindowState(result);
+    } catch (error) { setNotice(safeError(error, 'The window action could not be confirmed. Drafts, saved history and spending were not reset.')); }
+    finally { markBusy(false); }
+  }
+  function requestQuit() {
+    if (isLocked() || dialogStateRef.current || !bridge.windowAction) return;
+    setMenu(null);
+    if (draftValue.current.length || drafts.current.hasDrafts) openDialog('quit', document.activeElement instanceof HTMLElement ? document.activeElement : document.body);
+    else void windowAction('close');
+  }
+  quitRef.current = requestQuit;
+  function actionDisabled(action: LocalAction) {
+    if (locked) return true;
+    if (action === 'new') return !status?.historyAvailable;
+    if (action === 'quit' || action === 'fullscreen') return !bridge.windowAction;
+    if (action === 'previous' || action === 'next') { const position = summaries.findIndex(item => item.id === conversation?.id); return !status?.historyAvailable || position < 0 || (action === 'previous' ? position === 0 : position === summaries.length - 1); }
+    if (['undo','redo','cut','paste','delete','select'].includes(action)) {
+      const target = editable(); if (!target) return true;
+      const current = target.element === draftRef.current; const key = current ? draftKey() : target.element.dataset.editKey;
+      if (action === 'undo' || action === 'redo') return !key || !(action === 'undo' ? (current ? drafts.current : localEdits.current).canUndo(key) : (current ? drafts.current : localEdits.current).canRedo(key));
+      if (action === 'cut' || action === 'delete') return target.start === target.end;
+    }
+    if (action === 'copy') { const target = editable(); return !(target && target.start !== target.end) && !copiedSelection.current; }
+    return false;
+  }
+  function performAction(action: LocalAction, opener?: HTMLElement) {
+    if (isLocked() || dialogStateRef.current || actionDisabled(action)) return;
+    setMenu(null);
+    if (['undo','redo','cut','copy','paste','delete','select'].includes(action)) { void editAction(action); return; }
+    if (action === 'new') { void newConversation(); return; }
+    if (action === 'quit') { requestQuit(); return; }
+    if (action === 'settings') { openDialog('settings', opener ?? document.activeElement as HTMLElement); return; }
+    if (action === 'sidebar') { if (compact) { setSidebarVisible(true); setSidebarOpen(current => !current); } else setSidebarVisible(current => !current); return; }
+    if (action === 'search') { setSidebarVisible(true); setSidebarOpen(true); setSearchOpen(true); requestAnimationFrame(() => searchRef.current?.focus()); return; }
+    if (action === 'find') { setFindOpen(true); requestAnimationFrame(() => findRef.current?.focus()); return; }
+    if (action === 'previous' || action === 'next') { const position = summaries.findIndex(item => item.id === conversationRef.current); const next = summaries[position + (action === 'previous' ? -1 : 1)]; if (next) void chooseConversation(next.id); return; }
+    if (action === 'zoomIn' || action === 'zoomOut' || action === 'zoomReset') {
+      const next = action === 'zoomReset' ? 100 : Math.max(80, Math.min(150, zoomRef.current + (action === 'zoomIn' ? 10 : -10)));
+      zoomRef.current = next; setZoom(next); setZoomFeedback(true);
+      if (zoomTimeout.current !== null) window.clearTimeout(zoomTimeout.current);
+      zoomTimeout.current = window.setTimeout(() => { zoomTimeout.current = null; setZoomFeedback(false); }, 1000);
+      return;
+    }
+    if (action === 'fullscreen') { void windowAction('toggle_fullscreen'); return; }
+    if (action in helpTitles) { setHelpPage(action as HelpPage); openDialog('help', opener ?? document.activeElement as HTMLElement); }
+  }
+  localActionRef.current = performAction;
+  function highlighted(text: string): ReactNode {
+    if (!find) return text;
+    const chunks: ReactNode[] = []; let cursor = 0;
+    for (const span of findMatches(text, find).spans) { chunks.push(text.slice(cursor, span.start), <mark key={span.start}>{text.slice(span.start, span.end)}</mark>); cursor = span.end; }
+    chunks.push(text.slice(cursor)); return chunks;
   }
   function submitBudget() {
     const values = [budgetFields.rate, budgetFields.margin, budgetFields.tax, budgetFields.payment];
@@ -369,28 +563,32 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const filteredSummaries = summaries.filter(item => item.title.toLocaleLowerCase('en-GB').includes(search.toLocaleLowerCase('en-GB')));
   const bytes = utf8Bytes(draft);
   const availability = hostState === 'checking' ? 'Checking the native host…' : hostState === 'unavailable' ? 'Native host unavailable or incompatible.' : status ? availabilityText[status.availability] : 'Unavailable';
-  return <div className="app-shell">
+  const matchCount = find ? entries.reduce((sum, entry) => sum + findMatches(entry.content, find).count, 0) : 0;
+  const navigationVisible = sidebarVisible && (!compact || sidebarOpen);
+  return <><div className={`app-shell ${sidebarVisible ? '' : 'sidebar-hidden'}`} style={{ zoom: zoom / 100, width: '100%', height: '100%', '--interface-scale': zoom / 100 } as CSSProperties} onFocusCapture={event => captureEdit(event.target)} onSelectCapture={event => captureEdit(event.target)} onChangeCapture={event => captureEdit(event.target)}>
     <a href="#main" className="skip-link">Skip to content</a>
+    <div className="captionbar" aria-label="Window title bar">
+      <div className="caption-drag-region" onMouseDown={event => { if (event.button === 0 && event.detail === 1 && !dialogStateRef.current) void windowAction('start_dragging'); }} onDoubleClick={() => { if (!dialogStateRef.current) void windowAction('toggle_maximise'); }}><img className="caption-emblem" src={launcherIcon} alt=""/><span>Aster Desktop</span></div>
+      <span className="language-indicator" role="img" aria-label="English (United Kingdom)" title="English (United Kingdom)"><UnionJack/></span>
+      <div className="caption-controls"><button aria-label="Minimise window" disabled={locked || !bridge.windowAction || Boolean(dialog)} onClick={() => void windowAction('minimise')}><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor"/></svg></button><button aria-label={windowState.maximised ? 'Restore window' : 'Maximise window'} disabled={locked || !bridge.windowAction || Boolean(dialog)} onClick={() => void windowAction('toggle_maximise')}><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">{windowState.maximised ? <path d="M3 1h8v8M1 3h8v8H1z" fill="none" stroke="currentColor"/> : <rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor"/>}</svg></button><button className="caption-close" aria-label="Close Aster" disabled={locked || !bridge.windowAction || Boolean(dialog)} onClick={requestQuit}><Icon name="close" size={14}/></button></div>
+    </div>
     <header className="titlebar">
-      <button className="mobile-menu icon-button" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}><Icon name="menu"/></button>
+      <button className="mobile-menu icon-button" aria-label="Open navigation" disabled={locked} onClick={() => { setSidebarVisible(true); setSidebarOpen(true); }}><Icon name="menu"/></button>
       <div className="titlebar-menu" ref={menuRegion}>
         {(['File','Edit','View','Help'] as MenuName[]).map(name => <div className="menu-group" key={name}>
-          <button data-menu={name} aria-haspopup="menu" aria-expanded={menu === name} onClick={() => setMenu(menu === name ? null : name)} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setMenu(name); requestAnimationFrame(() => menuRegion.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()); } }}>{name}</button>
+          <button data-menu={name} aria-haspopup="menu" aria-expanded={menu === name} disabled={Boolean(dialog)} onMouseDown={captureVisibleSelection} onClick={() => setMenu(menu === name ? null : name)} onKeyDown={event => { if (event.key === 'Escape' && menu === name) { event.preventDefault(); event.stopPropagation(); setMenu(null); event.currentTarget.focus(); return; } if (event.key === 'ArrowDown') { event.preventDefault(); captureVisibleSelection(); setMenu(name); requestAnimationFrame(() => menuRegion.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()); } }}>{name}</button>
           {menu === name && <div role="menu" aria-label={name} className="menu-popup" onKeyDown={menuKeys}>
-            {name === 'File' && <><button role="menuitem" disabled={locked || !status?.historyAvailable} onClick={() => void newConversation()}>New conversation <kbd>Ctrl N</kbd></button><button role="menuitem" disabled={locked || !conversation} onClick={() => void removeConversation()}>Remove conversation…</button><button role="menuitem" onClick={event => openDialog('settings', event.currentTarget)}>Settings</button></>}
-            {name === 'Edit' && <><button role="menuitem" disabled={locked || !draft} onClick={() => { setMenu(null); draftRef.current?.focus(); draftRef.current?.select(); }}>Select message text</button><button role="menuitem" disabled={locked || !draft} onClick={() => { setDraft(''); setMenu(null); draftRef.current?.focus(); }}>Clear message draft</button></>}
-            {name === 'View' && <><button role="menuitem" onClick={() => { setMenu(null); setSidebarOpen(true); requestAnimationFrame(() => { if (!dialogStateRef.current) historyRef.current?.focus(); }); }}>Show conversation navigation</button><button role="menuitem" onClick={() => { setMenu(null); setSearchOpen(true); setSidebarOpen(true); requestAnimationFrame(() => { if (!dialogStateRef.current) searchRef.current?.focus(); }); }}>Search conversations <kbd>Ctrl K</kbd></button></>}
-            {name === 'Help' && <button role="menuitem" onClick={event => openDialog('help', event.currentTarget)}>Using Aster</button>}
+            {menuGroups[name].map((group, index) => <div key={index} role="none">{index > 0 && <div role="separator" className="menu-separator"/>}{group.map(item => <button key={item.action} role="menuitem" aria-label={item.label} disabled={actionDisabled(item.action)} onClick={event => performAction(item.action, event.currentTarget)}><span>{item.label}</span>{item.shortcut && <kbd>{item.shortcut}</kbd>}</button>)}</div>)}
           </div>}
         </div>)}
       </div>
-      <span className="language-indicator" role="img" aria-label="English (United Kingdom)" title="English (United Kingdom)"><UnionJack/><span className="visually-hidden">English (United Kingdom)</span></span>
+      <span className="visually-hidden" aria-label="Interface zoom">{zoom}%</span>
     </header>
     {sidebarOpen && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setSidebarOpen(false)}/>}
-    <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`} aria-label="Conversation navigation">
+    <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`} aria-label="Conversation navigation" aria-hidden={!navigationVisible} inert={!navigationVisible}>
       <div className="brand-slot"><img src={wordmark} alt="Aster AI" className="brand-image"/></div>
-      <div className="sidebar-tools"><button className="icon-button" aria-label="New conversation" title="New conversation (Ctrl N)" onClick={() => void newConversation()} disabled={locked || !status?.historyAvailable}><Icon name="new"/></button><button className="icon-button" aria-label="Search conversations" title="Search conversations (Ctrl K)" onClick={() => { setSearchOpen(current => !current); requestAnimationFrame(() => searchRef.current?.focus()); }}><Icon name="search"/></button></div>
-      {searchOpen && <label className="search-field"><span className="visually-hidden">Search saved conversations</span><input ref={searchRef} type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search conversations"/></label>}
+      <div className="sidebar-tools"><button className="icon-button" aria-label="New conversation" title="New conversation (Ctrl+N)" onClick={() => void newConversation()} disabled={locked || !status?.historyAvailable}><Icon name="new"/></button><button className="icon-button" aria-label="Search conversations" title="Search conversations (Ctrl+K)" disabled={locked} onClick={() => { setSearchOpen(current => !current); requestAnimationFrame(() => searchRef.current?.focus()); }}><Icon name="search"/></button></div>
+      {searchOpen && <label className="search-field"><span className="visually-hidden">Search saved conversations</span><input ref={searchRef} data-edit-key="search" type="search" value={search} maxLength={256} disabled={locked} onChange={event => setSearch(event.target.value.slice(0,256))} placeholder="Search conversations"/></label>}
       <div className="section-label">Conversations <span>{summaries.length}</span></div>
       <nav ref={historyRef} className="history-list" aria-label="Saved conversations" tabIndex={0}>
         {filteredSummaries.length ? filteredSummaries.map(item => <button key={item.id} className={`history-row ${conversation?.id === item.id ? 'selected' : ''}`} aria-current={conversation?.id === item.id ? 'page' : undefined} onClick={() => void chooseConversation(item.id)} disabled={locked} title={item.title || 'Untitled conversation'}><span>{item.title || 'Untitled conversation'}</span><small>{item.entryCount} {item.entryCount === 1 ? 'message' : 'messages'}</small></button>) : <p className="muted-line">{search ? 'No matching conversations.' : status?.historyAvailable ? 'No saved conversations yet.' : 'Saved history unavailable.'}</p>}
@@ -398,14 +596,15 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       <footer className="sidebar-footer"><p>{status?.historyAvailable ? 'History is saved on this Windows account.' : 'Saved history is currently unavailable.'}<br/>Responses are generated by Meta.</p><button ref={settingsButton} className="settings-button" onClick={event => openDialog('settings', event.currentTarget)}><Icon name="settings"/><span>Settings</span></button></footer>
     </aside>
     <main className="main-panel" id="main" tabIndex={-1}>
+      {findOpen && <div className="find-bar"><label><span className="visually-hidden">Find in this conversation</span><input ref={findRef} data-edit-key="find" type="search" aria-label="Find in this conversation" maxLength={256} value={find} disabled={locked} onChange={event => setFind(event.target.value.slice(0,256))} onKeyDown={event => { if (event.key === 'Escape') { setFindOpen(false); setFind(''); draftRef.current?.focus(); } }}/></label><span role="status">{matchCount} {matchCount === 1 ? 'match' : 'matches'}</span><button className="icon-button" aria-label="Close find" onClick={() => { setFindOpen(false); setFind(''); draftRef.current?.focus(); }}><Icon name="close" size={16}/></button></div>}
       <div className="content-area">
-        {!entries.length ? <section className="welcome" aria-labelledby="welcome-title"><img className="ready-artwork" src={readyArtwork} alt=""/><h1 id="welcome-title" className="visually-hidden">Ready when you are.</h1></section> : <section className="messages" aria-label="Conversation messages">
-          {entries.map(entry => <article key={entry.id} className={`message message-${entry.role}`}><div className="message-avatar" aria-hidden="true">{entry.role === 'assistant' ? 'A' : 'Y'}</div><div className="message-body"><div className="message-meta"><strong>{entry.role === 'user' ? 'You' : 'Aster'}</strong>{entry.role === 'assistant' && <span>{MODEL_LABEL}</span>}</div><div className="message-text">{entry.content || (entry.state === 'streaming' ? 'Waiting for a response…' : '')}</div>{entry.role === 'assistant' && <p className={entry.state === 'completed' || entry.state === 'streaming' ? 'visually-hidden' : 'inline-state'} role="status">{entry.state === 'streaming' ? 'Receiving response' : entry.state === 'completed' ? 'Response completed' : entry.state === 'interrupted' ? 'Interrupted before restart. This incomplete response is not reused as context.' : entry.state === 'refused' ? 'Response refused. Not reused as context.' : entry.state === 'truncated' ? 'Response truncated. Not reused as context.' : entry.state === 'cancelled' ? 'Response stopped. Displayed text may be incomplete; spending may remain unresolved.' : 'Response failed. Displayed text may be incomplete; spending may remain unresolved.'}</p>}</div></article>)}<div ref={endRef}/>
+        {!entries.length ? <section className="welcome" aria-labelledby="welcome-title"><div className="ready-orb" aria-hidden="true"><img className="ready-artwork" src={readyArtwork} alt=""/></div><h1 id="welcome-title">Ready when you are.</h1></section> : <section className="messages" aria-label="Conversation messages">
+          {entries.map(entry => <article key={entry.id} className={`message message-${entry.role}`}><div className="message-avatar" aria-hidden="true">{entry.role === 'assistant' ? 'A' : 'Y'}</div><div className="message-body"><div className="message-meta"><strong>{entry.role === 'user' ? 'You' : 'Aster'}</strong>{entry.role === 'assistant' && <span>{MODEL_LABEL}</span>}</div><div className="message-text">{highlighted(entry.content || (entry.state === 'streaming' ? 'Waiting for a response…' : ''))}</div>{entry.role === 'assistant' && <p className={entry.state === 'completed' || entry.state === 'streaming' ? 'visually-hidden' : 'inline-state'} role="status">{entry.state === 'streaming' ? 'Receiving response' : entry.state === 'completed' ? 'Response completed' : entry.state === 'interrupted' ? 'Interrupted before restart. This incomplete response is not reused as context.' : entry.state === 'refused' ? 'Response refused. Not reused as context.' : entry.state === 'truncated' ? 'Response truncated. Not reused as context.' : entry.state === 'cancelled' ? 'Response stopped. Displayed text may be incomplete; spending may remain unresolved.' : 'Response failed. Displayed text may be incomplete; spending may remain unresolved.'}</p>}</div></article>)}<div ref={endRef}/>
         </section>}
       </div>
       <div className="composer-zone">
         {notice && <div className="notice" role="status"><span>{notice}</span><button className="icon-button" aria-label="Dismiss notice" onClick={() => setNotice(null)}><Icon name="close" size={16}/></button></div>}
-        <div className="composer"><label className="visually-hidden" htmlFor="message-input">Message for Aster</label><textarea ref={draftRef} id="message-input" placeholder="Ask Aster" value={draft} onChange={event => setDraft(event.target.value)} disabled={locked} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} rows={2} aria-describedby="composer-guidance message-limit"/>
+        <div className="composer"><label className="visually-hidden" htmlFor="message-input">Message for Aster</label><textarea ref={draftRef} id="message-input" placeholder="Ask Aster" value={draft} onChange={event => changeDraft(event.target.value)} disabled={locked || Boolean(dialog)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} rows={2} aria-describedby="composer-guidance message-limit"/>
           <div className="composer-controls"><span className="fixed-model">{MODEL_LABEL}</span><div className="composer-options"><label><span className="visually-hidden">Reasoning effort</span><select aria-label="Reasoning effort" value={reasoningEffort} onChange={event => setReasoningEffort(event.target.value as ReasoningEffort)} disabled={locked}>{REASONING_EFFORTS.map(value => <option key={value} value={value}>{value === 'xhigh' ? 'Extra high' : value[0].toUpperCase() + value.slice(1)}</option>)}</select></label><label><span className="visually-hidden">Content classification</span><select aria-label="Content classification" value={dataClass} onChange={event => setDataClass(event.target.value as DataClass | '')} disabled={locked}><option value="">Classify content</option><option value="synthetic">Synthetic</option><option value="public_eligible">Eligible public</option></select></label></div>{activeRequest || status?.activeRequest ? <button className="send-button" aria-label="Stop response" title="Stop does not erase unresolved charges" onClick={() => void cancel()} disabled={!activeRequest || cancelling}><Icon name="stop"/></button> : <button className="send-button" aria-label="Send message" onClick={() => void send()} disabled={!canSend}><Icon name="send"/></button>}</div>
         </div>
         <p id="message-limit" className={`message-limit ${bytes > MAX_MESSAGE_BYTES ? 'over-limit' : ''}`}>{bytes.toLocaleString('en-GB')} / {MAX_MESSAGE_BYTES.toLocaleString('en-GB')} UTF-8 bytes{bytes > MAX_MESSAGE_BYTES ? ' — message too long' : ''}</p>
@@ -413,8 +612,15 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
         <p className="availability" role="status">{availability}</p>
       </div>
     </main>
-    {dialog && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setDialog(null); }}><section ref={dialogRef} className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onKeyDown={dialogKeys}><header className="settings-header"><h2 id="dialog-title">{dialog === 'settings' ? 'Settings and privacy' : 'Using Aster'}</h2><button className="icon-button" aria-label="Close dialogue" onClick={() => setDialog(null)}><Icon name="close"/></button></header>
-      {dialog === 'help' ? <div className="help-copy"><p>Aster uses one model: {MODEL_LABEL}. Responses are generated externally, not on this laptop.</p><p>Use only synthetic examples or public material whose rights and eligibility are established. Personal, confidential, sensitive and unknown content is prohibited. A public source can still contain personal information. Each full outgoing conversation needs fresh native disclosure review.</p><p>Ctrl+N creates a conversation; Ctrl+K searches saved conversation titles. Enter sends and Shift+Enter adds a line. Stop ends the visible request, not a possible charge. Failed, stopped, refused, truncated and interrupted responses are not automatically reused as context.</p><p>Saved history is encrypted for this Windows account. Other processes under the same account remain a risk. Removing a conversation hides it from history; encrypted recovery records remain and disk capacity is not reclaimed. Credentials, spending and file-recovery records are not removed.</p><p>No project attachments, file writes, voice, browser, shell, web or model tools are enabled. The £89 monthly admission ceiling is not a provider billing balance and does not cover activity outside Aster.</p></div> : <>
+    {dialog && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setDialog(null); }}><section ref={dialogRef} className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onKeyDown={dialogKeys}><header className="settings-header"><h2 id="dialog-title">{dialog === 'settings' ? 'Settings and privacy' : dialog === 'quit' ? 'Unsent drafts' : helpTitles[helpPage]}</h2><button className="icon-button" aria-label="Close dialogue" onClick={() => setDialog(null)}><Icon name="close"/></button></header>
+      {dialog === 'quit' ? <div className="help-copy"><p>Quitting will discard unsent drafts held in this process. Saved conversations, credentials and spending records will not be removed or reset.</p><div className="settings-actions"><button className="secondary-action" data-default-cancel onClick={() => setDialog(null)}>Keep working</button><button className="primary-action" disabled={locked || !bridge.windowAction} onClick={() => { dialogStateRef.current = null; setDialog(null); void windowAction('close'); }}>Discard drafts and quit</button></div></div> : dialog === 'help' ? <div className="help-copy">
+        {helpPage === 'documentation' && <><p>Aster uses one model: {MODEL_LABEL}. Responses are generated externally, not on this laptop.</p><p>Use only synthetic examples or public material whose rights and eligibility are established. Personal, confidential, sensitive and unknown content is prohibited. A public source can still contain personal information. Each full outgoing conversation needs fresh native disclosure review.</p><p>Ctrl+N creates a conversation; Ctrl+K searches saved conversation titles. Enter sends and Shift+Enter adds a line. Stop ends the visible request, not a possible charge. Failed, stopped, refused, truncated and interrupted responses are not automatically reused as context.</p><p>Saved history is encrypted for this Windows account. Other processes under the same account remain a risk. Removing a conversation hides it from history; encrypted recovery records remain and disk capacity is not reclaimed. Credentials, spending and file-recovery records are not removed.</p><p>No project attachments, file writes, voice, browser, shell, web or model tools are enabled. The £89 monthly admission ceiling is not a provider billing balance and does not cover activity outside Aster.</p><p>Unsent drafts stay in memory while switching chats. They are not saved between restarts. Quit reviews their loss with Keep working selected by default.</p><p>Find counts literal case-insensitive matches in the visible conversation. At most the first 512 matches in each message are highlighted; no protected-store or network search occurs.</p></>}
+        {helpPage === 'shortcuts' && <><p>Shortcuts apply to the active Aster field or local view. Busy actions and behind-dialogue shortcuts remain unavailable. Clipboard access can be refused by the WebView; no background clipboard reader is used.</p><p>Ctrl + mouse wheel zooms the local interface. Ctrl++ (including Ctrl+= or keypad plus), Ctrl+- and Ctrl+0 use the same 80–150% range. The current percentage appears for one second after each admitted zoom action.</p><dl className="shortcut-list">{Object.values(menuGroups).flat(2).filter(item => item.shortcut).map(item => <div key={item.action}><dt>{item.label}</dt><dd>{item.shortcut}</dd></div>)}<div><dt>Send / add a line</dt><dd>Enter / Shift+Enter</dd></div><div><dt>Menu navigation</dt><dd>Arrow keys, Home, End, Escape</dd></div></dl></>}
+        {helpPage === 'news' && <><p>v{packageInfo.version}: Ctrl + mouse wheel, main-key and keypad shortcuts share the bounded interface zoom. A top-right percentage appears for one second after the latest admitted zoom action.</p><p>Explicit dark startup surfaces reduce exposure to unpainted light backgrounds. The previously reported brief startup flash needs separate installed Windows verification. v0.2.1 branding, menus and sky-blue action buttons are retained. Provider, eligibility, privacy and spending controls are unchanged.</p></>}
+        {helpPage === 'troubleshooting' && <><p>If the host, history or spending needs attention, read the local notice and Settings. Do not reset protected records, remove unresolved charges or repeatedly retry a failed request.</p><p>Enter a key only in the native Windows dialogue. Do not paste keys into chat or diagnostic reports. A configured key does not prove a live connection.</p><p>If Windows or security software blocks the app, retain the exact alert and seek review. Do not disable protection or add exclusions. Opening help does not submit files, logs or a Meta request.</p><p>Use Keep working to cancel quitting. If clipboard access fails, ordinary editing remains local; no alternative global reader is attempted.</p></>}
+        {helpPage === 'status' && <><p>Native host: {hostState === 'ready' ? 'Available; protocol 3.' : 'Unavailable or not yet verified.'}</p><p>Live connection: unverified. No request or probe is made by this view.</p><p>Credential: {status?.configured ? 'Configured; bytes are not available here.' : 'Not configured or unavailable.'}</p><p>Saved history: {status?.historyAvailable ? 'Available for this Windows account.' : 'Unavailable or unverified.'}</p><p>Contributor eligibility: {status?.contributor.eligible ? 'Recorded locally; not a live entitlement check.' : 'Unconfirmed.'}</p><p>Spending policy: {status?.budget.configured ? 'Configured locally; not a provider billing balance.' : 'Not configured or unavailable.'} {status?.budget.requiresReconciliation ? 'Pending reconciliation blocks sending.' : 'No current reconciliation flag; no zero-charge claim is made.'}</p><p>Project, file, shell, browser, web and model tools: disabled.</p><p>Window controls: {bridge.windowAction ? 'Native bounded actions available; installed behaviour requires acceptance.' : 'Unavailable in this host.'}</p></>}
+        {helpPage === 'about' && <><p>Aster Desktop v{packageInfo.version}</p><p>Unsigned engineering build for Windows 11 x64. This is not a production or live-provider acceptance claim.</p><p>{MODEL_LABEL} is the sole admitted model. Responses are generated by Meta.</p><p>British English interface. History is protected for this Windows account; unsent drafts remain process memory only.</p></>}
+      </div> : <>
         <section className="settings-section"><h3>Contributor terms and eligibility</h3><p>Terms revision: {status?.contributor.termsRevision ?? 'Unavailable'}. {status?.contributor.accepted ? 'Reviewed locally.' : 'Not yet reviewed.'} {status?.contributor.eligible ? 'Account eligibility recorded.' : 'Eligibility unconfirmed.'}</p><p>Contributor permits training on inputs and responses. Sensitive, personal and confidential content is prohibited; consent cannot make prohibited content admissible.</p><button className="primary-action" disabled={locked || !status} onClick={() => void nativeAction(() => bridge.acceptContributorTerms(), 'The Contributor terms or eligibility review was not accepted.')}>Review terms and eligibility in Windows</button></section>
         <section className="settings-section"><h3>Meta credential</h3><p>{status?.configured ? 'Configured for this Windows account. This is not proof of a live connection.' : 'Not configured. Enter the key only in the native Windows dialogue.'}</p><div className="settings-actions"><button className="primary-action" disabled={locked || !status?.credentialAvailable} onClick={() => void nativeAction(() => bridge.configureCredential(), 'The credential could not be configured. Check the native Windows dialogue.')}>{status?.configured ? 'Change key in Windows' : 'Set up key in Windows'}</button><button className="secondary-action" disabled={locked || !status?.configured} onClick={() => void nativeAction(() => bridge.removeCredential(), 'The credential was not removed. Check the native confirmation.')}>Remove key…</button></div></section>
         <section className="settings-section"><h3>Monthly spending policy</h3><dl className="budget-summary"><dt>Period (Edinburgh / London)</dt><dd>{status?.budget.period ?? 'Not configured'}</dd><dt>Admission ceiling</dt><dd>£89.00</dd><dt>Recorded spending</dt><dd>{status ? formatGbp(status.budget.spentNanoGbp) : 'Unavailable'}</dd><dt>Pending reservations</dt><dd>{status ? formatGbp(status.budget.reservedNanoGbp) : 'Unavailable'}</dd><dt>Remaining admission amount</dt><dd>{status ? formatGbp(status.budget.remainingNanoGbp) : 'Unavailable'}</dd></dl>{status?.budget.warning && <p className="inline-state">The 90% spending warning has been reached.</p>}{status?.budget.requiresReconciliation && <p className="inline-state">Reconciliation required. Sending remains blocked; restarting or removing conversations does not free reservations.</p>}<p>Enter conservative values explicitly. One part per million represents 0.000001 GBP per USD; 100 basis points represents 1%. There is no automatic FX estimate or reset.</p><div className="financial-fields">{([['rate','GBP per USD (integer parts per million)'],['margin','Safety margin (basis points)'],['tax','Tax (basis points)'],['payment','Payment charges (basis points)']] as const).map(([field,label]) => <label key={field}>{label}<input inputMode="numeric" value={budgetFields[field]} onChange={event => setBudgetFields(current => ({ ...current, [field]: event.target.value }))} disabled={locked}/></label>)}<label>Valid until (local Windows time; maximum 31 days)<input type="datetime-local" value={budgetFields.validUntil} onChange={event => setBudgetFields(current => ({ ...current, validUntil: event.target.value }))} disabled={locked}/></label></div><button className="secondary-action" disabled={locked || !status} onClick={submitBudget}>Review financial configuration in Windows</button></section>
@@ -422,5 +628,5 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
         <section className="settings-section"><h3>Saved conversations</h3><p>Host-owned, encrypted history persists across restarts. Loading it restores display text, never approvals, active requests or financial authority. No import or export is enabled.</p><button className="secondary-action" disabled={locked || !conversation} onClick={() => void removeConversation()}><Icon name="trash" size={15}/> Remove this conversation from history…</button><p>Removal needs native confirmation. Encrypted recovery records remain and disk capacity is not reclaimed. Spending, credentials and file-recovery records are unchanged.</p></section>
       </>}
     </section></div>}
-  </div>;
+  </div><div className="zoom-feedback" role="status" aria-label="Zoom level" aria-live="polite" aria-atomic="true" hidden={!zoomFeedback} style={{ '--interface-scale': zoom / 100 } as CSSProperties}>{zoomFeedback ? `${zoom}%` : ''}</div></>;
 }

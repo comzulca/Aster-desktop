@@ -1,5 +1,9 @@
 # Contract: NVIDIA Nemotron 3.5 Lightning 30B A3B
 
+**v0.2.2 applicability, 3 October 2026:** retained requirements/contracts apply only where unchanged; retired providers, disabled capabilities and older dated results are not current authority or new-source PASS. [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md) and [LOCAL-V022-0001](../qa/LOCAL-V022-0001.md) govern active zoom/startup changes and fresh evidence. Earlier evidence remains source-bound history; the later owner-reported v0.2.1 startup flash is recorded separately. The entire original v0.2.1 checkout/installer is unchanged.
+
+**Historical applicability, reconciled 3 October 2026:** the dated record/procedures below retain their original version, identifiers, authority limits and PASS/FAIL observations. They do not qualify or authorise changed v0.2.1 source, current key activation, retired providers or disabled project capabilities. Active scope is [SPEC-0003](../specs/SPEC-0003.md) and fresh verification is [LOCAL-V021-0001](../qa/LOCAL-V021-0001.md); no old PASS transfers.
+
 > **RETIRED — v0.1.0 historical evidence, 2 October 2026.** This pair is absent from the active v0.2.0 registry and cannot be selected, used as fallback or restored as conversation context. The original body below is retained for provenance: its defaults, transport links, fixture PASS, owner acceptance and deferred checks apply only to the named historical source/artifact. They are not new requirements or v0.2.0/live-provider proof. No old credential is read, reused, renamed or deleted. Use [the current Meta-only contract](meta-muse-spark-1.3-contributor.md) and [SPEC-0002](../specs/SPEC-0002.md) for the active profile.
 
 **Registry key:** `nvidia/nemotron-3.5-lightning-30b-a3b`

@@ -1,5 +1,7 @@
 # LOCAL-0006 — final lock-corrected exact-source validation
 
+**v0.2.2 applicability, 3 October 2026:** retained requirements/contracts apply only where unchanged; retired providers, disabled capabilities and older dated results are not current authority or new-source PASS. [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md) and [LOCAL-V022-0001](../qa/LOCAL-V022-0001.md) govern active zoom/startup changes and fresh evidence. Earlier evidence remains source-bound history; the later owner-reported v0.2.1 startup flash is recorded separately. The entire original v0.2.1 checkout/installer is unchanged.
+
 Observed 2026-10-01 UTC. Current classification: **complete local automatic source/frontend/native/dependency gates PASS for immutable source `2bcacd7c6f2496eda233d4a069ec7b65a93d47b3`, tree `7c1c567faa9fb9df9bb9c6c62e40491fde07c084`; hosted package and principal-laptop manual gates remain independent and incomplete**. Parent `5b9355368bbdc08854a68eab5c130da499eb57de` differs only in two `src-tauri/Cargo.lock` values: `yoke-derive 0.8.3` becomes `0.8.4`, and its checksum becomes `ec8ebde2db3681e8c9980cc27822030e68752690ddfa9473e739aeb4dbde6d71`. Application/runtime/IPC source is unchanged. [LOCAL-0005](LOCAL-0005.md) remains the unmodified historical record for `c718e2c`; none of its PASS results are silently rebound to this source.
 
 ## Source and dependency decision

@@ -6,6 +6,12 @@ async function callHost<T>(command: string, args?: Record<string, unknown>): Pro
   return invoke<T>(command, args);
 }
 export const nativeBridge: Bridge = {
+  windowAction: input => callHost('window_action', { input }),
+  async subscribeClose(callback) {
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) throw new Error('host_unavailable');
+    const { listen } = await import('@tauri-apps/api/event');
+    return listen('aster://close-request', () => callback());
+  },
   getStatus: () => callHost('get_app_status'),
   async subscribe(callback) {
     if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) throw new Error('host_unavailable');

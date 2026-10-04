@@ -1,0 +1,14 @@
+/* Paint the existing opaque canvas before application modules or host hydration.
+   Keep failure states visible; this stylesheet adds no readiness delay. */
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  background-color: #1b1f20;
+  color: #f1f3f5;
+  min-height: 100%;
+  margin: 0;
+}

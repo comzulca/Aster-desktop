@@ -1,5 +1,7 @@
 # OWNER-ACCEPTANCE-0001 — v0.1.0 internal engineering acceptance
 
+**v0.2.2 applicability, 3 October 2026:** retained requirements/contracts apply only where unchanged; retired providers, disabled capabilities and older dated results are not current authority or new-source PASS. [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md) and [LOCAL-V022-0001](../qa/LOCAL-V022-0001.md) govern active zoom/startup changes and fresh evidence. Earlier evidence remains source-bound history; the later owner-reported v0.2.1 startup flash is recorded separately. The entire original v0.2.1 checkout/installer is unchanged.
+
 Acceptance date supplied by the owner: **2026-10-02**. Location label: **Edinburgh, Scotland**. IANA timezone: **Europe/London**, which also covers Edinburgh; the date is in BST, **UTC+01:00**. No exact test clock time was supplied; none is invented. This record was prepared from the owner's explicit statement in the existing engineering conversation, not from newly executed tests.
 
 ## Scope and provenance

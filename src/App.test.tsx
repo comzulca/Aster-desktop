@@ -191,18 +191,19 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
   it('implements local menus, traps modal focus, restores it and blocks behind-dialogue shortcuts', async () => {
     const fake = fakeBridge(); const user = userEvent.setup(); render(<App bridge={fake.bridge}/>); await ready();
     await user.type(screen.getByRole('textbox', { name: 'Message for Aster' }), 'Draft only'); await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Clear message draft' })); expect((screen.getByRole('textbox', { name: 'Message for Aster' }) as HTMLTextAreaElement).value).toBe('');
+    await user.click(screen.getByRole('menuitem', { name: 'Select All' })); await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' })); expect((screen.getByRole('textbox', { name: 'Message for Aster' }) as HTMLTextAreaElement).value).toBe('');
     const opener = screen.getByRole('button', { name: 'Settings' }); await user.click(opener);
     const close = screen.getByRole('button', { name: 'Close dialogue' }); expect(document.activeElement).toBe(close);
     await user.tab({ shift: true }); expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Review financial configuration in Windows' }));
     await user.tab(); expect(document.activeElement).toBe(close); await user.keyboard('{Control>}n{/Control}'); expect(fake.bridge.createConversation).not.toHaveBeenCalled();
     await user.keyboard('{Escape}'); expect(document.activeElement).toBe(opener);
-    await user.click(screen.getByRole('button', { name: 'Help' })); await user.click(screen.getByRole('menuitem', { name: 'Using Aster' }));
-    expect(screen.getByRole('dialog', { name: 'Using Aster' })).toBeTruthy(); expect(screen.getByText(/encrypted recovery records remain/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Help' })); await user.click(screen.getByRole('menuitem', { name: 'Documentation' }));
+    expect(screen.getByRole('dialog', { name: 'Documentation' })).toBeTruthy(); expect(screen.getByText(/encrypted recovery records remain/)).toBeTruthy();
   });
   it('removes only the selected history record through the native-confirmed bridge', async () => {
     const fake = fakeBridge(baseline, [saved('first', 'Remove me', 2), saved('second', 'Keep me', 1)]); render(<App bridge={fake.bridge}/>); await screen.findByText('Reply for first');
-    await userEvent.click(screen.getByRole('button', { name: 'File' })); await userEvent.click(screen.getByRole('menuitem', { name: 'Remove conversation…' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' })); await userEvent.click(screen.getByRole('button', { name: 'Remove this conversation from history…' }));
     await screen.findByText('Reply for second'); expect(fake.bridge.deleteConversation).toHaveBeenCalledWith({ conversationId: 'first' });
     expect(fake.bridge.removeCredential).not.toHaveBeenCalled(); expect(fake.bridge.configureBudget).not.toHaveBeenCalled(); expect(fake.bridge.reconcileBudget).not.toHaveBeenCalled();
   });

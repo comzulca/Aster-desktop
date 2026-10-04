@@ -231,7 +231,7 @@ jobs:
           $candidates = @(Get-ChildItem -LiteralPath src-tauri/target/release/bundle/nsis -File -Filter '*-setup.exe' -ErrorAction Stop)
           if ($candidates.Count -ne 1 -or $candidates[0].Length -le 0) { throw 'Expected exactly one nonempty NSIS setup executable.' }
           $installer = $candidates[0]
-          if ($installer.Name -cne 'Aster Desktop_0.2.0_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
+          if ($installer.Name -cne 'Aster Desktop_0.2.2_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
           $sevenZip = Get-Command 7z.exe -ErrorAction Stop
           $rawPayloadList = Join-Path $env:RUNNER_TEMP 'aster-installer-payload-list-raw.txt'
           $payloadListing = @(& $sevenZip.Source l -slt -ba $installer.FullName)

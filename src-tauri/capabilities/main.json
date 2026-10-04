@@ -18,6 +18,7 @@
     "allow-load-conversation",
     "allow-delete-conversation",
     "allow-send-message",
-    "allow-cancel-message"
+    "allow-cancel-message",
+    "allow-window-action"
   ]
 }

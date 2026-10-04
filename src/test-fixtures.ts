@@ -15,9 +15,12 @@ export function saved(id: string, title: string, updatedAt = 1): Conversation {
 export function fakeBridge(status: AppStatus = baseline, initial: Conversation[] = []) {
   const records = new Map(initial.map(item => [item.id, structuredClone(item)]));
   let onEvent: (event: StreamEvent) => void = () => {};
+  let onClose: () => void = () => {};
   let sequence = 0;
   const finished = new Set<string>();
   const bridge: Bridge = {
+    windowAction: vi.fn(async () => ({ maximised: false, fullscreen: false })),
+    subscribeClose: vi.fn(async callback => { onClose = callback; return () => { onClose = () => {}; }; }),
     getStatus: vi.fn(async () => structuredClone(status)),
     subscribe: vi.fn(async callback => { onEvent = callback; return () => {}; }),
     configureCredential: vi.fn(async () => ({ configured: true })),
@@ -36,7 +39,7 @@ export function fakeBridge(status: AppStatus = baseline, initial: Conversation[]
     }),
     cancelMessage: vi.fn(async () => ({ cancelled: true })),
   };
-  return { bridge, records, emit(event: StreamEvent) {
+  return { bridge, records, close: () => onClose(), emit(event: StreamEvent) {
     const item = records.get(event.conversationId);
     const entry = item?.entries.find(e => e.role === 'assistant' && e.requestId === event.requestId);
     if (entry && !finished.has(event.requestId)) {
