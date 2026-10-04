@@ -1,5 +1,13 @@
 # Aster Desktop v0.2.2
 
+## Current owner report — 4 October 2026
+
+**Installed v0.2.2 flickering: FAIL (owner-reported), not PASS.** The owner used the previously delivered local `Aster_0.2.2_x64-setup.exe` and confirms that flickering persists. Its correction is planned for **v0.2.3** and remains unimplemented/unverified. See [OWNER-STARTUP-V022-0001](docs/qa/OWNER-STARTUP-V022-0001.md) for source/artifact attribution and the limits of this report.
+
+The 4 October request to resolve [PR #29](https://github.com/comzulca/Aster-desktop/pull/29) permits normal gated source merge, superseding the earlier PR/check-only restriction in the dated 3 October checkpoint below. This is engineering source integration with a known presentation defect, not startup acceptance, a signed release or production promotion. New-head CI must be observed separately. Local full Cargo FAIL101 and unrelated native/live NOT RUN remain unchanged.
+
+### Retained 3 October 2026 qualification checkpoint
+
 Status on 3 October 2026, Edinburgh / `Europe/London` (BST): **implemented and qualified for source-bound unsigned local engineering delivery; hosted P1 checks PASS, installed/native/live acceptance pending**. Local runtime source R1 is `bfff47075c5d94f774e6b9b43ae241f0f72bce25`, tree `2cdcf0a7f69cf31ff98161a1acc98b194b62f049`, on isolated branch `codex/aster-v022-engineering-20261003`, derived from v0.2.1 documentation source `6f16416b72ffa15c1b5ee459382c6770c950a7ee`. [SPEC-0004](docs/specs/SPEC-0004.md), [ADR-0017](docs/adr/ADR-0017.md) and [THREAT-MODEL-0004](docs/security/THREAT-MODEL-0004.md) extend the unchanged Meta-only, British-English, protocol-3 profile. [LOCAL-V022-0001](docs/qa/LOCAL-V022-0001.md) binds source, commands, principal/OS, UTC and hashes; no v0.2.1 PASS qualifies changed bytes.
 
 Implemented: one bounded interface zoom for Ctrl + vertical mouse wheel, Ctrl + plus/minus and Ctrl + 0, with a **100% default, 80–150% bounds and 10-percentage-point steps**. Each admitted zoom action shows the actual percentage for **1,000 ms from the latest action** in a non-interactive, unscaled top-right status below the caption/menu controls. Native browser zoom cannot compound this scale; normal scrolling and existing busy/modal guards are preserved. Fresh frontend typecheck/build and **69 tests in seven files PASS**. Synthetic headless Edge verifies actual wheel events, menu/bounds/modal behaviour, timer replacement and 80/100/150% compact/full geometry; this is not installed Aster acceptance.

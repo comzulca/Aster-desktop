@@ -1,5 +1,16 @@
 # STATUS-0001 — implementation evidence and release blockers
 
+## Latest owner clarification — 2026-10-04
+
+| Gate / follow-up | Current scoped result |
+| --- | --- |
+| v0.2.2 installed startup presentation / T-073 | **FAIL (owner-reported)**: flickering persists with the previously delivered local installer, SHA-256 `3a9207030fc3f4656d566e08a8a2a58d01e8c613098b90e7a9e8f3b45b2b90aa`. Exact execution time, launch count/duration and cold/warm conditions were not supplied; no startup PASS or independently reproduced cause is claimed. |
+| v0.2.3 flickering correction | **OPEN / PLANNED**, not implemented or verified. New exact-source/artifact installed regression evidence is required. |
+| PR #29 authority | Normal source resolution/merge through fresh gates is now authorised by the owner's 4 October request. Earlier PR-only/no-merge wording below is the dated 3 October restriction, not current authority. No signing/release/production or agent app/key/live authority is added. |
+| Unrelated gates | Historical v0.2.1 startup FAIL, local full Cargo FAIL101/T-057/phase8 FAIL, other native/live NOT RUN and release verification flags remain unchanged. |
+
+[OWNER-STARTUP-V022-0001](OWNER-STARTUP-V022-0001.md) records the clarification and source/artifact boundaries. Source/configuration/headless dark-paint PASS does not contradict the separate installed flickering FAIL. The following dated checkpoints remain historical; later documentation-head checks are never inferred from older runs.
+
 ## Active v0.2.2 engineering work — 2026-10-03
 
 Status: **implemented and qualified for source-bound local unsigned engineering delivery: local automatic/passive portions PASS and hosted P1/M1 four-check PASS; local full Cargo FAIL retained; installed/native/live NOT RUN**. Exact local runtime/build source R1 `bfff47075c5d94f774e6b9b43ae241f0f72bce25`, tree `2cdcf0a7f69cf31ff98161a1acc98b194b62f049`, branch `codex/aster-v022-engineering-20261003`, derives from `6f16416b72ffa15c1b5ee459382c6770c950a7ee`. Active scope is [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md), [THREAT-MODEL-0004](../security/THREAT-MODEL-0004.md), with exact-source/command/principal/OS/UTC evidence in [LOCAL-V022-0001](LOCAL-V022-0001.md). No inherited PASS qualifies new bytes.

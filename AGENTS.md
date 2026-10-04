@@ -31,3 +31,9 @@ The owner subsequently authorises v0.2.2 publication through a PR and GitHub che
 Retain full local `cargo test` FAIL 101 from Windows Smart App Control/Code Integrity blocking the empty binary harness separately from 156 passing library tests/two ignored, independent zero-test doc-target PASS and hosted PASS. Never disable security controls or call that local failure ESET/antivirus PASS. No agent app/installer execution, real key/Meta call, credential/history/spending mutation, GPU/security changes or exclusions is authorised. Owner installation and any later live configuration remain separate controlled steps.
 
 The requested Windows checkout location is user configuration, not a value to hardcode into source. Record the actual execution identity and OS for each check; neither an isolated technical runner nor hosted Windows Server proves the owner's interactive Windows 11 acceptance.
+
+## Authority and startup evidence amendment — 4 October 2026
+
+The owner's latest direct request authorises normal resolution of PR #29, including merge after its fresh required CI gates; this supersedes only the earlier PR/check-only merge restriction above. No signing/release/production, v0.2.1 publication, app/installer execution, key/live call, security change or owner-store mutation is added.
+
+The owner clarifies that the previously delivered local v0.2.2 installer still flickers and directs its correction to planned v0.2.3 work. Record NFR-007/AC-063/T-073 **FAIL (owner-reported)**, never the initially requested startup PASS. See docs/qa/OWNER-STARTUP-V022-0001.md for exact source/artifact attribution and missing execution details. Preserve all historical failures and unrelated NOT RUN; no present v0.2.3 fix, precise root cause or broader Windows acceptance is proven.

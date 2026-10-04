@@ -1,5 +1,11 @@
 # Aster Desktop — versioned verification procedures
 
+## Latest startup result — 4 October 2026
+
+**T-073 / AC-063 / NFR-007: FAIL (owner-reported installed v0.2.2 flickering)**. The owner identifies the previously delivered local installer and reports persistent flickering, superseding the proposed PASS. [OWNER-STARTUP-V022-0001](../qa/OWNER-STARTUP-V022-0001.md) binds source/artifact and records the missing execution time, launch count/duration and idle/cold/warm conditions without inventing them.
+
+Correction is planned for **v0.2.3**, not implemented or tested here. Keep the procedure below, repeat it on that version's exact qualified artifact and record real results. No source/headless PASS closes this installed defect; historical startup and local Cargo failures and unrelated NOT RUN remain. The current owner request permits normal gated PR #29 resolution, not release/production or app/key/live operations. Earlier 3 October authority and acceptance statements below are dated checkpoints.
+
 ## Active v0.2.2 procedures — 2026-10-03
 
 [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md), [THREAT-MODEL-0004](../security/THREAT-MODEL-0004.md) and [LOCAL-V022-0001](../qa/LOCAL-V022-0001.md) define the fresh active scope. Exact local runtime R1 is `bfff47075c5d94f774e6b9b43ae241f0f72bce25`, tree `2cdcf0a7f69cf31ff98161a1acc98b194b62f049`. Automatic presentation/source/build/passive and final alias-equality portions have scoped PASS; same-runtime hosted P1/M1 four-check PASS supports unsigned local engineering delivery. **Full local `cargo test` remains FAIL 101** and compound native/installed/live acceptance remains **NOT RUN**. Old v0.2.1 PASS is historical; owner locally tested/discarded it for bugs and forbids its publication. Preserve the entire previous checkout/setup. Record source/tree, physical invariant, command/manual steps, principal/OS, UTC, fixture, output and hashes; retain failures separately from later checks.

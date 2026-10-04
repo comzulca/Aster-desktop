@@ -929,8 +929,8 @@
       "id": "T-073",
       "path": "docs/qa/LOCAL-V022-0001.md",
       "verification_phase": 8,
-      "status": "NOT RUN",
-      "reason": "Opaque dark native config/source fixtures and actual delayed/failure headless paint PASS at R1 bfff47075; repeated owner-installed Windows/WebView2 launches have not been observed. Native white-flash regression remains NOT RUN; precise original cause unproven."
+      "status": "FAIL",
+      "reason": "Owner clarified on 4 October 2026 that installed v0.2.2 still flickers with the previously delivered local setup SHA-256 3a9207030fc3f4656d566e08a8a2a58d01e8c613098b90e7a9e8f3b45b2b90aa, attributed to R1 bfff47075c5d94f774e6b9b43ae241f0f72bce25. Actual execution time, count, duration and idle/cold/warm details were not supplied; no independent cause or startup PASS is claimed. Source/configuration/headless dark-paint PASS remains scoped. Correction is planned and pending for v0.2.3, not implemented or verified. See docs/qa/OWNER-STARTUP-V022-0001.md; preserve historical v0.2.1 startup FAIL, local Cargo FAIL101 and unrelated NOT RUN."
     },
     {
       "id": "T-074",
@@ -1017,12 +1017,12 @@
     {
       "phase": 8,
       "status": "FAIL",
-      "reason": "Full local Rust command FAIL101 on Smart App Control empty-harness block remains retained. Independent scoped local checks/package and complete hosted P1/run37150703411 suite PASS; alias qualification complete in CI-V022-0001. This compound gate does not claim local full-suite or installed/native/live PASS. No security bypass or invented PASS."
+      "reason": "Full local Rust command FAIL101 on Smart App Control empty-harness block remains retained. Independent scoped local checks/package and complete hosted P1/run37150703411 suite PASS; alias qualification complete in CI-V022-0001. This compound gate does not claim local full-suite or installed/native/live PASS. No security bypass or invented PASS. Installed startup T-073 separately FAILS on the owner's 4 October 2026 persistent-flickering report; correction remains pending for v0.2.3, as recorded in OWNER-STARTUP-V022-0001."
     },
     {
       "phase": 9,
       "status": "NOT RUN",
-      "reason": "Source-bound unsigned local engineering alias and independent hosted P1/run37150703411 four-check suite qualified in CI-V022-0001. Final installed/native/live acceptance, signing and production qualification remain absent; no merge or production promotion authorised. Documentation-only later-head CI must not be inferred from the completed checkpoint."
+      "reason": "Source-bound unsigned local engineering alias and independently completed hosted P1/run37150703411 and P2/run37154683629 four-check suites remain separate qualified checkpoints. Owner-reported installed v0.2.2 flickering FAIL/T-073 remains open for planned v0.2.3 correction. Other installed/native/live acceptance, signing and production qualification remain absent. Owner now authorises normal gated PR #29 source resolution only; this does not promote the startup gate or release. Fresh later-head CI must not be inferred. See docs/qa/OWNER-STARTUP-V022-0001.md."
     }
   ],
   "release": {
