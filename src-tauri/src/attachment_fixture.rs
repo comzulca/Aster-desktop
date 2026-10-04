@@ -239,7 +239,7 @@ fn cases() -> Result<Vec<Case>, ProcessingError> {
             accepted: None,
         },
         Case {
-            code: "deny-invalid-utf8",
+            code: "deny-invalid-utf-eight",
             kind: InputKind::Text,
             source: vec![0xff],
             accepted: None,

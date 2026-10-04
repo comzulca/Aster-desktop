@@ -4,6 +4,12 @@
 
 ## Active v0.2.3 development — 2026-10-04
 
+**Current P2 hosted outcome — FAIL:** draft PR #30/P2 `181d3e42f51822f12eb19e4e605cdb3e51d6eaff`, [run 37198852054](https://github.com/comzulca/Aster-desktop/actions/runs/37198852054) attempt 1, tested M2 `cdd9ce307c760074d3026478b546487ef1aebe6e`. Windows-host `111426345188` passed all-target Cargo check and Clippy, then 214 library tests yielded 210 PASS/two FAIL/two ignored. P2 attachment fixture line530 initial TEMP read returned Denied; fixture-code grammar rejected `deny-invalid-utf8`'s digit. Later audit/binary/doc/resource/package NOT RUN, installer `111428893614` SKIPPED. Actual runner/OS and UTC are in [LOCAL-V023-0001](LOCAL-V023-0001.md) and [CI-V023-0001](CI-V023-0001.md); not 4/4 or complete native/package qualification.
+
+Checkout-fixture production preflight/exact cleanup, the unchanged-grammar `deny-invalid-utf-eight` rename and additional PNG/JPEG whole-input/memory-witness/I/O-cleanup corrections remain unqualified; see [ADR-0019](../adr/ADR-0019.md). The narrow TEMP rejection cause is unestablished. No new-source/run/PASS or installed flash cure is guessed. Earlier P1 FAIL, local Code Integrity OS4551 and headless timeout remain separate; no installed/Meta or merge/release/signing promotion.
+
+### Retained P1 hosted failure — 4 October
+
 **Current hosted outcome — FAIL:** draft PR #30/P1 `20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac`, run `37197489295` attempt 1. Windows-host job `111422400305` failed `cargo check --locked --all-targets` at step 9 with E0609 (`attachment_worker.rs:577`, `11:12:58.5875858Z`) and E0597 (`lib.rs:1359`, `11:13:01.8405490Z`); failure `2026-10-04T11:13:03.4230606Z`. Installer job `111423689117` is SKIPPED. Source-policy/frontend successes remain scoped; not 4/4. The working-tree handle rename and tail-lock semicolon are narrow unqualified corrections, not new PASS or a guessed successor source. Local Code Integrity FAIL101/4551 remains separate. See [CI-V023-0001](CI-V023-0001.md). No installer/native/installed/Meta or merge/release/signing promotion.
 
 ### Retained earlier P1 partial-success progression

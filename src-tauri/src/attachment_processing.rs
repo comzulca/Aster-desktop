@@ -225,10 +225,150 @@ fn limits() -> image::Limits {
     limits
 }
 
+/// Pixel decoding alone stops before the PNG container has necessarily reached
+/// IEND. Validate the complete pinned-codec stream, including every chunk CRC,
+/// compressed-data checksum and exact EOF, before normalisation. This is a
+/// child-only complex parser; the parent continues to accept bounded RGBA only.
+fn validate_complete_png(bytes: &[u8]) -> Result<(), ProcessingError> {
+    let mut cursor = Cursor::new(bytes);
+    {
+        let mut options = png::DecodeOptions::default();
+        options.set_ignore_checksums(false);
+        options.set_skip_ancillary_crc_failures(false);
+        options.set_ignore_text_chunk(true);
+        options.set_ignore_iccp_chunk(true);
+        let mut decoder = png::Decoder::new_with_options(&mut cursor, options);
+        decoder.set_limits(png::Limits {
+            bytes: MAX_RGBA_BYTES,
+        });
+        let header = decoder
+            .read_header_info()
+            .map_err(|_| ProcessingError::Invalid)?;
+        validate_dimensions(header.width, header.height)?;
+        let mut reader = decoder.read_info().map_err(|_| ProcessingError::Invalid)?;
+        if reader.info().animation_control.is_some() || reader.info().frame_control.is_some() {
+            return Err(ProcessingError::Unsupported);
+        }
+        let length = reader
+            .output_buffer_size()
+            .filter(|length| *length > 0 && *length <= MAX_RGBA_BYTES)
+            .ok_or(ProcessingError::Limit)?;
+        let mut pixels = vec![0; length];
+        reader
+            .next_frame(&mut pixels)
+            .map_err(|_| ProcessingError::Invalid)?;
+        reader.finish().map_err(|_| ProcessingError::Invalid)?;
+        if reader.info().animation_control.is_some() || reader.info().frame_control.is_some() {
+            return Err(ProcessingError::Unsupported);
+        }
+    }
+    // The decoder uses Cursor::fill_buf + consume(actual bytes), not a read-
+    // ahead wrapper. IEND followed by garbage or another PNG is not one input.
+    if cursor.position() != bytes.len() as u64 {
+        return Err(ProcessingError::Invalid);
+    }
+    Ok(())
+}
+
+/// `image` deliberately uses permissive JPEG recovery. Call the same pinned
+/// JPEG codec directly in strict mode instead: damaged entropy must not become
+/// grey/default-filled pixels. An independent EOI and consumed-byte check also
+/// closes the codec's otherwise tolerated missing-end-marker path.
+fn decode_complete_jpeg(bytes: &[u8]) -> Result<image::RgbaImage, ProcessingError> {
+    use zune_jpeg::zune_core::{colorspace::ColorSpace, options::DecoderOptions};
+    if !bytes.ends_with(b"\xff\xd9") {
+        return Err(ProcessingError::Invalid);
+    }
+    let mut cursor = Cursor::new(bytes);
+    let (width, height, pixels, orientation) = {
+        let options = DecoderOptions::default()
+            .set_strict_mode(true)
+            .set_max_width(MAX_DIMENSION as usize)
+            .set_max_height(MAX_DIMENSION as usize)
+            .jpeg_set_out_colorspace(ColorSpace::RGB);
+        let mut decoder = zune_jpeg::JpegDecoder::new_with_options(&mut cursor, options);
+        decoder
+            .decode_headers()
+            .map_err(|_| ProcessingError::Invalid)?;
+        let (width, height) = decoder.dimensions().ok_or(ProcessingError::Invalid)?;
+        let width = u32::try_from(width).map_err(|_| ProcessingError::Limit)?;
+        let height = u32::try_from(height).map_err(|_| ProcessingError::Limit)?;
+        let expected = validate_dimensions(width, height)? / 4 * 3;
+        if decoder.output_buffer_size() != Some(expected) {
+            return Err(ProcessingError::Invalid);
+        }
+        let orientation = decoder
+            .exif()
+            .and_then(|exif| image::metadata::Orientation::from_exif_chunk(exif))
+            .unwrap_or(image::metadata::Orientation::NoTransforms);
+        let mut pixels = vec![0; expected];
+        decoder
+            .decode_into(&mut pixels)
+            .map_err(|_| ProcessingError::Invalid)?;
+        (width, height, pixels, orientation)
+    };
+    if cursor.position() != bytes.len() as u64 {
+        return Err(ProcessingError::Invalid);
+    }
+    let rgb = image::RgbImage::from_raw(width, height, pixels).ok_or(ProcessingError::Invalid)?;
+    let mut decoded = DynamicImage::ImageRgb8(rgb);
+    decoded.apply_orientation(orientation);
+    Ok(decoded.into_rgba8())
+}
+
+/// The image compositing adapter clips GIF frames to their logical screen and
+/// stops at the first trailer. Prevalidate one complete, screen-consistent frame
+/// with the pinned GIF codec so neither clipping nor suffix omission is allowed.
+fn validate_complete_gif(bytes: &[u8]) -> Result<(), ProcessingError> {
+    // EOF alone is not a GIF Trailer. Require the terminal marker in addition
+    // to the decoder's exact consumed-byte and complete-LZW checks below.
+    if !bytes.ends_with(b"\x3b") {
+        return Err(ProcessingError::Invalid);
+    }
+    let mut options = gif::DecodeOptions::new();
+    options.set_color_output(gif::ColorOutput::RGBA);
+    options.set_memory_limit(gif::MemoryLimit::Bytes(
+        std::num::NonZeroU64::new(MAX_RGBA_BYTES as u64).ok_or(ProcessingError::Limit)?,
+    ));
+    options.check_frame_consistency(true);
+    options.check_lzw_end_code(true);
+    let mut decoder = options
+        .read_info(Cursor::new(bytes))
+        .map_err(|_| ProcessingError::Invalid)?;
+    validate_dimensions(u32::from(decoder.width()), u32::from(decoder.height()))?;
+    let first = decoder
+        .read_next_frame()
+        .map_err(|_| ProcessingError::Invalid)?
+        .ok_or(ProcessingError::Invalid)?;
+    if first.buffer.len() != validate_dimensions(u32::from(first.width), u32::from(first.height))? {
+        return Err(ProcessingError::Invalid);
+    }
+    if decoder
+        .read_next_frame()
+        .map_err(|_| ProcessingError::Invalid)?
+        .is_some()
+    {
+        return Err(ProcessingError::Unsupported);
+    }
+    // gif::Decoder owns a BufReader which may have read ahead after Trailer.
+    // Subtract its unread bytes; the underlying Cursor alone is not an EOF proof.
+    let buffered = decoder.into_inner();
+    let consumed = buffered
+        .get_ref()
+        .position()
+        .checked_sub(buffered.buffer().len() as u64)
+        .ok_or(ProcessingError::Invalid)?;
+    if consumed != bytes.len() as u64 {
+        return Err(ProcessingError::Invalid);
+    }
+    Ok(())
+}
+
 fn decode_static_image(kind: InputKind, bytes: &[u8]) -> Result<ProcessedPage, ProcessingError> {
     validate_source(kind, bytes)?;
     let rgba = match kind {
         InputKind::Gif => {
+            validate_complete_gif(bytes)?;
             let mut decoder = image::codecs::gif::GifDecoder::new(Cursor::new(bytes))
                 .map_err(|_| ProcessingError::Invalid)?;
             decoder
@@ -246,21 +386,10 @@ fn decode_static_image(kind: InputKind, bytes: &[u8]) -> Result<ProcessedPage, P
             }
             first.into_buffer()
         }
-        InputKind::Png | InputKind::Jpeg => {
-            let format = if kind == InputKind::Png {
-                ImageFormat::Png
-            } else {
-                ImageFormat::Jpeg
-            };
-            if kind == InputKind::Png {
-                let decoder =
-                    image::codecs::png::PngDecoder::with_limits(Cursor::new(bytes), limits())
-                        .map_err(|_| ProcessingError::Invalid)?;
-                if decoder.is_apng().map_err(|_| ProcessingError::Invalid)? {
-                    return Err(ProcessingError::Unsupported);
-                }
-            }
-            let mut reader = image::ImageReader::with_format(Cursor::new(bytes), format);
+        InputKind::Jpeg => decode_complete_jpeg(bytes)?,
+        InputKind::Png => {
+            validate_complete_png(bytes)?;
+            let mut reader = image::ImageReader::with_format(Cursor::new(bytes), ImageFormat::Png);
             reader.limits(limits());
             let mut decoder = reader
                 .into_decoder()
@@ -500,6 +629,43 @@ mod tests {
     }
 
     #[test]
+    fn complete_png_rejects_missing_truncated_corrupt_iend_and_suffixes() {
+        let canonical = page_from_rgba(2, 1, vec![10, 20, 30, 255, 40, 50, 60, 255])
+            .unwrap()
+            .png;
+        let iend = canonical.len() - 12;
+        assert_eq!(&canonical[iend + 4..iend + 8], b"IEND");
+        let mut wrong_crc = canonical.clone();
+        *wrong_crc.last_mut().unwrap() ^= 1;
+        let mut garbage = canonical.clone();
+        garbage.extend_from_slice(b"synthetic-suffix");
+        let mut concatenated = canonical.clone();
+        concatenated.extend_from_slice(&canonical);
+        let mut unknown_critical = canonical.clone();
+        unknown_critical.splice(iend..iend, png_chunk(b"ABCD", b""));
+        let mut bad_ancillary_crc = png_chunk(b"tEXt", b"Label\0synthetic");
+        *bad_ancillary_crc.last_mut().unwrap() ^= 1;
+        let mut corrupt_ancillary = canonical.clone();
+        corrupt_ancillary.splice(iend..iend, bad_ancillary_crc);
+        let cases = [
+            canonical[..iend].to_vec(),
+            canonical[..canonical.len() - 4].to_vec(),
+            canonical[..canonical.len() - 1].to_vec(),
+            wrong_crc,
+            garbage,
+            concatenated,
+            unknown_critical,
+            corrupt_ancillary,
+        ];
+        for (index, source) in cases.iter().enumerate() {
+            assert!(
+                process_in_worker(InputKind::Png, source).is_err(),
+                "whole PNG case {index} must not admit intact pixels from an incomplete container"
+            );
+        }
+    }
+
+    #[test]
     fn source_png_text_metadata_is_not_copied_and_apng_is_refused() {
         let canonical = page_from_rgba(1, 1, vec![20, 30, 40, 255]).unwrap();
         // Insert a valid inert ancillary text chunk after the complete IHDR.
@@ -553,6 +719,48 @@ mod tests {
     }
 
     #[test]
+    fn complete_gif_refuses_screen_clipping_missing_end_codes_and_suffixes() {
+        let mut canonical = Vec::new();
+        image::codecs::gif::GifEncoder::new(&mut canonical)
+            .encode_frame(image::Frame::new(image::RgbaImage::from_pixel(
+                3,
+                2,
+                image::Rgba([20, 80, 130, 255]),
+            )))
+            .unwrap();
+        assert_eq!(canonical.last(), Some(&b';'));
+        let mut smaller_screen = canonical.clone();
+        smaller_screen[6..8].copy_from_slice(&1u16.to_le_bytes());
+        smaller_screen[8..10].copy_from_slice(&1u16.to_le_bytes());
+        let descriptor = canonical.iter().position(|byte| *byte == 0x2c).unwrap();
+        assert!(descriptor >= 13);
+        let mut outside_screen = canonical.clone();
+        outside_screen[descriptor + 1..descriptor + 3].copy_from_slice(&3u16.to_le_bytes());
+        let mut garbage = canonical.clone();
+        garbage.extend_from_slice(b"synthetic-suffix;");
+        let mut concatenated = canonical.clone();
+        concatenated.extend_from_slice(&canonical);
+        // One decoded black pixel but no LZW end-of-information code. The
+        // default permissive codec can finish the pixel; strict validation must
+        // still deny its incomplete image-data stream.
+        let missing_lzw_end = b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x01\x04\x00;".to_vec();
+        let cases = [
+            smaller_screen,
+            outside_screen,
+            canonical[..canonical.len() - 1].to_vec(),
+            missing_lzw_end,
+            garbage,
+            concatenated,
+        ];
+        for (index, source) in cases.iter().enumerate() {
+            assert!(
+                process_in_worker(InputKind::Gif, source).is_err(),
+                "whole GIF case {index} must not admit clipping or incomplete content"
+            );
+        }
+    }
+
+    #[test]
     fn static_gif_and_jpeg_become_full_size_png() {
         let mut gif = Vec::new();
         image::codecs::gif::GifEncoder::new(&mut gif)
@@ -575,6 +783,49 @@ mod tests {
             assert_eq!((pages[0].width, pages[0].height), (3, 2));
             assert_eq!(pages[0].rgba.len(), 24);
             assert!(pages[0].png.starts_with(b"\x89PNG\r\n\x1a\n"));
+        }
+    }
+
+    #[test]
+    fn complete_jpeg_refuses_missing_eoi_partial_entropy_and_suffixes() {
+        let mut canonical = Vec::new();
+        let pixels: Vec<_> = (0..32 * 32 * 3)
+            .map(|index| ((index * 37 + index / 17) % 256) as u8)
+            .collect();
+        image::codecs::jpeg::JpegEncoder::new(&mut canonical)
+            .encode(&pixels, 32, 32, image::ExtendedColorType::Rgb8)
+            .unwrap();
+        assert!(canonical.ends_with(b"\xff\xd9"));
+        let scan = canonical
+            .windows(2)
+            .position(|marker| marker == b"\xff\xda")
+            .unwrap();
+        let header_length = u16::from_be_bytes([canonical[scan + 2], canonical[scan + 3]]) as usize;
+        let entropy = scan + 2 + header_length;
+        let entropy_length = canonical.len() - 2 - entropy;
+        assert!(entropy_length > 4);
+        let mut cases = vec![
+            canonical[..canonical.len() - 2].to_vec(),
+            canonical[..canonical.len() - 1].to_vec(),
+        ];
+        for kept in [0, 1, entropy_length / 2] {
+            let mut partial = canonical[..entropy + kept].to_vec();
+            // A forged terminal marker must not turn partial entropy into a
+            // successful grey/default-filled normalised image.
+            partial.extend_from_slice(b"\xff\xd9");
+            cases.push(partial);
+        }
+        let mut garbage = canonical.clone();
+        garbage.extend_from_slice(b"synthetic-suffix\xff\xd9");
+        cases.push(garbage);
+        let mut concatenated = canonical.clone();
+        concatenated.extend_from_slice(&canonical);
+        cases.push(concatenated);
+        for (index, source) in cases.iter().enumerate() {
+            assert!(
+                process_in_worker(InputKind::Jpeg, source).is_err(),
+                "whole JPEG case {index} must not admit a partial image"
+            );
         }
     }
 

@@ -340,11 +340,12 @@ mod native {
     use std::os::windows::ffi::OsStrExt;
     use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
     use std::ptr::{null, null_mut};
-    use std::sync::{mpsc, Arc};
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::thread::JoinHandle;
     use std::time::{Duration, Instant};
     use windows_sys::Win32::Foundation::{
         CloseHandle, GetLastError, SetHandleInformation, HANDLE, HANDLE_FLAG_INHERIT,
-        WAIT_OBJECT_0, WAIT_TIMEOUT,
+        INVALID_HANDLE_VALUE, WAIT_OBJECT_0, WAIT_TIMEOUT,
     };
     use windows_sys::Win32::Security::{
         AllocateAndInitializeSid, CreateRestrictedToken, FreeSid, GetLengthSid, GetSidSubAuthority,
@@ -356,8 +357,9 @@ mod native {
     };
     use windows_sys::Win32::System::JobObjects::{
         AssignProcessToJobObject, CreateJobObjectW, IsProcessInJob,
-        JobObjectBasicAccountingInformation, JobObjectExtendedLimitInformation,
-        QueryInformationJobObject, SetInformationJobObject, TerminateJobObject,
+        JobObjectAssociateCompletionPortInformation, JobObjectBasicAccountingInformation,
+        JobObjectExtendedLimitInformation, QueryInformationJobObject, SetInformationJobObject,
+        TerminateJobObject, JOBOBJECT_ASSOCIATE_COMPLETION_PORT,
         JOBOBJECT_BASIC_ACCOUNTING_INFORMATION, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
         JOB_OBJECT_LIMIT_ACTIVE_PROCESS, JOB_OBJECT_LIMIT_BREAKAWAY_OK,
         JOB_OBJECT_LIMIT_JOB_MEMORY, JOB_OBJECT_LIMIT_JOB_TIME, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
@@ -369,6 +371,9 @@ mod native {
     };
     use windows_sys::Win32::System::Pipes::CreatePipe;
     use windows_sys::Win32::System::SystemInformation::GetSystemDirectoryW;
+    use windows_sys::Win32::System::SystemServices::{
+        JOB_OBJECT_MSG_JOB_MEMORY_LIMIT, JOB_OBJECT_MSG_PROCESS_MEMORY_LIMIT,
+    };
     use windows_sys::Win32::System::Threading::{
         CreateProcessAsUserW, CreateProcessW, DeleteProcThreadAttributeList, GetCurrentProcess,
         GetExitCodeProcess, InitializeProcThreadAttributeList, OpenProcessToken, ResumeThread,
@@ -377,7 +382,19 @@ mod native {
         LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
         STARTF_USESTDHANDLES, STARTUPINFOEXW, STARTUPINFOW,
     };
-    use windows_sys::Win32::System::IO::CancelSynchronousIo;
+    use windows_sys::Win32::System::IO::{
+        CancelSynchronousIo, CreateIoCompletionPort, GetQueuedCompletionStatus,
+    };
+
+    // One executing allocation, or at most its three detached owned I/O threads
+    // after failed cleanup. A poisoned boundary never admits another worker in
+    // this process; restart is required. No arbitrary thread termination is used.
+    static WORKER_ADMISSION: Mutex<()> = Mutex::new(());
+    static WORKER_POISONED: AtomicBool = AtomicBool::new(false);
+    const IO_CLEANUP_MILLIS: u64 = 1000;
+    const IO_CLEANUP_MAX_ROUNDS: usize = 200;
+    const MEMORY_NOTIFICATION_MILLIS: u64 = 250;
+    const MEMORY_NOTIFICATION_MAX_PACKETS: usize = 64;
 
     struct Handle(HANDLE);
     impl Handle {
@@ -456,6 +473,95 @@ mod native {
         ready: bool,
         natural_exit: bool,
         job_closed: bool,
+        memory_limit_notification: bool,
+    }
+
+    fn memory_notification_matches(
+        message: u32,
+        key: usize,
+        process_id: usize,
+        expected_key: usize,
+        expected_process_id: u32,
+    ) -> bool {
+        matches!(
+            message,
+            JOB_OBJECT_MSG_PROCESS_MEMORY_LIMIT | JOB_OBJECT_MSG_JOB_MEMORY_LIMIT
+        ) && expected_key != 0
+            && expected_process_id != 0
+            && key == expected_key
+            && process_id == expected_process_id as usize
+    }
+
+    struct JobNotifications {
+        port: Handle,
+        key: usize,
+    }
+    impl JobNotifications {
+        fn associate_inactive(job: HANDLE) -> Result<Self, ProcessingError> {
+            let port = Handle::new(unsafe {
+                CreateIoCompletionPort(INVALID_HANDLE_VALUE, null_mut(), 0, 1)
+            })?;
+            no_inherit(&port)?;
+            let association = JOBOBJECT_ASSOCIATE_COMPLETION_PORT {
+                CompletionKey: job,
+                CompletionPort: port.0,
+            };
+            if unsafe {
+                SetInformationJobObject(
+                    job,
+                    JobObjectAssociateCompletionPortInformation,
+                    &association as *const _ as *const c_void,
+                    size_of::<JOBOBJECT_ASSOCIATE_COMPLETION_PORT>() as u32,
+                )
+            } == 0
+            {
+                return Err(ProcessingError::Isolation);
+            }
+            Ok(Self {
+                port,
+                key: job as usize,
+            })
+        }
+
+        fn memory_limit_observed(&self, process_id: u32) -> Result<bool, ProcessingError> {
+            let started = Instant::now();
+            for _ in 0..MEMORY_NOTIFICATION_MAX_PACKETS {
+                let remaining = Duration::from_millis(MEMORY_NOTIFICATION_MILLIS)
+                    .saturating_sub(started.elapsed());
+                if remaining.is_zero() {
+                    break;
+                }
+                let mut message = 0u32;
+                let mut key = 0usize;
+                let mut value = null_mut();
+                let dequeued = unsafe {
+                    GetQueuedCompletionStatus(
+                        self.port.0,
+                        &mut message,
+                        &mut key,
+                        &mut value,
+                        remaining.as_millis().min(20) as u32,
+                    )
+                } != 0;
+                if !dequeued {
+                    if unsafe { GetLastError() } == WAIT_TIMEOUT {
+                        continue;
+                    }
+                    // No packet means the output parameters are indeterminate;
+                    // failed packets are never accepted as Job limit evidence.
+                    return Err(ProcessingError::Isolation);
+                }
+                // Job notifications put a PID, not an OVERLAPPED allocation, in
+                // this value. Never dereference it. The child's process handle
+                // remains open until this bounded drain ends, preventing reuse.
+                if memory_notification_matches(message, key, value as usize, self.key, process_id) {
+                    return Ok(true);
+                }
+            }
+            // These Job messages are best-effort Windows notifications. Missing
+            // evidence is unproved/FAIL, not proof the memory event never happened.
+            Ok(false)
+        }
     }
 
     fn job_stats(job: HANDLE) -> Result<JobStats, ProcessingError> {
@@ -599,27 +705,110 @@ mod native {
         output.flush().map_err(io_error)
     }
 
-    struct IoCancellation {
-        stopped: Arc<AtomicBool>,
-        threads: Vec<HANDLE>,
-        active: bool,
+    #[derive(Debug, PartialEq, Eq)]
+    enum CleanupDecision {
+        Finished,
+        CancelAgain,
+        FailClosed,
     }
-    impl IoCancellation {
-        fn cancel(&mut self) {
+    fn cleanup_decision(finished: bool, elapsed: Duration, rounds: usize) -> CleanupDecision {
+        if finished {
+            CleanupDecision::Finished
+        } else if elapsed >= Duration::from_millis(IO_CLEANUP_MILLIS)
+            || rounds >= IO_CLEANUP_MAX_ROUNDS
+        {
+            CleanupDecision::FailClosed
+        } else {
+            CleanupDecision::CancelAgain
+        }
+    }
+    fn thread_terminated(thread: &JoinHandle<()>) -> bool {
+        thread.is_finished()
+            && unsafe { WaitForSingleObject(thread.as_raw_handle(), 0) } == WAIT_OBJECT_0
+    }
+    struct IoCancellation<'a> {
+        stopped: Arc<AtomicBool>,
+        threads: Vec<JoinHandle<()>>,
+        job_to_terminate: Option<HANDLE>,
+        process: Option<HANDLE>,
+        poisoned: &'a AtomicBool,
+        settled: bool,
+    }
+    impl IoCancellation<'_> {
+        fn finish(&mut self) -> Result<(), ProcessingError> {
             self.stopped.store(true, Ordering::SeqCst);
-            if self.active {
-                for handle in &self.threads {
-                    unsafe {
-                        CancelSynchronousIo(*handle);
+            let started = Instant::now();
+            let mut rounds = 0usize;
+            loop {
+                match cleanup_decision(
+                    self.threads.iter().all(thread_terminated),
+                    started.elapsed(),
+                    rounds,
+                ) {
+                    CleanupDecision::Finished => {
+                        self.settled = true;
+                        let mut panicked = false;
+                        // Both Rust completion and the Windows thread signal were
+                        // observed. Never join an unfinished synchronous I/O call.
+                        for thread in self.threads.drain(..) {
+                            panicked |= thread.join().is_err();
+                        }
+                        return if panicked {
+                            Err(ProcessingError::Worker)
+                        } else {
+                            Ok(())
+                        };
+                    }
+                    CleanupDecision::FailClosed => {
+                        self.poisoned.store(true, Ordering::SeqCst);
+                        self.settled = true;
+                        // JoinHandle::drop detaches; each closure still OWNS its
+                        // File, cancellation Arc and bounded buffer. No borrowed
+                        // raw thread handles survive. Zeroising the source copy
+                        // occurs only when that thread eventually returns; cleanup
+                        // is explicitly incomplete, not a secure-erasure claim.
+                        self.threads.clear();
+                        return Err(ProcessingError::Isolation);
+                    }
+                    CleanupDecision::CancelAgain => {
+                        for thread in &self.threads {
+                            if !thread_terminated(thread) {
+                                // A cancellation before the next ReadFile or
+                                // WriteFile sees ERROR_NOT_FOUND. Repeating while
+                                // the owned thread is alive closes that race; a
+                                // successful cancel alone is not completion proof.
+                                unsafe {
+                                    CancelSynchronousIo(thread.as_raw_handle());
+                                }
+                            }
+                        }
+                        rounds += 1;
+                        std::thread::sleep(Duration::from_millis(5));
                     }
                 }
-                self.active = false;
             }
         }
     }
-    impl Drop for IoCancellation {
+    impl Drop for IoCancellation<'_> {
         fn drop(&mut self) {
-            self.cancel();
+            if !self.settled {
+                // Unwinding or a failed thread spawn must also kill before trying
+                // to cancel the owned I/O threads. Outer Handle owners remain
+                // alive throughout this guard's lifetime.
+                if let Some(process) = self.process {
+                    if let Some(job) = self.job_to_terminate {
+                        if unsafe { TerminateJobObject(job, 1) } == 0 {
+                            unsafe {
+                                TerminateProcess(process, 1);
+                            }
+                        }
+                    }
+                    if unsafe { WaitForSingleObject(process, 1000) } != WAIT_OBJECT_0 {
+                        self.poisoned.store(true, Ordering::SeqCst);
+                    }
+                }
+                let _ = self.finish();
+            }
         }
     }
 
@@ -635,6 +824,9 @@ mod native {
             self.file.write(bytes)
         }
         fn flush(&mut self) -> std::io::Result<()> {
+            if self.stopped.load(Ordering::SeqCst) {
+                return Err(std::io::Error::other("Cancelled"));
+            }
             self.file.flush()
         }
     }
@@ -985,10 +1177,26 @@ mod native {
         if cancel.load(Ordering::SeqCst) {
             return Err(ProcessingError::Cancelled);
         }
+        let _admission = WORKER_ADMISSION
+            .try_lock()
+            .map_err(|_| ProcessingError::Isolation)?;
+        if WORKER_POISONED.load(Ordering::SeqCst) {
+            return Err(ProcessingError::Isolation);
+        }
         attachment_processing::validate_source(kind, original)?;
         let token = restricted_token()?;
         let mut job = Some(job()?);
         let job_handle = job.as_ref().ok_or(ProcessingError::Isolation)?.0;
+        // Only the closed synthetic one-allocation memory probe needs this port:
+        // an adversarial codec allocation loop must not build an undrained Job
+        // notification queue. Associate it while its Job is inactive, before
+        // AssignProcessToJobObject or ResumeThread. Only the three exact stdio
+        // handles below enter the child's inheritance allow-list.
+        let notifications = if matches!(mode, Mode::Resource(ResourceScenario::Memory)) {
+            Some(JobNotifications::associate_inactive(job_handle)?)
+        } else {
+            None
+        };
         let (child_input, parent_input) = pipe()?;
         let (parent_output, child_output) = pipe()?;
         let (parent_error, child_error) = pipe()?;
@@ -1064,7 +1272,11 @@ mod native {
         if unsafe { AssignProcessToJobObject(job_handle, process_handle.0) } == 0 {
             unsafe {
                 TerminateProcess(process_handle.0, 1);
-                WaitForSingleObject(process_handle.0, 1000);
+                // An unassigned suspended child is not covered by Job close.
+                // Do not admit another worker if its exit cannot be observed.
+                if WaitForSingleObject(process_handle.0, 1000) != WAIT_OBJECT_0 {
+                    WORKER_POISONED.store(true, Ordering::SeqCst);
+                }
             }
             return Err(ProcessingError::Isolation);
         }
@@ -1083,24 +1295,29 @@ mod native {
             let stopped = Arc::new(AtomicBool::new(false));
             let mut io_cancel = IoCancellation {
                 stopped: stopped.clone(),
-                threads: Vec::new(),
-                active: true,
+                threads: Vec::with_capacity(3),
+                job_to_terminate: Some(job_handle),
+                process: Some(process_handle.0),
+                poisoned: &WORKER_POISONED,
+                settled: false,
             };
             let (writer_tx, writer_rx) = mpsc::channel();
             // This one bounded copy exists only for the lifetime of the byte-write
             // thread and is zeroised on return/unwind; no borrowed source can leak.
             let original_copy = Zeroizing::new(original.to_vec());
             let writer_stopped = stopped.clone();
-            let writer = std::thread::spawn(move || {
-                let mut input = CancellableWriter {
-                    file: input,
-                    stopped: writer_stopped,
-                };
-                let result = write_request(&mut input, kind, &original_copy);
-                drop(input);
-                let _ = writer_tx.send(result);
-            });
-            io_cancel.threads.push(writer.as_raw_handle());
+            let writer = std::thread::Builder::new()
+                .spawn(move || {
+                    let mut input = CancellableWriter {
+                        file: input,
+                        stopped: writer_stopped,
+                    };
+                    let result = write_request(&mut input, kind, &original_copy);
+                    drop(input);
+                    let _ = writer_tx.send(result);
+                })
+                .map_err(|_| ProcessingError::Isolation)?;
+            io_cancel.threads.push(writer);
             let (reader_tx, reader_rx) = mpsc::channel();
             let reader_stopped = stopped.clone();
             let ready = Arc::new(AtomicBool::new(false));
@@ -1117,22 +1334,26 @@ mod native {
                 Mode::Codec => MAX_WORKER_OUTPUT_BYTES,
                 Mode::Resource(_) => 128,
             };
-            let reader = std::thread::spawn(move || {
-                let _ = reader_tx.send(bounded_read(
-                    output,
-                    output_limit,
-                    &reader_stopped,
-                    &reader_ready,
-                    prefix.as_deref(),
-                ));
-            });
-            io_cancel.threads.push(reader.as_raw_handle());
+            let reader = std::thread::Builder::new()
+                .spawn(move || {
+                    let _ = reader_tx.send(bounded_read(
+                        output,
+                        output_limit,
+                        &reader_stopped,
+                        &reader_ready,
+                        prefix.as_deref(),
+                    ));
+                })
+                .map_err(|_| ProcessingError::Isolation)?;
+            io_cancel.threads.push(reader);
             let (error_tx, error_rx) = mpsc::channel();
             let error_stopped = stopped.clone();
-            let error_reader = std::thread::spawn(move || {
-                let _ = error_tx.send(discard_errors(errors, &error_stopped));
-            });
-            io_cancel.threads.push(error_reader.as_raw_handle());
+            let error_reader = std::thread::Builder::new()
+                .spawn(move || {
+                    let _ = error_tx.send(discard_errors(errors, &error_stopped));
+                })
+                .map_err(|_| ProcessingError::Isolation)?;
+            io_cancel.threads.push(error_reader);
             let mut result = None;
             if unsafe { ResumeThread(thread_handle.0) } != 1 {
                 result = Some(Err(ProcessingError::Isolation));
@@ -1164,6 +1385,7 @@ mod native {
                             break;
                         }
                         lifetime.active = false;
+                        io_cancel.job_to_terminate = None;
                         drop(job.take());
                         job_closed = true;
                     }
@@ -1211,11 +1433,13 @@ mod native {
                     }
                 }
             }
-            // Hard kill before pipe cleanup. Cancellation targets these owned I/O
-            // threads as well, so an unrelated concurrently inherited pipe handle
-            // cannot leave their synchronous read/write awaiting EOF indefinitely.
+            // Hard kill before pipe cleanup. Repeated I/O cancellation below is
+            // bounded by elapsed time and rounds, not an OS scheduler guarantee.
+            // An uncompleted cleanup poisons future admission rather than hanging
+            // the caller or accumulating another set of owned I/O threads.
             unsafe {
                 if !job_closed && TerminateJobObject(job_handle, 1) == 0 {
+                    result = Some(Err(ProcessingError::Isolation));
                     TerminateProcess(process_handle.0, 1);
                 }
                 if WaitForSingleObject(process_handle.0, 1000) != WAIT_OBJECT_0 {
@@ -1223,16 +1447,16 @@ mod native {
                     // A failed kill-on-close observation must not leave a parked
                     // fixture orphan. Teardown is not a passing mechanism result.
                     TerminateProcess(process_handle.0, 1);
-                    WaitForSingleObject(process_handle.0, 1000);
+                    if WaitForSingleObject(process_handle.0, 1000) != WAIT_OBJECT_0 {
+                        WORKER_POISONED.store(true, Ordering::SeqCst);
+                    }
                 }
             }
-            io_cancel.cancel();
-            let writer_ok = writer.join().is_ok();
-            let reader_ok = reader.join().is_ok();
-            let stderr_ok = error_reader.join().is_ok();
-            if !writer_ok || !reader_ok || !stderr_ok {
-                return Err(ProcessingError::Worker);
-            }
+            io_cancel.finish()?;
+            let memory_limit_notification = match &notifications {
+                Some(notifications) => notifications.memory_limit_observed(process.dwProcessId)?,
+                None => false,
+            };
             let mut exit_code = 0u32;
             let observed_exit = if unsafe { WaitForSingleObject(process_handle.0, 0) }
                 == WAIT_OBJECT_0
@@ -1268,6 +1492,7 @@ mod native {
                 ready: ready.load(Ordering::SeqCst),
                 natural_exit,
                 job_closed,
+                memory_limit_notification,
             })
         }
     }
@@ -1319,6 +1544,7 @@ mod native {
                 }
                 ResourceScenario::Memory => {
                     finite_packet
+                        && execution.memory_limit_notification
                         && execution.natural_exit
                         && execution.error.is_none()
                         && execution.exit_code == Some(0)
@@ -1361,6 +1587,8 @@ mod native {
                 "observed-synthetic-resource-containment"
             } else if !boundary_available {
                 "resource-boundary-unavailable"
+            } else if scenario == ResourceScenario::Memory && !execution.memory_limit_notification {
+                "job-memory-notification-unobserved"
             } else {
                 "resource-outcome-mismatch"
             },
@@ -1376,6 +1604,173 @@ mod native {
     #[cfg(test)]
     mod boundary_tests {
         use super::*;
+
+        #[test]
+        fn memory_notification_requires_exact_job_message_key_and_child_pid() {
+            for message in [
+                JOB_OBJECT_MSG_PROCESS_MEMORY_LIMIT,
+                JOB_OBJECT_MSG_JOB_MEMORY_LIMIT,
+            ] {
+                assert!(memory_notification_matches(message, 0x1234, 73, 0x1234, 73));
+                assert!(!memory_notification_matches(
+                    message, 0x1235, 73, 0x1234, 73
+                ));
+                assert!(!memory_notification_matches(
+                    message, 0x1234, 74, 0x1234, 73
+                ));
+                assert!(!memory_notification_matches(message, 0x1234, 0, 0x1234, 73));
+                assert!(!memory_notification_matches(message, 0, 73, 0, 73));
+                assert!(!memory_notification_matches(message, 0x1234, 0, 0x1234, 0));
+            }
+            // An unrelated VirtualAlloc error, including quota error 1816, is
+            // neither a memory-limit Job message nor sufficient containment proof.
+            for unrelated in [0, 1, 8, 11, 1455, 1816] {
+                assert!(!memory_notification_matches(
+                    unrelated, 0x1234, 73, 0x1234, 73
+                ));
+            }
+        }
+
+        #[test]
+        fn cleanup_repeats_when_cancel_precedes_the_held_pipe_call() {
+            // Deterministic model of the original check-before-syscall race:
+            // the first cancellation observes no pending call, then the worker
+            // enters a held-endpoint read, then a later cancellation completes it.
+            // This is policy/control-flow proof, not an executed Windows pipe test.
+            let mut pending_call = false;
+            let mut finished = false;
+            let mut cancellations = 0usize;
+            for round in 0..3 {
+                let decision =
+                    cleanup_decision(finished, Duration::from_millis(round as u64 * 5), round);
+                if decision == CleanupDecision::Finished {
+                    break;
+                }
+                assert_eq!(decision, CleanupDecision::CancelAgain);
+                cancellations += 1;
+                if pending_call {
+                    finished = true;
+                } else {
+                    // The thread had passed its stop check but not entered I/O
+                    // when the first cancellation was issued: ERROR_NOT_FOUND.
+                    pending_call = true;
+                }
+            }
+            assert_eq!(cancellations, 2);
+            assert!(finished);
+            assert_eq!(
+                cleanup_decision(finished, Duration::from_millis(10), 2),
+                CleanupDecision::Finished
+            );
+        }
+
+        #[test]
+        fn cleanup_never_joins_a_live_thread_and_exhaustion_denies() {
+            assert_eq!(
+                cleanup_decision(false, Duration::ZERO, 0),
+                CleanupDecision::CancelAgain
+            );
+            assert_eq!(
+                cleanup_decision(
+                    false,
+                    Duration::from_millis(IO_CLEANUP_MILLIS - 1),
+                    IO_CLEANUP_MAX_ROUNDS - 1
+                ),
+                CleanupDecision::CancelAgain
+            );
+            assert_eq!(
+                cleanup_decision(false, Duration::from_millis(IO_CLEANUP_MILLIS), 0),
+                CleanupDecision::FailClosed
+            );
+            assert_eq!(
+                cleanup_decision(false, Duration::ZERO, IO_CLEANUP_MAX_ROUNDS),
+                CleanupDecision::FailClosed
+            );
+            assert_eq!(
+                cleanup_decision(true, Duration::from_secs(2), IO_CLEANUP_MAX_ROUNDS),
+                CleanupDecision::Finished
+            );
+        }
+
+        #[test]
+        fn held_anonymous_pipe_read_cancels_after_the_stop_check_race() {
+            use windows_sys::Win32::Foundation::{ERROR_NOT_FOUND, ERROR_OPERATION_ABORTED};
+
+            // Field order is the panic cleanup contract: dropping the gate first
+            // wakes a gated worker; dropping the held write endpoint next gives
+            // an already-entered read EOF; only then does the I/O guard cancel.
+            // No process handle or Job exists, so Drop cannot kill the test host.
+            struct HeldPipe<'a> {
+                release: Option<mpsc::Sender<()>>,
+                _held_write: File,
+                io: IoCancellation<'a>,
+            }
+
+            let local_poison = AtomicBool::new(false);
+            let stopped = Arc::new(AtomicBool::new(false));
+            let (read, held_write) = pipe().expect("synthetic anonymous pipe");
+            no_inherit(&read).expect("private read handle");
+            no_inherit(&held_write).expect("private held endpoint");
+            let mut read = read.into_file();
+            let held_write = held_write.into_file();
+            let (passed_tx, passed_rx) = mpsc::channel();
+            let (release_tx, release_rx) = mpsc::channel();
+            let (outcome_tx, outcome_rx) = mpsc::channel();
+            let thread_stopped = stopped.clone();
+            let worker = std::thread::Builder::new()
+                .spawn(move || {
+                    if thread_stopped.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    let _ = passed_tx.send(());
+                    if release_rx.recv_timeout(Duration::from_secs(2)).is_err() {
+                        return;
+                    }
+                    // Intentionally do not recheck stopped here: this is the
+                    // controlled check-before-ReadFile race, with the opposite
+                    // endpoint held open by the parent throughout finish().
+                    let mut byte = [0u8; 1];
+                    let aborted = read.read(&mut byte).is_err_and(|error| {
+                        error.raw_os_error() == Some(ERROR_OPERATION_ABORTED as i32)
+                    });
+                    let _ = outcome_tx.send(aborted);
+                })
+                .expect("one owned synthetic I/O thread");
+            let mut fixture = HeldPipe {
+                release: Some(release_tx),
+                _held_write: held_write,
+                io: IoCancellation {
+                    stopped: stopped.clone(),
+                    threads: vec![worker],
+                    job_to_terminate: None,
+                    process: None,
+                    poisoned: &local_poison,
+                    settled: false,
+                },
+            };
+            passed_rx
+                .recv_timeout(Duration::from_secs(1))
+                .expect("stop check passed before the held read");
+            let first_cancel =
+                unsafe { CancelSynchronousIo(fixture.io.threads[0].as_raw_handle()) };
+            let first_error = unsafe { GetLastError() };
+            assert_eq!(first_cancel, 0, "gate admits no pending pipe operation");
+            assert_eq!(first_error, ERROR_NOT_FOUND);
+            fixture
+                .release
+                .take()
+                .expect("owned read gate")
+                .send(())
+                .expect("release the controlled read race");
+            let started = Instant::now();
+            assert!(fixture.io.finish().is_ok(), "owned held read must finish");
+            assert!(started.elapsed() <= Duration::from_millis(IO_CLEANUP_MILLIS));
+            assert!(fixture.io.threads.is_empty());
+            assert!(stopped.load(Ordering::SeqCst));
+            assert!(!local_poison.load(Ordering::SeqCst));
+            assert!(outcome_rx.try_recv().expect("joined read result"));
+        }
+
         fn fixture() -> JOBOBJECT_EXTENDED_LIMIT_INFORMATION {
             let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = unsafe { zeroed() };
             limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_ACTIVE_PROCESS

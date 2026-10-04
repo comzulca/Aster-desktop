@@ -53,7 +53,9 @@ version = "0.2.3"
 dependencies = [
  "base64 0.22.1",
  "futures-util",
+ "gif",
  "image",
+ "png 0.18.1",
  "reqwest",
  "serde",
  "serde_json",
@@ -65,6 +67,7 @@ dependencies = [
  "windows",
  "windows-sys 0.61.2",
  "zeroize",
+ "zune-jpeg",
 ]
 
 [[package]]

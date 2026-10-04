@@ -163,14 +163,20 @@ jobs:
               $item = $item.Parent
             }
           }
-      - name: Rust formatting, static checks and fixture tests
+      - name: Check Rust formatting
         run: |
           cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check all Rust targets
+        run: |
           cargo check --manifest-path src-tauri/Cargo.toml --locked --all-targets
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Deny Rust Clippy warnings
+        run: |
           cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run complete Rust fixture suite
+        run: |
           cargo test --manifest-path src-tauri/Cargo.toml --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: RustSec advisory gate
@@ -194,6 +200,7 @@ jobs:
           Remove-Item reports/rust-metadata.json
           Get-FileHash reports/* -Algorithm SHA256 | Format-Table Path,Hash -AutoSize
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() && hashFiles('reports/windows-execution-context.json') != '' }}
         with:
           name: windows-host-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: reports/
@@ -223,6 +230,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           rustup default 1.97.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Record actual installer diagnostic execution context
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force reports | Out-Null
+          $revision = & git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $revision -cne $env:GITHUB_SHA) { throw 'Installer diagnostic source identity changed.' }
+          [ordered]@{
+            classification = 'hosted-package-diagnostics-not-owner-session'
+            source_revision = $revision
+            workflow_run_id = $env:GITHUB_RUN_ID
+            workflow_run_attempt = $env:GITHUB_RUN_ATTEMPT
+            principal = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            os_version = [System.Environment]::OSVersion.VersionString
+            recorded_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+          } | ConvertTo-Json | Tee-Object -FilePath reports/installer-execution-context.json
       - name: Build unsigned NSIS engineering package
         shell: pwsh
         run: |
@@ -359,11 +381,13 @@ jobs:
           $details | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath reports/engineering-installer/manifest.json -Encoding utf8
           Get-Content -LiteralPath reports/engineering-installer/manifest.json
       - name: Preserve synthetic attachment diagnostics even on failure
-        if: ${{ always() && hashFiles('reports/attachment-worker-fixture.json') != '' }}
+        if: ${{ always() && hashFiles('reports/installer-execution-context.json') != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: attachment-worker-evidence-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: reports/attachment-worker-fixture.json
+          path: |
+            reports/installer-execution-context.json
+            reports/attachment-worker-fixture.json
           retention-days: 14
           if-no-files-found: error
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

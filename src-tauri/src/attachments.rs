@@ -518,14 +518,75 @@ mod tests {
     fn native_identity_reader_refuses_hardlinks_ads_aliases_and_writable_handles() {
         use std::{
             fs::{self, OpenOptions},
+            io::{ErrorKind, Write},
             os::windows::fs::OpenOptionsExt,
+            path::PathBuf,
         };
-        // Isolated synthetic fixture only. No owner document/history is read.
-        let fixture = std::env::temp_dir().join(format!("aster-attachment-{}", new_id().unwrap()));
-        fs::create_dir(&fixture).unwrap();
-        let source = fixture.join("synthetic.txt");
-        let link = fixture.join("linked.txt");
-        fs::write(&source, b"synthetic").unwrap();
+        struct NativeFixture {
+            directory: PathBuf,
+            root: Option<crate::workspace::Workspace>,
+            source_created: bool,
+            link_created: bool,
+        }
+        impl Drop for NativeFixture {
+            fn drop(&mut self) {
+                // Release production ancestor/root pins before exact, non-recursive
+                // cleanup. Never remove unrelated files if the test is interrupted.
+                drop(self.root.take());
+                let mut failed = false;
+                for (created, name) in [
+                    (self.link_created, "linked.txt"),
+                    (self.source_created, "synthetic.txt"),
+                ] {
+                    if !created {
+                        continue;
+                    }
+                    if let Err(error) = fs::remove_file(self.directory.join(name)) {
+                        failed |= error.kind() != ErrorKind::NotFound;
+                    }
+                }
+                if let Err(error) = fs::remove_dir(&self.directory) {
+                    failed |= error.kind() != ErrorKind::NotFound;
+                }
+                if failed {
+                    if std::thread::panicking() {
+                        eprintln!("attachment_fixture_cleanup=failed");
+                    } else {
+                        panic!("Synthetic attachment fixture cleanup failed");
+                    }
+                }
+            }
+        }
+        // Use the checkout candidate already exercised by workspace's native
+        // fixtures. TEMP is not an admitted root merely because it is writable.
+        // Exact production root admission below remains mandatory; no fallback,
+        // guard relaxation, alias canonicalisation or skipped assertion is used.
+        let directory = std::env::current_dir()
+            .unwrap()
+            .join(format!("aster-workspace-test-{}", new_id().unwrap()));
+        fs::create_dir(&directory).unwrap();
+        let mut fixture = NativeFixture {
+            directory,
+            root: Some(crate::workspace::Workspace::default()),
+            source_created: false,
+            link_created: false,
+        };
+        fixture
+            .root
+            .as_ref()
+            .unwrap()
+            .set_native_root(fixture.directory.clone())
+            .expect("Synthetic attachment fixture must pass production root admission");
+        let source = fixture.directory.join("synthetic.txt");
+        let link = fixture.directory.join("linked.txt");
+        let mut original = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&source)
+            .unwrap();
+        fixture.source_created = true;
+        original.write_all(b"synthetic").unwrap();
+        drop(original);
         assert_eq!(
             &*crate::workspace::read_selected_attachment(&source, MAX_SOURCE).unwrap(),
             b"synthetic"
@@ -538,13 +599,13 @@ mod tests {
         assert!(crate::workspace::read_selected_attachment(&source, MAX_SOURCE).is_err());
         drop(writer);
         fs::hard_link(&source, &link).unwrap();
+        fixture.link_created = true;
         assert!(crate::workspace::read_selected_attachment(&source, MAX_SOURCE).is_err());
         fs::remove_file(&link).unwrap();
+        fixture.link_created = false;
         let ads = Path::new(&format!("{}:extra", source.display())).to_path_buf();
         assert!(crate::workspace::read_selected_attachment(&ads, MAX_SOURCE).is_err());
         let device = Path::new(&format!(r"\\?\{}", source.display())).to_path_buf();
         assert!(crate::workspace::read_selected_attachment(&device, MAX_SOURCE).is_err());
-        fs::remove_file(&source).unwrap();
-        fs::remove_dir(&fixture).unwrap();
     }
 }
