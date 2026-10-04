@@ -1,5 +1,7 @@
 # OWNER-STARTUP-V022-0001 — v0.2.2 flickering report and v0.2.3 follow-up
 
+Historical predecessor evidence copied from remote main `23524097156f652e7f0fcfb3a8af49cfcf8f6bc7`. The record below describes the separate v0.2.2 amendment, not current v0.2.3 authority or results. Current v0.2.3 mitigation, owner-selected bounded initial presentation and fresh acceptance are defined in SPEC-0005/ADR-0018/LOCAL-V023-0001. No delay is claimed to prove completed native paint or cure the defect.
+
 Recorded on 4 October 2026, Europe/London (BST), at 2026-10-04T09:03:08Z. Status: **FAIL (owner-reported installed v0.2.2 flickering)**. This is a manual owner observation, not an agent-executed test or a universal Windows acceptance verdict.
 
 ## Owner report and superseded request

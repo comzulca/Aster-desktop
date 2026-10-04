@@ -46,7 +46,7 @@ describe('dark native and pre-module startup surfaces (T-073 / T-074)', () => {
     expect(main.zoomHotkeysEnabled).toBe(false);
     expect(main).not.toHaveProperty('transparent');
     expect(main).not.toHaveProperty('additionalBrowserArgs');
-    expect(main).not.toHaveProperty('visible');
+    expect(main).toHaveProperty('visible', false);
   });
 
   it('links one local render-blocking stylesheet in the head before the application module', () => {
@@ -88,5 +88,37 @@ describe('dark native and pre-module startup surfaces (T-073 / T-074)', () => {
     expect(startup).not.toMatch(/@import|url\(|animation|transition|display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0/i);
     expect(startup).toMatch(/color-scheme\s*:\s*dark/);
     expect(entryHtml).not.toMatch(/http[s]?:\/\/|onload=|location\.|setTimeout/);
+  });
+});
+
+describe('bounded host-owned initial presentation (T-077)', () => {
+  it('sets one opaque process-local WebView2 colour before the host starts', () => {
+    const binary = readFileSync('src-tauri/src/main.rs', 'utf8');
+    expect(binary).toContain('"WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "FF1B1F20"');
+    expect(binary.indexOf('std::env::set_var(')).toBeLessThan(binary.indexOf('aster_desktop_lib::run()'));
+    expect(binary).not.toMatch(/setx|SetEnvironmentVariable|--disable-gpu|additional_browser_args/i);
+  });
+
+  it('declares fixed minimum/deadline bounds and no generic hide or focus action', () => {
+    const module = 'src-tauri/src/startup.rs';
+    const source = existsSync(module) ? readFileSync(module, 'utf8') : '';
+    expect(source).toContain('const MIN_REVEAL_MS: u64 = 6_000;');
+    expect(source).toContain('const HARD_DEADLINE_MS: u64 = 10_000;');
+    expect(source).toContain('const MAX_TRACE_EVENTS: usize = 16;');
+    expect(source).toContain('startup_shell_ready');
+    expect(source).toContain('deny_unknown_fields');
+    expect(source).not.toMatch(/\.hide\(|\.set_focus\(|\.navigate\(|\.reload\(|\.eval\(/);
+    expect(readFileSync('src-tauri/capabilities/main.json', 'utf8')).not.toMatch(/core:window:|allow-show|allow-hide/);
+  });
+  it('preserves Tao visibility with a bounded owned-UI-thread activation veto, never a global input hook', () => {
+    const source = readFileSync('src-tauri/src/startup.rs', 'utf8');
+    expect(source).toContain('run_on_main_thread');
+    expect(source).toContain('SetWindowsHookExW(WH_CBT');
+    expect(source).toContain('HCBT_ACTIVATE'); expect(source).toContain('HCBT_SETFOCUS');
+    expect(source).toContain('GetWindowThreadProcessId'); expect(source).toContain('GetCurrentThreadId');
+    expect(source).toContain('window.show().is_ok()'); expect(source).toContain('IsWindowVisible(handle)');
+    expect(source).toContain('impl Drop for ActivationGuard'); expect(source).toContain('UnhookWindowsHookEx');
+    expect(source).toContain('CallNextHookEx'); expect(source).toContain('TARGET.with(|target| target.set(0))');
+    expect(source).not.toMatch(/WH_KEYBOARD|WH_MOUSE|SetForegroundWindow|SetActiveWindow|SetFocus\(|SendInput|GetAsyncKeyState/);
   });
 });

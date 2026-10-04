@@ -29,3 +29,21 @@
 /* Outside the scaled shell: feedback has no layout, focus or pointer authority. */
 .zoom-feedback{position:fixed;top:calc(68px * var(--interface-scale,1) + 10px);right:16px;z-index:25;pointer-events:none;user-select:none;background:#242b2e;color:#f1f3f5;border:1px solid #59666d;border-radius:6px;padding:7px 12px;font-size:13px;line-height:18px;box-shadow:0 4px 12px #0006;font-variant-numeric:tabular-nums}
 .zoom-feedback[hidden]{display:none}
+
+/* v0.2.3: the import glyph uses the composer surface, never a black tile. */
+.attachment-button{display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;height:34px;padding:0;border:0;background:transparent;color:#cbd4db;border-radius:0}
+.attachment-button:hover:not(:disabled){color:#97d4ff;background:transparent}
+.attachment-list{list-style:none;display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:4px 0 10px;max-height:105px;overflow-y:auto;scrollbar-width:thin}
+.attachment-list li{display:flex;align-items:center;gap:8px;min-width:0;max-width:100%;border:1px solid #536068;border-radius:8px;padding:3px 5px 3px 10px;font-size:11px;background:#2a3033}
+.attachment-label{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.attachment-details{color:#b7c7d1;white-space:nowrap;font-size:10px}.attachment-list .icon-button{padding:5px}
+.processed-attachments{margin-top:10px;padding:10px 12px;background:#242627;border:1px solid #3c4245;border-radius:10px}.processed-attachments ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}.processed-attachments li{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.processed-attachments li>span{flex:1;min-width:150px;overflow-wrap:anywhere}.processed-attachments strong{font-size:12px;font-weight:550}.processed-attachments small{display:block;margin-top:4px;font-size:11px;color:#b7c7d1}.processed-attachments p{font-size:11px;line-height:1.6;color:#bac8d0;margin:10px 0 0}.processed-attachments button{padding:7px 10px}
+.effort-control{position:relative}.effort-trigger{display:flex;align-items:center;gap:16px;border:0;background:transparent;padding:7px 4px;color:#d1d8de;font-size:12px}.effort-trigger:hover:not(:disabled){color:#fff}
+.effort-popup-shell{position:absolute;bottom:calc(100% + 10px);right:0;z-index:16;width:210px}
+.effort-popup,.classification-popup{background:#202020;color:#f1f3f5;border:1px solid #414141;border-radius:3px;box-shadow:0 8px 25px #0008;padding:5px 0}
+.effort-popup{max-height:calc(100vh / var(--interface-scale,1) - 190px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#62696c #202020}
+.classification-popup{position:absolute;right:calc(100% + 4px);bottom:0;width:190px;max-height:150px;overflow-y:auto}
+.effort-popup button,.classification-popup button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;border:0;background:transparent;text-align:left;border-radius:0;padding:9px 14px;font-size:12px;white-space:nowrap}
+.effort-popup button:hover:not(:disabled),.effort-popup button:focus-visible,.classification-popup button:hover:not(:disabled),.classification-popup button:focus-visible{background:#303030}
+.effort-popup [aria-checked=true],.classification-popup [aria-checked=true]{color:#a6d8ff;font-weight:600}
+.effort-popup [aria-checked=true]:after,.classification-popup [aria-checked=true]:after{content:'✓';font-weight:400}
+@media(max-width:750px){.classification-popup{right:0;bottom:calc(100% + 4px)}.composer-controls>.fixed-model{flex:1;width:auto;min-width:160px}.composer-options{margin-left:auto;flex:initial}.attachment-details{white-space:normal}}

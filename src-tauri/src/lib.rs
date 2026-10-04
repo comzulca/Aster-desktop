@@ -1,6 +1,10 @@
-//! Protocol 3 host: a fixed Contributor transport, durable private history and
+//! Protocol 4 host: a fixed Contributor transport, temporary originals and
 //! bounded finance. WebView messages are intent, never authority or secrets.
 mod admission;
+mod attachment_fixture;
+mod attachment_processing;
+mod attachment_worker;
+mod attachments;
 mod budget;
 mod contributor;
 #[cfg(all(test, windows))]
@@ -8,19 +12,26 @@ mod creation_process_fixture;
 mod credential;
 mod credential_fixture;
 mod history;
+#[cfg(test)]
+mod host_attachments_tests;
 #[cfg(windows)]
 mod journal_privacy;
 mod native_review;
+mod native_visual;
 #[cfg(windows)]
 mod new_file; // Shared file identity types and frozen recovery, no IPC routes.
 mod policy;
 mod private_store;
+mod processed_history;
 mod provider;
+mod startup;
 mod window_controls;
 mod window_guard;
 #[allow(dead_code)]
 mod workspace; // Shared privacy error types/frozen recovery, no v0.2 capability.
 
+use attachment_processing::ProcessedContent;
+use attachments::{AdmittedAttachment, AttachmentKind, AttachmentMetadata, AttachmentRegistry};
 use budget::{Budget, BudgetStatus, Configuration};
 use contributor::{Contributor, ContributorStatus};
 use credential::CredentialStore;
@@ -31,6 +42,7 @@ use policy::{
     FinishDisposition, Model, SessionState, TransportOutcome, DEFAULT_MODEL, POLICY_VERSION,
 };
 use private_store::StoreError;
+use processed_history::ProcessedHistory;
 use provider::{ProviderFailure, ProviderOutcome, ProviderTerminal, ReasoningEffort};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -43,6 +55,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{Emitter, Manager, State, WebviewWindow};
+use tauri_plugin_dialog::DialogExt;
 
 const MAIN_WINDOW: &str = "main";
 const STREAM_EVENT: &str = "aster://stream";
@@ -61,10 +74,15 @@ const COMMANDS: &[&str] = &[
     "send_message",
     "cancel_message",
     "window_action",
+    "startup_shell_ready",
+    "select_attachments",
+    "remove_attachment",
+    "review_processed_attachment",
 ];
 
 struct Persistence {
     history: History,
+    processed: Result<ProcessedHistory, StoreError>,
     budget: Budget,
     contributor: Contributor,
 }
@@ -72,6 +90,7 @@ impl Persistence {
     fn open(base: &Path) -> Result<Self, StoreError> {
         Ok(Self {
             history: History::open(base)?,
+            processed: ProcessedHistory::open(base),
             budget: Budget::open(base)?,
             contributor: Contributor::open(base)?,
         })
@@ -80,8 +99,10 @@ impl Persistence {
 struct Host {
     credentials: CredentialStore,
     sessions: Mutex<SessionState>,
+    attachments: Mutex<AttachmentRegistry>,
     persistent: Mutex<Result<Persistence, StoreError>>,
     native_dialog_open: AtomicBool,
+    expiry_shutdown: AtomicBool,
     window_close: window_guard::CloseState,
 }
 struct NativeDialogGuard<'a>(&'a AtomicBool);
@@ -155,13 +176,17 @@ fn owner(_: &WebviewWindow) -> Result<usize, String> {
 async fn review(window: &WebviewWindow, document: ReviewDocument) -> Result<bool, String> {
     let hwnd = owner(window)?;
     tauri::async_runtime::spawn_blocking(move || {
-        match native_review::confirm_owned(&document, hwnd)
-            .map_err(|_| "native_review_unavailable".to_owned())?
-        {
+        match native_review::confirm_owned(&document, hwnd).map_err(|error| match error {
+            native_review::ReviewError::Cancelled => "cancelled".to_owned(),
+            _ => "native_review_unavailable".to_owned(),
+        })? {
             Some(approval) => {
                 approval
                     .consume(document.binding_sha256())
-                    .map_err(|_| "native_review_expired".to_owned())?;
+                    .map_err(|error| match error {
+                        native_review::ReviewError::Cancelled => "cancelled".to_owned(),
+                        _ => "native_review_expired".to_owned(),
+                    })?;
                 Ok(true)
             }
             None => Ok(false),
@@ -177,6 +202,7 @@ fn operation(value: serde_json::Value) -> Result<ReviewDocument, String> {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Capabilities {
+    attachment_import: bool,
     project_read: bool,
     proposals: bool,
     apply_new_file: bool,
@@ -255,6 +281,29 @@ struct SendIntent {
     message: String,
     data_class: String,
     reasoning_effort: String,
+    #[serde(default)]
+    attachment_ids: Vec<String>,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AttachmentIntent {
+    conversation_id: String,
+    attachment_id: String,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProcessedIntent {
+    conversation_id: String,
+    request_id: String,
+    attachment_id: String,
+}
+#[derive(Serialize)]
+struct RemovedAttachment {
+    removed: bool,
+}
+#[derive(Serialize)]
+struct ViewedAttachment {
+    viewed: bool,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -310,7 +359,7 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         "ready"
     };
     Ok(AppStatus {
-        protocol_version: 3,
+        protocol_version: 4,
         policy_version: POLICY_VERSION,
         configured,
         credential_available,
@@ -323,6 +372,11 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         project_selected: false,
         project_label: None,
         capabilities: Capabilities {
+            attachment_import: cfg!(windows)
+                && p.processed
+                    .as_ref()
+                    .ok()
+                    .is_some_and(|media| media.import_available().unwrap_or(false)),
             project_read: false,
             proposals: false,
             apply_new_file: false,
@@ -336,6 +390,10 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
 }
 
 fn invalidate_identity(host: &Host) -> Result<(), String> {
+    host.attachments
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .invalidate();
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
     let p = persistent(&mut state)?;
     // Revoke first, so a failed history write cannot leave permission valid.
@@ -515,7 +573,12 @@ fn create_conversation(
     host: State<'_, Host>,
 ) -> Result<Conversation, String> {
     trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
     host.idle()?;
+    host.attachments
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .invalidate();
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
     host.idle()?;
     persistent(&mut state)?.history.create(now()?).map_err(code)
@@ -527,16 +590,19 @@ fn load_conversation(
     input: ConversationIntent,
 ) -> Result<Conversation, String> {
     trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
     host.idle()?;
+    host.attachments
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .invalidate();
     if !admission::opaque_id(&input.conversation_id) {
         return Err("invalid_input".into());
     }
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
     host.idle()?;
-    persistent(&mut state)?
-        .history
-        .load(&input.conversation_id)
-        .map_err(code)
+    let p = persistent(&mut state)?;
+    checked_conversation(p, &input.conversation_id)
 }
 #[tauri::command]
 async fn delete_conversation(
@@ -558,12 +624,263 @@ async fn delete_conversation(
             .map_err(code)?
     };
     if !review(&window,operation(serde_json::json!({"operation":"Remove conversation from visible history","conversationId":conversation.id,"entryCount":conversation.entries.len(),"effect":"Logical removal only. Encrypted recovery records remain and storage quota is not reclaimed. This is not permanent or secure erasure. Financial records and reservations are preserved."}))?).await?{return Ok(DeleteReceipt{deleted:false});}
+    host.attachments
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .invalidate();
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
     persistent(&mut state)?
         .history
         .remove_after_native_confirmation(&input.conversation_id, now()?)
         .map_err(code)?;
     Ok(DeleteReceipt { deleted: true })
+}
+
+/// References are usable only when both independently protected domains bind
+/// the same complete processed allocation. No read or disclosure grant returns.
+fn checked_conversation(p: &Persistence, id: &str) -> Result<Conversation, String> {
+    checked_history(&p.history, &p.processed, id)
+}
+fn checked_history(
+    history: &History,
+    processed: &Result<ProcessedHistory, StoreError>,
+    id: &str,
+) -> Result<Conversation, String> {
+    let conversation = history.load(id).map_err(code)?;
+    for entry in &conversation.entries {
+        if let Some(files) = &entry.processed_attachments {
+            let media = processed.as_ref().map_err(|e| code(*e))?;
+            for file in files {
+                let (binding, class) = history
+                    .processed_reference(id, &entry.request_id, &file.id)
+                    .map_err(code)?;
+                media
+                    .load_bound(id, &entry.request_id, &binding, &class)
+                    .map_err(code)?;
+            }
+        }
+    }
+    Ok(conversation)
+}
+
+fn attachment_prompt(message: &str, files: &[AdmittedAttachment]) -> Result<String, String> {
+    if message.len() > policy::MAX_MESSAGE_BYTES {
+        return Err("attachment_capacity".into());
+    }
+    let mut prompt = message.to_owned();
+    for (index, file) in files.iter().enumerate() {
+        match &file.processed {
+            ProcessedContent::Text(text) => {
+                prompt.push_str(&format!(
+                    "\n\n[Inert processed text attachment {}]\n",
+                    index + 1
+                ));
+                prompt.push_str(text);
+                prompt.push_str("\n[End processed attachment]");
+            }
+            ProcessedContent::Pages(_) => {
+                prompt.push_str(&format!("\n\n[Attachment {}: {}. Its native PDF or normalised image accompanies this request only. Saved pages remain local; reattach the original for another complete native reading.]", index + 1, if file.metadata.kind == AttachmentKind::Pdf { "complete native PDF" } else { "complete normalised image" }));
+            }
+        }
+        if prompt.len() > policy::MAX_MESSAGE_BYTES {
+            return Err("attachment_capacity".into());
+        }
+    }
+    if !admission::admissible_text(&prompt) {
+        return Err("data_admission_denied".into());
+    }
+    Ok(prompt)
+}
+
+fn visual_pages(
+    content: &ProcessedContent,
+    label: &str,
+) -> Result<Vec<native_visual::VisualPage>, String> {
+    match content {
+        ProcessedContent::Text(_) => Ok(Vec::new()),
+        ProcessedContent::Pages(pages) => pages
+            .iter()
+            .enumerate()
+            .map(|(index, page)| {
+                native_visual::VisualPage::from_rgba(
+                    format!("{label} · {}", index + 1),
+                    page.width,
+                    page.height,
+                    &page.rgba,
+                )
+                .map_err(str::to_owned)
+            })
+            .collect(),
+    }
+}
+
+#[tauri::command]
+async fn select_attachments(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    host: State<'_, Host>,
+    input: ConversationIntent,
+) -> Result<Vec<AttachmentMetadata>, String> {
+    trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    if !cfg!(windows) || !admission::opaque_id(&input.conversation_id) {
+        return Err("attachment_denied".into());
+    }
+    {
+        let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
+        let p = persistent(&mut state)?;
+        if !p
+            .processed
+            .as_ref()
+            .map_err(|e| code(*e))?
+            .import_available()
+            .map_err(code)?
+        {
+            return Err("attachment_capacity".into());
+        }
+        checked_conversation(p, &input.conversation_id)?;
+    }
+    // A new selection replaces the whole previous temporary batch. Cancellation
+    // returns the truthful empty batch; no stale original survives an error.
+    host.attachments
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .invalidate();
+    owner(&window)?;
+    let batch = tauri::async_runtime::spawn_blocking(move || {
+        let paths = app
+            .dialog()
+            .file()
+            .set_parent(&window)
+            .set_title("Aster: select eligible public or synthetic attachments")
+            .add_filter(
+                "Aster direct formats",
+                &[
+                    "pdf", "txt", "md", "json", "xml", "yaml", "csv", "tsv", "png", "jpg", "jpeg",
+                    "gif",
+                ],
+            )
+            .blocking_pick_files();
+        let Some(paths) = paths else {
+            return Ok(Vec::new());
+        };
+        if paths.is_empty() || paths.len() > attachments::MAX_FILES {
+            return Err("attachment_capacity".to_owned());
+        }
+        let mut originals = Vec::new();
+        let mut bytes = 0usize;
+        for path in paths {
+            let selected =
+                attachments::read_selected_native(path.as_path().ok_or("attachment_denied")?)
+                    .map_err(|e| e.code().to_owned())?;
+            bytes = bytes
+                .checked_add(selected.bytes.len())
+                .ok_or("attachment_capacity")?;
+            if bytes > attachments::MAX_BATCH_SOURCE {
+                return Err("attachment_capacity".into());
+            }
+            originals.push(selected);
+        }
+        let mut batch = Vec::new();
+        for selected in originals {
+            let output = attachment_processing::process_isolated(
+                selected.kind,
+                &selected.bytes,
+                &AtomicBool::new(false),
+            )
+            .map_err(|_| "attachment_denied".to_owned())?;
+            batch.push(
+                AdmittedAttachment::from_processed(selected, output)
+                    .map_err(|e| e.code().to_owned())?,
+            );
+        }
+        Ok::<_, String>(batch)
+    })
+    .await
+    .map_err(|_| "attachment_unavailable".to_owned())??;
+    host.idle()?;
+    if batch.is_empty() {
+        return Ok(Vec::new());
+    }
+    host.attachments
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .insert_batch(&input.conversation_id, batch)
+        .map_err(|e| e.code().to_owned())
+}
+
+#[tauri::command]
+fn remove_attachment(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: AttachmentIntent,
+) -> Result<RemovedAttachment, String> {
+    trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    if !admission::opaque_id(&input.conversation_id) || !attachments::valid_id(&input.attachment_id)
+    {
+        return Err("attachment_denied".into());
+    }
+    host.attachments
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .remove(&input.conversation_id, &input.attachment_id)
+        .map_err(|e| e.code().to_owned())?;
+    Ok(RemovedAttachment { removed: true })
+}
+
+#[tauri::command]
+async fn review_processed_attachment(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: ProcessedIntent,
+) -> Result<ViewedAttachment, String> {
+    trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    if !admission::opaque_id(&input.conversation_id)
+        || !admission::opaque_id(&input.request_id)
+        || !attachments::valid_id(&input.attachment_id)
+    {
+        return Err("processed_attachment_denied".into());
+    }
+    let stored = {
+        let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
+        let p = persistent(&mut state)?;
+        let (binding, class) = p
+            .history
+            .processed_reference(
+                &input.conversation_id,
+                &input.request_id,
+                &input.attachment_id,
+            )
+            .map_err(code)?;
+        p.processed
+            .as_ref()
+            .map_err(|e| code(*e))?
+            .load_bound(&input.conversation_id, &input.request_id, &binding, &class)
+            .map_err(code)?
+    };
+    let hwnd = owner(&window)?;
+    let viewed = tauri::async_runtime::spawn_blocking(move || {
+        let content = stored.materialise(&AtomicBool::new(false)).map_err(code)?;
+        let pages = visual_pages(&content, &stored.metadata.label)?;
+        if pages.is_empty() {
+            return Err("processed_attachment_denied".into());
+        }
+        native_visual::inspect_owned(
+            &pages,
+            hwnd,
+            std::time::Instant::now() + std::time::Duration::from_secs(300),
+            false,
+        )
+        .map_err(str::to_owned)
+    })
+    .await
+    .map_err(|_| "processed_attachment_denied".to_owned())??;
+    Ok(ViewedAttachment { viewed })
 }
 
 #[tauri::command]
@@ -582,9 +899,29 @@ async fn send_message(
         .map_err(str::to_owned)?;
     let effort = ReasoningEffort::parse(&input.reasoning_effort).ok_or("reasoning_denied")?;
     let guard = host.enter_native_dialog()?;
+    host.idle()?;
+    let files = host
+        .attachments
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .consume(
+            &input.conversation_id,
+            &input.request_id,
+            &input.attachment_ids,
+        )
+        .map_err(|e| e.code().to_owned())?;
+    if files.iter().any(|file| !file.still_valid()) {
+        return Err("attachment_expired".into());
+    }
+    let complete_prompt = attachment_prompt(&input.message, &files)?;
+    admission::validate_new_message(&input.data_class, &complete_prompt).map_err(str::to_owned)?;
     let admitted = {
         let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
         let p = persistent(&mut state)?;
+        checked_conversation(p, &input.conversation_id)?;
+        if !files.is_empty() {
+            p.processed.as_ref().map_err(|e| code(*e))?;
+        }
         if !p.contributor.status(now()?).accepted {
             return Err("contributor_terms_required".into());
         }
@@ -617,7 +954,7 @@ async fn send_message(
                 &input.conversation_id,
                 &input.request_id,
                 model,
-                input.message.clone(),
+                complete_prompt.clone(),
             )
             .map_err(|e| e.code())?
     };
@@ -625,21 +962,45 @@ async fn send_message(
     let mut reserved = false;
     let prepared=async {
         admission::validate_context(&admitted.messages).map_err(str::to_owned)?;
-        let body=provider::exact_body_with_effort(model,&admitted.messages,effort).map_err(|e|e.code().to_owned())?;
-        let metadata=serde_json::json!({"protocolVersion":3,"policyVersion":POLICY_VERSION,"requestId":input.request_id,"conversationId":input.conversation_id,"dataClass":class.as_str(),"reasoningEffort":input.reasoning_effort,"model":DEFAULT_MODEL,"maximumCompletionTokens":8192,"nativeAuthority":"One exact body only; no tools, file or browser authority."}).to_string();
+        let mut media = Vec::new(); let mut previews = Vec::new();
+        for file in &files {
+            if !file.still_valid() { return Err("attachment_expired".into()); }
+            match &file.processed {
+                ProcessedContent::Text(_) => (),
+                ProcessedContent::Pages(pages) if file.metadata.kind == AttachmentKind::Pdf => {
+                    media.push(provider::InlineMedia::Pdf(&file.original));
+                    previews.extend(visual_pages(&file.processed,&file.metadata.label)?);
+                    if pages.len() != file.metadata.page_count { return Err("attachment_conflict".into()); }
+                }
+                ProcessedContent::Pages(pages) => {
+                    let page = pages.first().filter(|_|pages.len()==1).ok_or("attachment_conflict")?;
+                    media.push(provider::InlineMedia::Png(&page.png));
+                    previews.extend(visual_pages(&file.processed,&file.metadata.label)?);
+                }
+            }
+        }
+        let body=provider::exact_body_with_media(model,&admitted.messages,effort,&media).map_err(|e|e.code().to_owned())?;
+        let sources:Vec<_> = files.iter().map(|file|serde_json::json!({"metadata":file.metadata,"sourceSha256":file.source_sha256,"egress":if file.metadata.kind==AttachmentKind::Pdf{"Exact native PDF inline"}else if file.metadata.kind==AttachmentKind::Image{"Complete normalised PNG inline"}else{"Complete processed text in newest prompt"}})).collect();
+        let metadata=serde_json::json!({"protocolVersion":4,"policyVersion":POLICY_VERSION,"requestId":input.request_id,"conversationId":input.conversation_id,"dataClass":class.as_str(),"reasoningEffort":input.reasoning_effort,"model":DEFAULT_MODEL,"maximumCompletionTokens":8192,"attachments":sources,"completeOriginalAttestation":"The selected classification applies to the complete original including PDF metadata, embedded or hidden objects, not just visible pages. I have established rights and eligibility. Meta may use inputs and outputs for training. Page preview cannot prove that hidden content is absent.","nativeAuthority":"One exact body only. Original allocations expire after five minutes; no tools, file or browser authority. Processed visual history is local only; reattach for another complete native reading."}).to_string();
         let document=ReviewDocument::disclosure_with_context(&body,&metadata).map_err(|_|"native_review_unavailable".to_owned())?;
+        let document=if previews.is_empty(){document}else{document.with_visuals(previews).map_err(|_|"native_review_unavailable".to_owned())?};
+        let document=if let Some(deadline)=files.iter().map(AdmittedAttachment::deadline).min(){document.with_source_deadline(deadline)}else{document};
+        let document=document.with_request_cancellation(admitted.cancellation.clone());
         if !review(&window,document).await?{return Err("disclosure_denied".into());}
+        if files.iter().any(|file|!file.still_valid()){return Err("attachment_expired".into());}
         if *admitted.cancellation.borrow(){return Err("cancelled".into());}
         let mut state=host.persistent.lock().map_err(|_|"state_unavailable")?;let p=persistent(&mut state)?;
         if !p.contributor.status(now()?).accepted{return Err("contributor_terms_required".into());}
         p.budget.reserve(&input.request_id,now()?).map_err(code)?;reserved=true;
-        p.history.begin_request(&input.conversation_id,&input.request_id,&input.message,class.as_str(),now()?).map_err(code)?;recorded=true;
+        let bindings=if files.is_empty(){Vec::new()}else{p.processed.as_mut().map_err(|e|code(*e))?.append_batch(&input.conversation_id,&input.request_id,class.as_str(),&files).map_err(code)?};
+        p.history.begin_request_with_attachments(&input.conversation_id,&input.request_id,&complete_prompt,class.as_str(),now()?,bindings).map_err(code)?;recorded=true;
         let remaining=p.history.remaining_text(&input.conversation_id).map_err(code)?;
         // Reading only the native key occurs after review; a proven unsent
         // failure can release. A durable dispatch intent precedes networking.
         let key=host.credentials.read().map_err(|e|e.code().to_owned())?;
         if *admitted.cancellation.borrow(){return Err("cancelled".into());}
         let dispatch_time=now()?;
+        if files.iter().any(|file|!file.still_valid()){return Err("attachment_expired".into());}
         if !p.contributor.status(dispatch_time).accepted{return Err("contributor_terms_required".into());}
         p.budget.mark_dispatch(&input.request_id,dispatch_time).map_err(code)?;
         Ok::<_,String>((body,key,remaining))
@@ -870,12 +1231,24 @@ fn preparation_terminal(error: &str, disposition: Option<FinishDisposition>) -> 
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum LaunchMode {
+    AttachmentWorker,
+    AttachmentFixture,
+    AttachmentResourceWorker,
     Normal,
     ReviewFixture { large: bool },
     CredentialFixture,
     Invalid,
 }
 fn launch_mode(arguments: &[String]) -> LaunchMode {
+    if arguments.len() == 1 && arguments[0] == attachment_worker::RESOURCE_WORKER_ARGUMENT {
+        return LaunchMode::AttachmentResourceWorker;
+    }
+    if arguments.len() == 1 && arguments[0] == "--aster-attachment-fixture" {
+        return LaunchMode::AttachmentFixture;
+    }
+    if arguments.len() == 1 && arguments[0] == attachment_worker::WORKER_ARGUMENT {
+        return LaunchMode::AttachmentWorker;
+    }
     if arguments.is_empty() {
         return LaunchMode::Normal;
     }
@@ -909,6 +1282,23 @@ fn launch_mode_os(arguments: impl IntoIterator<Item = std::ffi::OsString>) -> La
 pub fn run() {
     match launch_mode_os(std::env::args_os().skip(1)) {
         LaunchMode::Normal => (),
+        LaunchMode::AttachmentResourceWorker => {
+            let outcome = std::panic::catch_unwind(attachment_worker::run_resource_worker_stdio);
+            std::process::exit(if matches!(outcome, Ok(Ok(()))) { 0 } else { 3 })
+        }
+        LaunchMode::AttachmentFixture => {
+            let report = attachment_fixture::run();
+            let exit = if report.all_passed { 0 } else { 3 };
+            match serde_json::to_string(&report) {
+                Ok(json) => println!("{json}"),
+                Err(_) => std::process::exit(3),
+            }
+            std::process::exit(exit)
+        }
+        LaunchMode::AttachmentWorker => {
+            let result = std::panic::catch_unwind(attachment_worker::run_worker_stdio);
+            std::process::exit(if matches!(result, Ok(Ok(()))) { 0 } else { 3 });
+        }
         LaunchMode::Invalid => {
             eprintln!("aster_startup=invalid_arguments");
             std::process::exit(3)
@@ -932,6 +1322,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let gate = startup::StartupGate::new();
+            let window = app
+                .get_webview_window(MAIN_WINDOW)
+                .ok_or("startup_window_unavailable")?;
+            app.manage(gate.clone());
+            gate.start_monitor(window);
             // Existing local-data base only; PrivateStore creates its own fixed
             // protected child. Never reset/repair an unavailable existing store.
             let persistence = app
@@ -942,9 +1338,27 @@ pub fn run() {
             app.manage(Host {
                 credentials: CredentialStore,
                 sessions: Mutex::new(SessionState::default()),
+                attachments: Mutex::new(AttachmentRegistry::default()),
                 persistent: Mutex::new(persistence),
                 native_dialog_open: AtomicBool::new(false),
+                expiry_shutdown: AtomicBool::new(false),
                 window_close: window_guard::CloseState::default(),
+            });
+            // Independent expiry cleanup. Grants deny exactly after their
+            // monotonic deadline; allocations are dropped on the next scheduled
+            // one-second cleanup tick even if the renderer becomes idle.
+            let expiry_app = app.handle().clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                let Some(host) = expiry_app.try_state::<Host>() else {
+                    break;
+                };
+                if host.expiry_shutdown.load(Ordering::Acquire) {
+                    break;
+                }
+                if let Ok(mut registry) = host.attachments.lock() {
+                    registry.prune_expired();
+                }
             });
             Ok(())
         })
@@ -961,7 +1375,11 @@ pub fn run() {
             delete_conversation,
             send_message,
             cancel_message,
-            window_controls::window_action
+            window_controls::window_action,
+            startup::startup_shell_ready,
+            select_attachments,
+            remove_attachment,
+            review_processed_attachment
         ])
         .on_window_event(window_controls::on_window_event)
         .run(tauri::generate_context!())
@@ -1000,7 +1418,7 @@ mod tests {
         );
     }
     #[test]
-    fn protocol_three_intent_is_closed() {
+    fn protocol_four_intent_is_closed() {
         let base = serde_json::json!({"conversationId":"a".repeat(32),"requestId":"b".repeat(32),"modelId":DEFAULT_MODEL,"message":"Synthetic example","dataClass":"synthetic","reasoningEffort":"medium"});
         assert!(serde_json::from_value::<SendIntent>(base.clone()).is_ok());
         for name in [
@@ -1052,8 +1470,10 @@ mod tests {
         let host = Host {
             credentials: CredentialStore,
             sessions: Mutex::new(SessionState::default()),
+            attachments: Mutex::new(AttachmentRegistry::default()),
             persistent: Mutex::new(Err(StoreError::Unavailable)),
             native_dialog_open: AtomicBool::new(false),
+            expiry_shutdown: AtomicBool::new(false),
             window_close: window_guard::CloseState::default(),
         };
         let guard = host.enter_native_dialog().unwrap();

@@ -1,0 +1,1037 @@
+{
+  "schema_version": 1,
+  "project": {
+    "name": "Aster Desktop v0.2.2",
+    "platform": "Windows-11-x64",
+    "release_class": "development",
+    "source_revision": "bfff47075c5d94f774e6b9b43ae241f0f72bce25"
+  },
+  "policy": {
+    "allow_automatic_provider_fallback": false,
+    "allow_automatic_retry": false,
+    "host_enforces_privileges": true,
+    "human_confirms_mutations": true,
+    "model_may_commit": false,
+    "secrets_in_renderer": false,
+    "storage_enabled": true,
+    "web_enabled": false
+  },
+  "providers": [
+    {
+      "enabled": true,
+      "id": "meta_model_api",
+      "model_id": "muse-spark-1.3-contributor",
+      "origin": "https://api.meta.ai",
+      "protocol": "POST /v1/chat/completions; strict SSE with independent usage and [DONE]",
+      "official_source": "https://dev.meta.ai/docs/api-reference/chat-completions/schemas",
+      "verified_on": "2026-10-03",
+      "contract_fixture": "src-tauri/src/provider.rs",
+      "bounds": {
+        "connect_timeout_ms": 10000,
+        "total_timeout_ms": 900000,
+        "max_response_bytes": 8388608
+      }
+    }
+  ],
+  "tools": [],
+  "requirements": [
+    {
+      "id": "PR-003",
+      "text": "Windows 11 engineering profile and separate verified direct Meta account eligibility"
+    },
+    {
+      "id": "FR-018",
+      "text": "Only Muse Spark 1.3 Contributor is the default and admitted model"
+    },
+    {
+      "id": "FR-019",
+      "text": "Fixed exact reviewed Meta Chat Completions body and strict bounded stream"
+    },
+    {
+      "id": "FR-020",
+      "text": "Complete prompt/history public-or-synthetic admission and fresh native disclosure"
+    },
+    {
+      "id": "FR-021",
+      "text": "Integer-only £89 local monthly spend reservation and £80.10 warning"
+    },
+    {
+      "id": "FR-022",
+      "text": "Durable unknown spend and exact statement-confirmed reconciliation"
+    },
+    {
+      "id": "FR-023",
+      "text": "No legacy conversation import, model fallback or credential/journal destruction"
+    },
+    {
+      "id": "FR-024",
+      "text": "Protected persistent history and bounded display/navigation without restored authority"
+    },
+    {
+      "id": "FR-025",
+      "text": "Functional British-English local menus and help only"
+    },
+    {
+      "id": "UX-003",
+      "text": "Truthful Contributor/privacy/capability states without fictitious connection claims"
+    },
+    {
+      "id": "UX-004",
+      "text": "Requested scrollable composer, Send/Stop and independent history scrolling"
+    },
+    {
+      "id": "UX-005",
+      "text": "Exact new artwork, Union Jack and British-English product text"
+    },
+    {
+      "id": "NFR-005",
+      "text": "Resource, timeout and single-active/replay bounds deny without silent truncation"
+    },
+    {
+      "id": "NFR-006",
+      "text": "Source-bound dependency, licence, binary and release verification"
+    },
+    {
+      "id": "SEC-014",
+      "text": "Closed sole provider/model registry and denial of legacy routes"
+    },
+    {
+      "id": "SEC-015",
+      "text": "Native Meta credential and owner-window review only"
+    },
+    {
+      "id": "SEC-016",
+      "text": "No prohibited data override or renderer approval authority"
+    },
+    {
+      "id": "SEC-017",
+      "text": "No shell/web/MCP/project tools or uncontrolled egress"
+    },
+    {
+      "id": "SEC-018",
+      "text": "No financial reset, free post-dispatch cancellation or silent month activation"
+    },
+    {
+      "id": "SEC-019",
+      "text": "Strict independently versioned protocol and unknown-field denial"
+    },
+    {
+      "id": "SEC-020",
+      "text": "No secret/provider-body leakage into renderer/log/evidence"
+    },
+    {
+      "id": "SEC-021",
+      "text": "Protected immutable DPAPI/DACL chat/budget records, fail closed on corruption"
+    },
+    {
+      "id": "SEC-022",
+      "text": "Restore display/eligible text, never approvals/active slots/grants/financial authority"
+    },
+    {
+      "id": "UX-006",
+      "text": "Approved circular A launcher artwork without embedded lettering, aspect-preserving maximum useful icon canvas."
+    },
+    {
+      "id": "UX-007",
+      "text": "Union Jack shares the top caption-controls row with functioning bounded main-window actions."
+    },
+    {
+      "id": "UX-008",
+      "text": "Existing ready-state orb and exact caption blend with one homogeneous original canvas."
+    },
+    {
+      "id": "FR-026",
+      "text": "Faithful scope-filtered functional File/Edit/View/Help commands and matching keyboard shortcuts."
+    },
+    {
+      "id": "UX-009",
+      "text": "Accessible compact dark grouped menus with truthful local help/status and no decorative commands."
+    },
+    {
+      "id": "UX-010",
+      "text": "Spacing-only upper-left brand adjustment; preserve v0.2.0 rendered sizes, proportions, typography, colours and source artwork."
+    },
+    {
+      "id": "UX-011",
+      "text": "Colour-only sky-blue Send/Stop backgrounds; preserve original circle sizes and black glyph SVG geometry."
+    },
+    {
+      "id": "SEC-023",
+      "text": "Strict authenticated main-window caption action enum, unknown/foreign/busy/native-review/unsafe-close denial and no arbitrary authority."
+    },
+    {
+      "id": "SEC-024",
+      "text": "Deliberate local selection-aware editing, bounded memory-only drafts and default-cancel quit/close discard; no implicit disclosure or approval."
+    },
+    {
+      "id": "UX-012",
+      "text": "One bounded local zoom state for menus, keyboard aliases and deliberate Ctrl-wheel, default 100%."
+    },
+    {
+      "id": "UX-013",
+      "text": "Non-interactive unscaled upper-right current zoom percentage for 1,000ms after latest admitted action."
+    },
+    {
+      "id": "NFR-007",
+      "text": "Matching early HTML and opaque native/WebView dark startup surfaces; owner-installed white-flash regression verification."
+    },
+    {
+      "id": "SEC-025",
+      "text": "Presentation-only zoom/notification preserves busy/modal, no duplicate native zoom or new authority."
+    }
+  ],
+  "threats": [
+    {
+      "id": "TM-016",
+      "requirement_ids": [
+        "SEC-016",
+        "FR-020"
+      ]
+    },
+    {
+      "id": "TM-017",
+      "requirement_ids": [
+        "SEC-014",
+        "SEC-015",
+        "SEC-017",
+        "FR-018",
+        "FR-019"
+      ]
+    },
+    {
+      "id": "TM-018",
+      "requirement_ids": [
+        "SEC-018",
+        "FR-021",
+        "FR-022",
+        "NFR-005"
+      ]
+    },
+    {
+      "id": "TM-019",
+      "requirement_ids": [
+        "SEC-019",
+        "SEC-022",
+        "FR-023",
+        "FR-024"
+      ]
+    },
+    {
+      "id": "TM-020",
+      "requirement_ids": [
+        "UX-003",
+        "UX-004",
+        "UX-005",
+        "FR-025"
+      ]
+    },
+    {
+      "id": "TM-021",
+      "requirement_ids": [
+        "PR-003"
+      ]
+    },
+    {
+      "id": "TM-022",
+      "requirement_ids": [
+        "SEC-020",
+        "SEC-021",
+        "FR-024"
+      ]
+    },
+    {
+      "id": "TM-023",
+      "requirement_ids": [
+        "SEC-018",
+        "SEC-021",
+        "SEC-022"
+      ]
+    },
+    {
+      "id": "TM-024",
+      "requirement_ids": [
+        "SEC-023",
+        "UX-007"
+      ]
+    },
+    {
+      "id": "TM-025",
+      "requirement_ids": [
+        "SEC-024",
+        "FR-026",
+        "UX-009"
+      ]
+    },
+    {
+      "id": "TM-026",
+      "requirement_ids": [
+        "SEC-025",
+        "UX-012",
+        "UX-013",
+        "NFR-007"
+      ]
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "AC-032",
+      "requirement_ids": [
+        "PR-003"
+      ],
+      "threat_ids": [
+        "TM-021"
+      ],
+      "test_ids": [
+        "T-042"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-033",
+      "requirement_ids": [
+        "FR-018",
+        "SEC-014"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-043"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-034",
+      "requirement_ids": [
+        "FR-019"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-044"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-035",
+      "requirement_ids": [
+        "FR-020",
+        "SEC-016"
+      ],
+      "threat_ids": [
+        "TM-016"
+      ],
+      "test_ids": [
+        "T-045"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-036",
+      "requirement_ids": [
+        "FR-021",
+        "SEC-018"
+      ],
+      "threat_ids": [
+        "TM-018",
+        "TM-023"
+      ],
+      "test_ids": [
+        "T-046"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-037",
+      "requirement_ids": [
+        "FR-022"
+      ],
+      "threat_ids": [
+        "TM-018"
+      ],
+      "test_ids": [
+        "T-047"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-038",
+      "requirement_ids": [
+        "FR-023"
+      ],
+      "threat_ids": [
+        "TM-019"
+      ],
+      "test_ids": [
+        "T-048"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-039",
+      "requirement_ids": [
+        "UX-003",
+        "UX-004"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-049"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-040",
+      "requirement_ids": [
+        "NFR-005"
+      ],
+      "threat_ids": [
+        "TM-018"
+      ],
+      "test_ids": [
+        "T-050"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-041",
+      "requirement_ids": [
+        "SEC-015"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-051"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-042",
+      "requirement_ids": [
+        "SEC-017"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-052"
+      ],
+      "verification_phase": 4
+    },
+    {
+      "id": "AC-043",
+      "requirement_ids": [
+        "SEC-014",
+        "SEC-017"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-053"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-044",
+      "requirement_ids": [
+        "SEC-018"
+      ],
+      "threat_ids": [
+        "TM-023"
+      ],
+      "test_ids": [
+        "T-054"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-045",
+      "requirement_ids": [
+        "SEC-019"
+      ],
+      "threat_ids": [
+        "TM-019"
+      ],
+      "test_ids": [
+        "T-055"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-046",
+      "requirement_ids": [
+        "SEC-020"
+      ],
+      "threat_ids": [
+        "TM-022"
+      ],
+      "test_ids": [
+        "T-056"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-047",
+      "requirement_ids": [
+        "NFR-006"
+      ],
+      "threat_ids": [
+        "TM-017"
+      ],
+      "test_ids": [
+        "T-057"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-048",
+      "requirement_ids": [
+        "NFR-006"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-058"
+      ],
+      "verification_phase": 9
+    },
+    {
+      "id": "AC-049",
+      "requirement_ids": [
+        "PR-003"
+      ],
+      "threat_ids": [
+        "TM-021"
+      ],
+      "test_ids": [
+        "T-059"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-050",
+      "requirement_ids": [
+        "FR-024",
+        "SEC-022"
+      ],
+      "threat_ids": [
+        "TM-019",
+        "TM-022"
+      ],
+      "test_ids": [
+        "T-060"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-051",
+      "requirement_ids": [
+        "FR-025",
+        "UX-005"
+      ],
+      "threat_ids": [
+        "TM-020"
+      ],
+      "test_ids": [
+        "T-061"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-052",
+      "requirement_ids": [
+        "SEC-021",
+        "SEC-022"
+      ],
+      "threat_ids": [
+        "TM-022",
+        "TM-023"
+      ],
+      "test_ids": [
+        "T-062"
+      ],
+      "verification_phase": 5
+    },
+    {
+      "id": "AC-053",
+      "requirement_ids": [
+        "UX-006"
+      ],
+      "threat_ids": [],
+      "test_ids": [
+        "T-063"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-054",
+      "requirement_ids": [
+        "UX-007"
+      ],
+      "threat_ids": [
+        "TM-024"
+      ],
+      "test_ids": [
+        "T-064"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-055",
+      "requirement_ids": [
+        "UX-008"
+      ],
+      "threat_ids": [],
+      "test_ids": [
+        "T-065"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-056",
+      "requirement_ids": [
+        "FR-026",
+        "UX-009"
+      ],
+      "threat_ids": [
+        "TM-025"
+      ],
+      "test_ids": [
+        "T-066"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-057",
+      "requirement_ids": [
+        "UX-010"
+      ],
+      "threat_ids": [],
+      "test_ids": [
+        "T-067"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-058",
+      "requirement_ids": [
+        "UX-011"
+      ],
+      "threat_ids": [],
+      "test_ids": [
+        "T-068"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-059",
+      "requirement_ids": [
+        "SEC-023"
+      ],
+      "threat_ids": [
+        "TM-024"
+      ],
+      "test_ids": [
+        "T-069"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-060",
+      "requirement_ids": [
+        "SEC-024"
+      ],
+      "threat_ids": [
+        "TM-025"
+      ],
+      "test_ids": [
+        "T-070"
+      ],
+      "verification_phase": 3
+    },
+    {
+      "id": "AC-061",
+      "requirement_ids": [
+        "UX-012"
+      ],
+      "threat_ids": [
+        "TM-026"
+      ],
+      "test_ids": [
+        "T-071"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-062",
+      "requirement_ids": [
+        "UX-013"
+      ],
+      "threat_ids": [
+        "TM-026"
+      ],
+      "test_ids": [
+        "T-072"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-063",
+      "requirement_ids": [
+        "NFR-007"
+      ],
+      "threat_ids": [
+        "TM-026"
+      ],
+      "test_ids": [
+        "T-073"
+      ],
+      "verification_phase": 8
+    },
+    {
+      "id": "AC-064",
+      "requirement_ids": [
+        "SEC-025"
+      ],
+      "threat_ids": [
+        "TM-026"
+      ],
+      "test_ids": [
+        "T-074"
+      ],
+      "verification_phase": 8
+    }
+  ],
+  "tests": [
+    {
+      "id": "T-042",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-042 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-043",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-043 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-044",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-044 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-045",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-045 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-046",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-046 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-047",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-047 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-048",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-048 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-049",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-049 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-050",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-050 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-051",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-051 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-052",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 4,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-052 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-053",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-053 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-054",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-054 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-055",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-055 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-056",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-056 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-057",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "FAIL",
+      "reason": "Full local cargo test exited101: Windows Smart App Control blocked the empty binary test harness, never executed. This local FAIL is retained. Independent hosted full cargo test and all four PR29 checks PASS for P1/run37150703411, with exact merge-tree/runtime equality; local engineering alias qualified. See LOCAL-V022-0001 and CI-V022-0001. Compound installed/native/live acceptance remains NOT RUN."
+    },
+    {
+      "id": "T-058",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 9,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-058 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-059",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-059 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-060",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-060 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-061",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-061 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-062",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 5,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-062 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-063",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-063 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-064",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-064 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-065",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-065 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-066",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-066 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-067",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-067 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-068",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-068 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-069",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-069 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-070",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 3,
+      "status": "NOT RUN",
+      "reason": "R1 bfff47075 exact-source frontend69 and Rust library156 passed; full local cargo test FAIL101 due to Smart App Control empty-harness block. Applicable partial evidence is recorded in LOCAL-V022-0001; compound T-070 installed/native/live acceptance remains NOT RUN. No earlier-version PASS transfers."
+    },
+    {
+      "id": "T-071",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "SPEC-0004 deterministic frontend and synthetic headless portions PASS at R1 bfff47075, as recorded in LOCAL-V022-0001. T-071 compound real installed keyboard/mouse/WebView/readability/security acceptance remains NOT RUN."
+    },
+    {
+      "id": "T-072",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "SPEC-0004 deterministic frontend and synthetic headless portions PASS at R1 bfff47075, as recorded in LOCAL-V022-0001. T-072 compound real installed keyboard/mouse/WebView/readability/security acceptance remains NOT RUN."
+    },
+    {
+      "id": "T-073",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "Opaque dark native config/source fixtures and actual delayed/failure headless paint PASS at R1 bfff47075; repeated owner-installed Windows/WebView2 launches have not been observed. Native white-flash regression remains NOT RUN; precise original cause unproven."
+    },
+    {
+      "id": "T-074",
+      "path": "docs/qa/LOCAL-V022-0001.md",
+      "verification_phase": 8,
+      "status": "NOT RUN",
+      "reason": "SPEC-0004 deterministic frontend and synthetic headless portions PASS at R1 bfff47075, as recorded in LOCAL-V022-0001. T-074 compound real installed keyboard/mouse/WebView/readability/security acceptance remains NOT RUN."
+    }
+  ],
+  "gates": [
+    {
+      "phase": 0,
+      "status": "PASS",
+      "reason": "SPEC-0004 / ADR-0017 / THREAT-MODEL-0004 scoped inventory, architecture and requirements/threat-to-acceptance review completed before implementation, with independent source review19:36:39Z and source guard receipt194246495Z at R1 bfff47075; see LOCAL-V022-0001. Phase0 PASS is design/source consistency, not installed or production qualification.",
+      "source_revision": "bfff47075c5d94f774e6b9b43ae241f0f72bce25",
+      "environment": "Windows NT10.0.26300.0; QUARK2\\Rene Nehru Alvarez; source/design-only independent review",
+      "command": "Read-only inventory, SPEC-0004/ADR-0017/THREAT-MODEL-0004 traceability and presentation-authority review; Run-LocalEngineeringChecks.ps1 -Stage source (complete command in LOCAL-V022-0001 and source-20261003T194246495Z receipt).",
+      "run_at_utc": "2026-10-03T19:42:47.5189771Z",
+      "evidence_paths": [
+        "docs/aster-builder/phase-0-inventory.md",
+        "docs/specs/SPEC-0004.md",
+        "docs/adr/ADR-0017.md",
+        "docs/security/THREAT-MODEL-0004.md",
+        "docs/qa/LOCAL-V022-0001.md"
+      ]
+    },
+    {
+      "phase": 1,
+      "status": "PASS",
+      "reason": "SPEC-0004 / ADR-0017 / THREAT-MODEL-0004 scoped inventory, architecture and requirements/threat-to-acceptance review completed before implementation, with independent source review19:36:39Z and source guard receipt194246495Z at R1 bfff47075; see LOCAL-V022-0001. Phase1 PASS is design/source consistency, not installed or production qualification.",
+      "source_revision": "bfff47075c5d94f774e6b9b43ae241f0f72bce25",
+      "environment": "Windows NT10.0.26300.0; QUARK2\\Rene Nehru Alvarez; source/design-only independent review",
+      "command": "Read-only inventory, SPEC-0004/ADR-0017/THREAT-MODEL-0004 traceability and presentation-authority review; Run-LocalEngineeringChecks.ps1 -Stage source (complete command in LOCAL-V022-0001 and source-20261003T194246495Z receipt).",
+      "run_at_utc": "2026-10-03T19:42:47.5189771Z",
+      "evidence_paths": [
+        "docs/aster-builder/phase-0-inventory.md",
+        "docs/specs/SPEC-0004.md",
+        "docs/adr/ADR-0017.md",
+        "docs/security/THREAT-MODEL-0004.md",
+        "docs/qa/LOCAL-V022-0001.md"
+      ]
+    },
+    {
+      "phase": 2,
+      "status": "PASS",
+      "reason": "SPEC-0004 / ADR-0017 / THREAT-MODEL-0004 scoped inventory, architecture and requirements/threat-to-acceptance review completed before implementation, with independent source review19:36:39Z and source guard receipt194246495Z at R1 bfff47075; see LOCAL-V022-0001. Phase2 PASS is design/source consistency, not installed or production qualification.",
+      "source_revision": "bfff47075c5d94f774e6b9b43ae241f0f72bce25",
+      "environment": "Windows NT10.0.26300.0; QUARK2\\Rene Nehru Alvarez; source/design-only independent review",
+      "command": "Read-only inventory, SPEC-0004/ADR-0017/THREAT-MODEL-0004 traceability and presentation-authority review; Run-LocalEngineeringChecks.ps1 -Stage source (complete command in LOCAL-V022-0001 and source-20261003T194246495Z receipt).",
+      "run_at_utc": "2026-10-03T19:42:47.5189771Z",
+      "evidence_paths": [
+        "docs/aster-builder/phase-0-inventory.md",
+        "docs/specs/SPEC-0004.md",
+        "docs/adr/ADR-0017.md",
+        "docs/security/THREAT-MODEL-0004.md",
+        "docs/qa/LOCAL-V022-0001.md"
+      ]
+    },
+    {
+      "phase": 3,
+      "status": "NOT RUN",
+      "reason": "Applicable exact-source host/renderer fixture portions passed as scoped in LOCAL-V022-0001; compound native review, storage restart/account/live or owner acceptance remains NOT RUN."
+    },
+    {
+      "phase": 4,
+      "status": "NOT RUN",
+      "reason": "Applicable exact-source host/renderer fixture portions passed as scoped in LOCAL-V022-0001; compound native review, storage restart/account/live or owner acceptance remains NOT RUN."
+    },
+    {
+      "phase": 5,
+      "status": "NOT RUN",
+      "reason": "Applicable exact-source host/renderer fixture portions passed as scoped in LOCAL-V022-0001; compound native review, storage restart/account/live or owner acceptance remains NOT RUN."
+    },
+    {
+      "phase": 6,
+      "status": "NOT RUN",
+      "reason": "Tools remain disabled; no activation claimed."
+    },
+    {
+      "phase": 7,
+      "status": "NOT RUN",
+      "reason": "Web/MCP remain disabled; no activation claimed."
+    },
+    {
+      "phase": 8,
+      "status": "FAIL",
+      "reason": "Full local Rust command FAIL101 on Smart App Control empty-harness block remains retained. Independent scoped local checks/package and complete hosted P1/run37150703411 suite PASS; alias qualification complete in CI-V022-0001. This compound gate does not claim local full-suite or installed/native/live PASS. No security bypass or invented PASS."
+    },
+    {
+      "phase": 9,
+      "status": "NOT RUN",
+      "reason": "Source-bound unsigned local engineering alias and independent hosted P1/run37150703411 four-check suite qualified in CI-V022-0001. Final installed/native/live acceptance, signing and production qualification remain absent; no merge or production promotion authorised. Documentation-only later-head CI must not be inferred from the completed checkpoint."
+    }
+  ],
+  "release": {
+    "artifact_sha256": "3a9207030fc3f4656d566e08a8a2a58d01e8c613098b90e7a9e8f3b45b2b90aa",
+    "signed": false,
+    "signature_evidence": null,
+    "target_os_verified": false,
+    "target_os_evidence": null,
+    "live_provider_verified": false,
+    "live_provider_evidence": null
+  }
+}

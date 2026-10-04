@@ -5,7 +5,7 @@ import { baseline, fakeBridge } from './test-fixtures';
 import { shortcutAction } from './local-ui';
 
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
-async function ready() { await screen.findByText('Ready for separately reviewed text requests.'); }
+async function ready() { await screen.findByText('Ready for separately reviewed requests.'); }
 function wheel(init: WheelEventInit = {}) {
   // Web IDL rejects non-finite doubles; deliberately forge them after construction
   // to exercise the handler's malformed-event boundary, not the DOM constructor.

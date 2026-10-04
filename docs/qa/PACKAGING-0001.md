@@ -1,6 +1,18 @@
 # PACKAGING-0001 — unsigned engineering installer gate
 
-## Active v0.2.2 local engineering package — 2026-10-03
+**v0.2.3 applicability — 4 October 2026, Edinburgh / Europe/London:** dated evidence below retains its original source, version and result; it does not qualify changed v0.2.3 bytes. Unchanged constraints remain subject to the [current documentation index](../V0.2.3-DOCUMENTATION-INDEX.md) and [SPEC-0005](../specs/SPEC-0005.md). The owner authorises a v0.2.3 PR and GitHub checks only, not merge, release or signing. Final-source, package, native and live qualification require independent evidence in [LOCAL-V023-0001](../qa/LOCAL-V023-0001.md). No retired provider, historical grant or old PASS is reactivated.
+
+## v0.2.3 packaging qualification pending — 2026-10-04
+
+The requested hand-off is **`Aster_0.2.3_x64-setup.exe`**, but no v0.2.3 installer exists or is qualified at this checkpoint. Its version/name cannot substitute for source or artifact provenance. New worker/image/PDF/native viewer/processed-history code changes invalidate dependent predecessor results. Preserve v0.2.1/v0.2.2 original checkouts/setups, not repackaged aliases of old binaries. [LOCAL-V023-0001](LOCAL-V023-0001.md), [SPEC-0005](../specs/SPEC-0005.md), [ADR-0019](../adr/ADR-0019.md), [ADR-0020](../adr/ADR-0020.md) and the [documentation index](../V0.2.3-DOCUMENTATION-INDEX.md) bind current work.
+
+Before engineering hand-off, bind one clean new runtime revision/tree to the fresh full suite, current audits/notices/SBOM/secret gates, actual successful GitHub PR checks and local unsigned x64 NSIS build. Record source/code equality separately when comparing a consolidated published source or a synthetic tested merge; source equality does not promise bit-for-bit hosted/local installer equality. Inspect setup length/SHA-256/Authenticode, target architecture/version, full bounded payload and exact required licence/notices/icon resources; then independently verify a byte-identical delivery alias. A frontend dirty-checkpoint PASS is not native host/package acceptance.
+
+Owner authorization on 4 October covers **v0.2.3 code/documentation PR plus GitHub checks**, not merge, signing, release or redistribution. v0.2.1 remains locally discarded for bugs and may not be published as a separate branch/tag/release/artifact/commit series. No PR/run/hash, changed-package ESET clearance, native flash cure, installed acceptance or live inference is invented. Preserve the old local Smart App Control full-test FAIL separately from hosted/source results, and never disable controls or add exclusions to satisfy packaging.
+
+Owner-installed validation remains separate after a qualified build exists: normal/non-elevated launch in the existing Windows 11 administrator session, observe startup at least 20 seconds after visibility, focus/caption/DPI, attachment all-page/native review/history and unchanged spending recovery. Fixed six/ten-second presentation timing is mitigation, not proof native paint is complete. No setup/app launch, real key, paid call or owner record mutation follows from this procedure.
+
+## Historical v0.2.2 local engineering package — 2026-10-03
 
 Status: **PASS for exact-source local unsigned build/passive payload and source-bound engineering promotion, supported by same-runtime hosted P1/M1 checks; full local test FAIL retained, installed/native/live NOT RUN**. Local runtime/build source R1 `bfff47075c5d94f774e6b9b43ae241f0f72bce25`, tree `2cdcf0a7f69cf31ff98161a1acc98b194b62f049`, branch `codex/aster-v022-engineering-20261003`, is based on v0.2.1 documentation source `6f16416b72ffa15c1b5ee459382c6770c950a7ee`. [SPEC-0004](../specs/SPEC-0004.md), [ADR-0017](../adr/ADR-0017.md), [THREAT-MODEL-0004](../security/THREAT-MODEL-0004.md) and [LOCAL-V022-0001](LOCAL-V022-0001.md) bind source/commands/environment/principal/UTC/physical invariant and hashes; copied caches or v0.2.1 PASS are not proof.
 

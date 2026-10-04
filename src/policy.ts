@@ -1,4 +1,4 @@
-import { DEFAULT_MODEL, type AppStatus, type Conversation, type ConversationSummary, type StreamEvent } from './types';
+import { DEFAULT_MODEL, type AppStatus, type AttachmentSummary, type Conversation, type ConversationSummary, type StreamEvent } from './types';
 
 export const MODEL_LABEL = 'Muse Spark 1.3 · Contributor';
 export const MAX_MESSAGE_BYTES = 32 * 1024;
@@ -18,14 +18,14 @@ export function validMessage(text: string): boolean {
 }
 export function validStatus(v: unknown): v is AppStatus {
   if (!record(v) || !exact(v, ['protocolVersion','policyVersion','configured','credentialAvailable','defaultModel','models','activeRequest','projectSelected','projectLabel','capabilities','availability','contributor','historyAvailable','budget'])) return false;
-  if (v.protocolVersion !== 3 || v.policyVersion !== 3 || v.defaultModel !== DEFAULT_MODEL ||
+  if (v.protocolVersion !== 4 || v.policyVersion !== 4 || v.defaultModel !== DEFAULT_MODEL ||
       !['configured','credentialAvailable','activeRequest','historyAvailable'].every(k => typeof v[k] === 'boolean') ||
       v.projectSelected !== false || v.projectLabel !== null || !Array.isArray(v.models) || v.models.length !== 1 ||
       !record(v.models[0]) || !exact(v.models[0], ['id','label']) || v.models[0].id !== DEFAULT_MODEL ||
       typeof v.models[0].label !== 'string' || v.models[0].label.length > 100 ||
       !['needs_terms','needs_credential','needs_budget','attention_required','ready','busy','unsupported'].includes(String(v.availability))) return false;
   const c = v.capabilities, t = v.contributor, b = v.budget;
-  if (!record(c) || !exact(c, ['projectRead','proposals','applyNewFile','applyExistingFile']) || Object.values(c).some(x => x !== false) ||
+  if (!record(c) || !exact(c, ['projectRead','proposals','applyNewFile','applyExistingFile','attachmentImport']) || typeof c.attachmentImport !== 'boolean' || ['projectRead','proposals','applyNewFile','applyExistingFile'].some(key => c[key] !== false) ||
       !record(t) || !exact(t, ['termsRevision','accepted','eligible']) || typeof t.termsRevision !== 'string' || t.termsRevision.length > 100 || typeof t.accepted !== 'boolean' || typeof t.eligible !== 'boolean' ||
       !record(b) || !exact(b, ['accountId','pending','configured','period','limitNanoGbp','spentNanoGbp','reservedNanoGbp','remainingNanoGbp','warning','requiresReconciliation','configurationExpiresAt']) ||
       !(b.accountId === null || (typeof b.accountId === 'string' && /^[a-f0-9]{32}$/.test(b.accountId))) ||
@@ -36,6 +36,25 @@ export function validStatus(v: unknown): v is AppStatus {
   if (!Array.isArray(b.pending) || b.pending.length > 1024 || !b.pending.every(item => record(item) && exact(item, ['requestId','period','reservationNanoGbp','dispatched']) && validId(item.requestId) && typeof item.period === 'string' && /^\d{4}-\d{2}$/.test(item.period) && integerString(item.reservationNanoGbp) && typeof item.dispatched === 'boolean') || new Set(b.pending.map(item => item.requestId)).size !== b.pending.length) return false;
   if (v.availability === 'ready' && (!v.configured || !v.credentialAvailable || !v.historyAvailable || !t.accepted || !t.eligible || !b.configured || b.requiresReconciliation || v.activeRequest)) return false;
   return true;
+}
+// Only inert metadata crosses this seam. A renderer path, original bytes or
+// echoed approval is not an attachment receipt or file-selection authority.
+export function validAttachmentSummaries(value: unknown): value is AttachmentSummary[] {
+  if (!Array.isArray(value) || value.length > 4) return false;
+  let sourceBytes = 0, processedBytes = 0, pdfPages = 0;
+  return value.every(item => {
+    if (!(record(item) && exact(item, ['id','kind','label','sourceBytes','processedBytes','pageCount']) &&
+    typeof item.id === 'string' && /^[a-f0-9]{32}$/.test(item.id) && ['text','image','pdf'].includes(String(item.kind)) &&
+    typeof item.label === 'string' && Boolean(item.label.trim()) && utf8Bytes(item.label) <= 120 &&
+    !/[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff/\\:]/u.test(item.label) &&
+    validMessage(item.label) && safeInteger(item.sourceBytes) && item.sourceBytes > 0 && item.sourceBytes <= 8 * 1024 * 1024 &&
+    safeInteger(item.processedBytes) && item.processedBytes > 0 && item.processedBytes <= 4 * 1024 * 1024 && safeInteger(item.pageCount) &&
+    (item.kind === 'text' ? item.pageCount === 0 && item.processedBytes <= 128 * 1024 : item.kind === 'image' ? item.pageCount === 1 : item.pageCount >= 1 && item.pageCount <= 20))) return false;
+    sourceBytes += item.sourceBytes; processedBytes += item.processedBytes;
+    if (item.kind === 'pdf') pdfPages += item.pageCount;
+    return sourceBytes <= 16 * 1024 * 1024 && processedBytes <= 16 * 1024 * 1024 && pdfPages <= 20;
+  }) &&
+    new Set(value.map(item => item.id)).size === value.length;
 }
 export function validStreamEvent(v: unknown): v is StreamEvent {
   if (!record(v) || !validId(v.requestId) || !validId(v.conversationId)) return false;
@@ -54,7 +73,8 @@ export function validConversation(v: unknown): v is Conversation {
   let bytes = 0;
   const ids = new Set<string>();
   return v.entries.every(e => {
-    if (!record(e) || !exact(e, ['id','role','content','requestId','state']) || !validId(e.id) || ids.has(e.id) || !validId(e.requestId) || !['user','assistant'].includes(String(e.role)) || typeof e.content !== 'string' || ![...terminalStates, 'interrupted'].includes(e.state as 'completed')) return false;
+    if (!record(e) || !exact(e, e.processedAttachments === undefined ? ['id','role','content','requestId','state'] : ['id','role','content','requestId','state','processedAttachments']) || !validId(e.id) || ids.has(e.id) || !validId(e.requestId) || !['user','assistant'].includes(String(e.role)) || typeof e.content !== 'string' || ![...terminalStates, 'interrupted'].includes(e.state as 'completed')) return false;
+    if (e.processedAttachments !== undefined && (e.role !== 'user' || !validAttachmentSummaries(e.processedAttachments))) return false;
     ids.add(e.id); bytes += utf8Bytes(e.content);
     return bytes <= MAX_CONVERSATION_BYTES;
   });

@@ -150,6 +150,15 @@ pub(crate) async fn window_action(
 }
 
 pub(crate) fn on_window_event(window: &Window, event: &WindowEvent) {
+    if matches!(event, WindowEvent::Destroyed) && window.label() == MAIN_WINDOW {
+        if let Some(host) = window.try_state::<Host>() {
+            host.expiry_shutdown.store(true, Ordering::Release);
+            if let Ok(mut registry) = host.attachments.try_lock() {
+                registry.invalidate();
+            }
+        }
+        return;
+    }
     let WindowEvent::CloseRequested { api, .. } = event else {
         return;
     };
@@ -175,7 +184,12 @@ pub(crate) fn on_window_event(window: &Window, event: &WindowEvent) {
                 host.native_dialog_open.load(Ordering::Acquire),
                 sessions.active_count(),
                 true,
-            )
+            )?;
+            host.attachments
+                .try_lock()
+                .map_err(|_| "busy")?
+                .invalidate();
+            Ok::<_, &'static str>(())
         })();
         if allowed.is_ok() {
             return;

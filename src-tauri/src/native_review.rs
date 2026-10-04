@@ -5,8 +5,10 @@
 
 use sha2::{Digest, Sha256};
 use std::time::{Duration, Instant};
+use tokio::sync::watch;
 
-const MAX_REVIEW_BYTES: usize = 5 * 1024 * 1024;
+const MAX_PROPOSAL_REVIEW_BYTES: usize = 5 * 1024 * 1024;
+const MAX_REVIEW_BYTES: usize = 64 * 1024 * 1024;
 const REVIEW_LIFETIME: Duration = Duration::from_secs(300);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -16,11 +18,31 @@ pub(crate) enum ReviewError {
     Unavailable,
     DisplayFailed,
     Expired,
+    Cancelled,
+}
+
+/// Host-owned request signal only: not an IPC approval field or a new grant.
+/// A disconnected request is denied as cancelled rather than restoring consent.
+#[derive(Clone, Default)]
+pub(crate) struct ReviewCancellation(Option<watch::Receiver<bool>>);
+
+impl ReviewCancellation {
+    pub(crate) fn for_request(receiver: watch::Receiver<bool>) -> Self {
+        Self(Some(receiver))
+    }
+    pub(crate) fn is_cancelled(&self) -> bool {
+        self.0
+            .as_ref()
+            .is_some_and(|receiver| *receiver.borrow() || receiver.has_changed().is_err())
+    }
 }
 
 pub(crate) struct ReviewDocument {
     body: String,
     binding: String,
+    visuals: Vec<crate::native_visual::VisualPage>,
+    source_deadline: Option<Instant>,
+    cancellation: ReviewCancellation,
 }
 
 fn digest(bytes: &[u8]) -> String {
@@ -34,7 +56,7 @@ impl ReviewDocument {
     /// The caller supplies immutable HOST-bound metadata plus exact old/new
     /// JSON. This constructor parses data, not approval or runtime authority.
     pub(crate) fn proposal(exact_metadata_and_diff_json: &str) -> Result<Self, ReviewError> {
-        if exact_metadata_and_diff_json.len() > MAX_REVIEW_BYTES {
+        if exact_metadata_and_diff_json.len() > MAX_PROPOSAL_REVIEW_BYTES {
             return Err(ReviewError::Limit);
         }
         let value: serde_json::Value =
@@ -52,7 +74,7 @@ impl ReviewDocument {
     /// Display the exact serialized provider body, including prior messages.
     /// Do not show only an excerpt or regenerate a different network payload.
     pub(crate) fn disclosure(exact_outbound_body: &[u8]) -> Result<Self, ReviewError> {
-        if exact_outbound_body.len() > 512 * 1024 {
+        if exact_outbound_body.len() > crate::provider::MAX_REQUEST_BYTES {
             return Err(ReviewError::Limit);
         }
         let body = std::str::from_utf8(exact_outbound_body).map_err(|_| ReviewError::Invalid)?;
@@ -122,7 +144,62 @@ impl ReviewDocument {
         Ok(Self {
             binding: digest(body.as_bytes()),
             body,
+            visuals: Vec::new(),
+            source_deadline: None,
+            cancellation: ReviewCancellation::default(),
         })
+    }
+
+    /// Exact-body review plus meaningful local visual inspection. Page order,
+    /// label, dimensions and immutable preview pixels become part of this
+    /// one-use native approval binding; no renderer confirmation is accepted.
+    pub(crate) fn with_visuals(
+        self,
+        pages: Vec<crate::native_visual::VisualPage>,
+    ) -> Result<Self, ReviewError> {
+        if pages.is_empty() || pages.len() > 24 {
+            return Err(ReviewError::Limit);
+        }
+        let previews: Vec<_> = pages
+            .iter()
+            .map(|page| {
+                serde_json::json!({
+                    "label":page.label, "width":page.width, "height":page.height,
+                    "displayPixelSha256":page.pixel_sha256(),
+                })
+            })
+            .collect();
+        let existing: serde_json::Value =
+            serde_json::from_str(&self.body).map_err(|_| ReviewError::Invalid)?;
+        let mut document = Self::from_value(serde_json::json!({
+            "reviewVersion":2,
+            "disclosure":existing,
+            "localVisualPreviews":previews,
+            "visualReviewScope":"All preview pages are derived from the exact host-bound source. Image alpha is displayed over white. PDF page preview does not expose every hidden object, metadata or embedded item. I must establish that the complete original, including non-visible content, is synthetic or eligible public material. History retains derived pages, not the native PDF; a complete native rereading requires reattachment.",
+        }))?;
+        document.visuals = pages;
+        document.source_deadline = self.source_deadline;
+        document.cancellation = self.cancellation;
+        Ok(document)
+    }
+
+    pub(crate) fn with_request_cancellation(mut self, receiver: watch::Receiver<bool>) -> Self {
+        self.cancellation = ReviewCancellation::for_request(receiver);
+        self
+    }
+
+    pub(crate) fn with_source_deadline(mut self, deadline: Instant) -> Self {
+        self.source_deadline = Some(
+            self.source_deadline
+                .map_or(deadline, |old| old.min(deadline)),
+        );
+        self
+    }
+    fn effective_deadline(&self, start: Instant) -> Instant {
+        self.source_deadline
+            .map_or(start + REVIEW_LIFETIME, |source| {
+                source.min(start + REVIEW_LIFETIME)
+            })
     }
 
     pub(crate) fn binding_sha256(&self) -> &str {
@@ -135,10 +212,14 @@ impl ReviewDocument {
 pub(crate) struct NativeApproval {
     binding: String,
     deadline: Instant,
+    cancellation: ReviewCancellation,
 }
 
 impl NativeApproval {
     pub(crate) fn consume(self, expected_binding: &str) -> Result<(), ReviewError> {
+        if self.cancellation.is_cancelled() {
+            return Err(ReviewError::Cancelled);
+        }
         if self.deadline <= Instant::now() {
             return Err(ReviewError::Expired);
         }
@@ -154,6 +235,7 @@ impl NativeApproval {
         Self {
             binding: binding.to_owned(),
             deadline: Instant::now() + REVIEW_LIFETIME,
+            cancellation: ReviewCancellation::default(),
         }
     }
 }
@@ -182,9 +264,39 @@ fn confirm_with_owner(
     document: &ReviewDocument,
     owner: usize,
 ) -> Result<Option<NativeApproval>, ReviewError> {
+    if document.cancellation.is_cancelled() {
+        return Err(ReviewError::Cancelled);
+    }
     #[cfg(windows)]
     {
-        let deadline = Instant::now() + REVIEW_LIFETIME;
+        let deadline = document.effective_deadline(Instant::now());
+        if deadline <= Instant::now() {
+            return Err(ReviewError::Expired);
+        }
+        if !document.visuals.is_empty()
+            && !crate::native_visual::inspect_owned_cancellable(
+                &document.visuals,
+                owner,
+                deadline,
+                true,
+                &document.cancellation,
+            )
+            .map_err(|_| {
+                if document.cancellation.is_cancelled() {
+                    ReviewError::Cancelled
+                } else {
+                    ReviewError::DisplayFailed
+                }
+            })?
+        {
+            if document.cancellation.is_cancelled() {
+                return Err(ReviewError::Cancelled);
+            }
+            return Ok(None);
+        }
+        if document.cancellation.is_cancelled() {
+            return Err(ReviewError::Cancelled);
+        }
         if !windows::show(document, deadline, owner)? {
             return Ok(None);
         }
@@ -194,6 +306,7 @@ fn confirm_with_owner(
         Ok(Some(NativeApproval {
             binding: document.binding.clone(),
             deadline,
+            cancellation: document.cancellation.clone(),
         }))
     }
     #[cfg(not(windows))]
@@ -218,7 +331,7 @@ pub(crate) fn run_fixture(large: bool) -> Result<bool, ReviewError> {
 
 fn fixture_document(large: bool) -> Result<ReviewDocument, ReviewError> {
     let filler = if large {
-        "x".repeat(MAX_REVIEW_BYTES - 2048)
+        "x".repeat(MAX_PROPOSAL_REVIEW_BYTES - 2048)
     } else {
         "synthetic line <script>not executable</script>\r\n".repeat(3)
     };
@@ -275,6 +388,7 @@ mod windows {
         expired: Cell<bool>,
         approved: Cell<bool>,
         deadline: Instant,
+        cancellation: ReviewCancellation,
     }
 
     fn wide(text: &str) -> Vec<u16> {
@@ -378,6 +492,13 @@ mod windows {
                 return 0;
             }
             let state = &*raw;
+            if matches!(message, WM_INITDIALOG | WM_COMMAND | WM_TIMER)
+                && state.cancellation.is_cancelled()
+            {
+                state.approved.set(false);
+                EndDialog(dialog, 0);
+                return 1;
+            }
             match message {
                 WM_INITDIALOG => {
                     let mut rect = std::mem::zeroed();
@@ -449,7 +570,10 @@ mod windows {
                     }
                     EnableWindow(accept, 1);
                     SendMessageW(dialog, DM_SETDEFID_VALUE, IDCANCEL as usize, 0);
-                    if SetTimer(dialog, 1, 1000, None) == 0 {
+                    // Poll only the host request signal; no renderer callback.
+                    // Check on a 200 ms tick while the message pump is active;
+                    // this is not an OS/UI scheduling or erasure guarantee.
+                    if SetTimer(dialog, 1, 200, None) == 0 {
                         state.failed.set(true);
                         EndDialog(dialog, 0);
                         return 1;
@@ -542,6 +666,9 @@ mod windows {
         deadline: Instant,
         owner: usize,
     ) -> Result<bool, ReviewError> {
+        if document.cancellation.is_cancelled() {
+            return Err(ReviewError::Cancelled);
+        }
         if owner != 0 {
             validate_owner(owner)?;
         }
@@ -553,6 +680,7 @@ mod windows {
             expired: Cell::new(false),
             approved: Cell::new(false),
             deadline,
+            cancellation: document.cancellation.clone(),
         });
         let template = template();
         // SAFETY: DWORD-aligned complete standard template, stable boxed state
@@ -566,6 +694,10 @@ mod windows {
                 (&*state as *const DialogState) as isize,
             )
         };
+        // Cancellation racing a confirm click still cannot create approval.
+        if state.cancellation.is_cancelled() {
+            return Err(ReviewError::Cancelled);
+        }
         if state.expired.get() {
             return Err(ReviewError::Expired);
         }
@@ -649,7 +781,7 @@ mod tests {
     fn review_limits_reject_without_truncation() {
         assert!(ReviewDocument::proposal("[]").is_err());
         assert!(ReviewDocument::proposal("{bad}").is_err());
-        let large = serde_json::json!({"content":"x".repeat(MAX_REVIEW_BYTES)});
+        let large = serde_json::json!({"content":"x".repeat(MAX_PROPOSAL_REVIEW_BYTES)});
         assert!(matches!(
             ReviewDocument::proposal(&large.to_string()),
             Err(ReviewError::Limit)
@@ -669,8 +801,106 @@ mod tests {
         let approval = NativeApproval {
             binding: "exact".into(),
             deadline: Instant::now() - Duration::from_secs(1),
+            cancellation: ReviewCancellation::default(),
         };
         assert_eq!(approval.consume("exact"), Err(ReviewError::Expired));
+    }
+
+    #[test]
+    fn host_request_cancel_and_signal_disconnect_fail_closed() {
+        assert!(!ReviewCancellation::default().is_cancelled());
+        let (sender, receiver) = watch::channel(false);
+        let signal = ReviewCancellation::for_request(receiver);
+        let clone = signal.clone();
+        assert!(!signal.is_cancelled());
+        sender.send(true).unwrap();
+        assert!(signal.is_cancelled());
+        assert!(clone.is_cancelled());
+        let (sender, receiver) = watch::channel(false);
+        let signal = ReviewCancellation::for_request(receiver);
+        drop(sender);
+        assert!(signal.is_cancelled());
+    }
+
+    #[test]
+    fn request_cancel_survives_visual_binding_and_denies_before_any_os_display() {
+        let (sender, receiver) = watch::channel(false);
+        let page =
+            crate::native_visual::VisualPage::from_rgba("Synthetic".into(), 1, 1, &[1, 2, 3, 255])
+                .unwrap();
+        let document = ReviewDocument::proposal("{\"synthetic\":true}")
+            .unwrap()
+            .with_request_cancellation(receiver)
+            .with_visuals(vec![page])
+            .unwrap();
+        sender.send(true).unwrap();
+        assert!(document.cancellation.is_cancelled());
+        // The host signal is checked before any Windows API, including on a
+        // Windows test runner; no owner/window is created by this pure test.
+        assert!(matches!(
+            confirm_with_owner(&document, 0),
+            Err(ReviewError::Cancelled)
+        ));
+    }
+
+    #[test]
+    fn cancellation_racing_confirm_or_disconnected_request_denies_consumption() {
+        for disconnect in [false, true] {
+            let (sender, receiver) = watch::channel(false);
+            let approval = NativeApproval {
+                binding: "exact".into(),
+                deadline: Instant::now() + REVIEW_LIFETIME,
+                cancellation: ReviewCancellation::for_request(receiver),
+            };
+            if disconnect {
+                drop(sender);
+                assert_eq!(approval.consume("exact"), Err(ReviewError::Cancelled));
+            } else {
+                sender.send(true).unwrap();
+                assert_eq!(approval.consume("exact"), Err(ReviewError::Cancelled));
+            }
+        }
+    }
+
+    #[test]
+    fn source_expiry_caps_both_review_stages_without_renewal() {
+        let start = Instant::now();
+        let original_deadline = start + Duration::from_secs(8);
+        let document = ReviewDocument::proposal("{\"synthetic\":true}")
+            .unwrap()
+            .with_source_deadline(original_deadline)
+            .with_source_deadline(start + REVIEW_LIFETIME);
+        assert_eq!(document.effective_deadline(start), original_deadline);
+        assert_eq!(
+            document.effective_deadline(start + Duration::from_secs(7)),
+            original_deadline
+        );
+        let earlier = document.with_source_deadline(start + Duration::from_secs(2));
+        assert_eq!(
+            earlier.effective_deadline(start),
+            start + Duration::from_secs(2)
+        );
+    }
+
+    #[test]
+    fn complete_mixed_preview_batch_binds_pixels_and_rejects_overflow() {
+        let page =
+            crate::native_visual::VisualPage::from_rgba("Synthetic".into(), 1, 1, &[1, 2, 3, 255])
+                .unwrap();
+        let document = ReviewDocument::proposal("{\"synthetic\":true}")
+            .unwrap()
+            .with_visuals(vec![page.clone(); 24])
+            .unwrap();
+        let decoded: serde_json::Value = serde_json::from_str(&document.body).unwrap();
+        assert_eq!(decoded["localVisualPreviews"].as_array().unwrap().len(), 24);
+        assert_eq!(
+            decoded["localVisualPreviews"][0]["displayPixelSha256"],
+            page.pixel_sha256()
+        );
+        assert!(ReviewDocument::proposal("{\"synthetic\":true}")
+            .unwrap()
+            .with_visuals(vec![page; 25])
+            .is_err());
     }
 
     #[test]
@@ -704,7 +934,7 @@ mod tests {
     fn manual_fixture_covers_near_limit_and_surrogate_pair_without_truncation() {
         let document = fixture_document(true).unwrap();
         assert!(document.body.len() < MAX_REVIEW_BYTES);
-        assert!(document.body.len() > MAX_REVIEW_BYTES - 2048);
+        assert!(document.body.len() > MAX_PROPOSAL_REVIEW_BYTES - 2048);
         assert!(document.body.contains('🦊'));
         assert!(document.body.contains("END-SYNTHETIC"));
     }

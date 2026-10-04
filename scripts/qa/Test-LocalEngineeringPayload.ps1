@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $started = (Get-Date).ToUniversalTime().ToString('o')
 $root = [System.IO.Path]::GetFullPath($RepositoryRoot).TrimEnd('\','/')
-$expectedRoot = 'C:\Users\Rene Nehru Alvarez\Documents\aster-desktop-premium\Aster-desktop-v0.2.2'
+$expectedRoot = 'C:\Users\Rene Nehru Alvarez\Documents\aster-desktop-premium\Aster-desktop-v0.2.3'
 if ($root -cne $expectedRoot) { throw 'This isolated audit accepts only the explicitly assigned workspace.' }
 $git = 'C:\Program Files\Git\cmd\git.exe'
 $actualRevision = (& $git -c "safe.directory=$root" -C $root rev-parse HEAD).Trim()
@@ -20,7 +20,7 @@ $sourceChanges = @(& $git -c "safe.directory=$root" -C $root status --porcelain)
 if ($LASTEXITCODE -ne 0 -or $actualRevision -cne $SourceRevision -or $actualTree -cne $SourceTree -or $sourceChanges.Count -ne 0) { throw 'Passive payload audit requires the exact clean local source commit.' }
 $reports = Join-Path $root 'reports'
 if ((Get-Item -LiteralPath $reports -Force).Attributes -band [System.IO.FileAttributes]::ReparsePoint) { throw 'Reports directory is a reparse point.' }
-$installer = Join-Path $root 'src-tauri\target\release\bundle\nsis\Aster Desktop_0.2.2_x64-setup.exe'
+$installer = Join-Path $root 'src-tauri\target\release\bundle\nsis\Aster Desktop_0.2.3_x64-setup.exe'
 $builtApp = Join-Path $root 'src-tauri\target\release\aster-desktop.exe'
 $sevenZip = 'C:\Users\Rene Nehru Alvarez\Documents\aster-desktop-premium\engineering-tools\7zip-26.03-x64\portable\7z.exe'
 $sevenZipHash = '6ee3c0ed0b27663c1b948ae85a7c0bb073aed1498983182f3f0df1f6a8c30b2f'
@@ -34,7 +34,7 @@ $names = @(
     '$PLUGINSDIR/System.dll',
     'aster-desktop.exe', 'LICENSE.txt', 'THIRD-PARTY-NOTICES.txt', 'uninstall.exe'
 )
-$output = Join-Path $reports ('local-payload-v022-{0}.json' -f $SourceRevision.Substring(0,7))
+$output = Join-Path $reports ('local-payload-v023-{0}.json' -f $SourceRevision.Substring(0,7))
 if (Test-Path -LiteralPath $output) { throw 'Do not overwrite an existing source-bound audit report.' }
 $setupItem = Get-Item -LiteralPath $installer -Force
 if ($setupItem.PSIsContainer -or ($setupItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -or $setupItem.Length -le 0 -or $setupItem.Length -gt 67108864) { throw 'Installer must be an ordinary nonempty file at most64MiB.' }
@@ -105,7 +105,7 @@ try {
     }
     $app = Join-Path $extract 'aster-desktop.exe'
     $appInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($app)
-    if ($appInfo.ProductName -cne 'Aster Desktop' -or $appInfo.ProductVersion -cne '0.2.2') { throw 'Wrong packaged app product name/version.' }
+    if ($appInfo.ProductName -cne 'Aster Desktop' -or $appInfo.ProductVersion -cne '0.2.3') { throw 'Wrong packaged app product name/version.' }
     $appSignature = [string](Get-AuthenticodeSignature -LiteralPath $app).Status
     $setupSignature = [string](Get-AuthenticodeSignature -LiteralPath $installer).Status
     if ($appSignature -cne 'NotSigned' -or $setupSignature -cne 'NotSigned') { throw 'Unexpected installer or app Authenticode classification.' }

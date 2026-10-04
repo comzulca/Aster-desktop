@@ -2,9 +2,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
-import { fakeBridge, saved } from './test-fixtures';
+import { fakeBridge, saved, selectClassification } from './test-fixtures';
 afterEach(cleanup);
-async function ready() { await screen.findByText('Ready for separately reviewed text requests.'); }
+async function ready() { await screen.findByText('Ready for separately reviewed requests.'); }
 async function menu(name: string, item: string) { await userEvent.click(screen.getByRole('button', { name })); await userEvent.click(screen.getByRole('menuitem', { name: item })); }
 describe('v0.2.1 menus/caption/quit integration (T-064/T-066/T-067/T-068/T-070)', () => {
   it('closes a mouse-opened top menu with Escape and preserves trigger focus', async () => {
@@ -26,12 +26,12 @@ describe('v0.2.1 menus/caption/quit integration (T-064/T-066/T-067/T-068/T-070)'
     const fake = fakeBridge(undefined, [saved('first', 'First', 2), saved('second', 'Second', 1)]);
     render(<App bridge={fake.bridge}/>); await screen.findByText('Reply for first');
     fireEvent.change(screen.getByRole('textbox', { name: 'Message for Aster' }), { target: { value: 'First unsent' } });
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Content classification' }), 'synthetic');
+    await selectClassification('synthetic');
     await menu('View', 'Next Chat'); await screen.findByText('Reply for second');
     fireEvent.change(screen.getByRole('textbox', { name: 'Message for Aster' }), { target: { value: 'Second unsent' } });
     await menu('View', 'Previous Chat'); await screen.findByText('Reply for first');
     expect((screen.getByRole('textbox', { name: 'Message for Aster' }) as HTMLTextAreaElement).value).toBe('First unsent');
-    expect((screen.getByRole('combobox', { name: 'Content classification' }) as HTMLSelectElement).value).toBe('');
+    expect(screen.getByLabelText('Content classification').textContent).toBe('Not classified');
     expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
   });
   it('uses default-cancel quit review for drafts and routes native close to it', async () => {

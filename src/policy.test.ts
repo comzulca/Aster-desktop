@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { formatGbp, parseGbp, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
+import { formatGbp, parseGbp, validAttachmentSummaries, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
 import { baseline, saved } from './test-fixtures';
 
-describe('protocol 3 renderer validation (T-055/T-061)', () => {
+describe('protocol 4 renderer validation (T-055/T-061/T-080)', () => {
   it('admits exactly the reviewed fixed model and false capabilities', () => {
     expect(validStatus(baseline)).toBe(true);
-    for (const version of [1, 2, 4]) expect(validStatus({ ...baseline, protocolVersion: version })).toBe(false);
+    for (const version of [1, 2, 3, 5]) expect(validStatus({ ...baseline, protocolVersion: version })).toBe(false);
     expect(validStatus({ ...baseline, policyVersion: 2 })).toBe(false);
     expect(validStatus({ ...baseline, approved: true })).toBe(false);
     for (const model of ['meta/muse-glimmer-30b','nvidia/nemotron-3.5-lightning-30b-a3b','muse-spark-1.3-standard']) expect(validStatus({ ...baseline, models: [{ id: model, label: 'Unsupported' }] })).toBe(false);
-    for (const key of Object.keys(baseline.capabilities)) expect(validStatus({ ...baseline, capabilities: { ...baseline.capabilities, [key]: true } })).toBe(false);
+    for (const key of ['projectRead','proposals','applyNewFile','applyExistingFile']) expect(validStatus({ ...baseline, capabilities: { ...baseline.capabilities, [key]: true } })).toBe(false);
+    expect(validStatus({ ...baseline, capabilities: { ...baseline.capabilities, attachmentImport: true } })).toBe(true);
+    expect(validStatus({ ...baseline, capabilities: { ...baseline.capabilities, attachmentImport: 'yes' } })).toBe(false);
     expect(validStatus({ ...baseline, projectSelected: true })).toBe(false);
     expect(validStatus({ ...baseline, availability: 'ready', configured: false })).toBe(false);
     expect(validStatus({ ...baseline, availability: 'ready', contributor: { ...baseline.contributor, eligible: false } })).toBe(false);
@@ -65,5 +67,43 @@ describe('protocol 3 renderer validation (T-055/T-061)', () => {
     }
     expect(validConversation({ ...item, entries })).toBe(false);
     expect(validSummaries([{ id: item.id, title: item.title, updatedAt: item.updatedAt, entryCount: 257 }])).toBe(false);
+  });
+  it('accepts inert bounded attachment metadata only, with closed kinds and page counts', () => {
+    const text = { id: 'a'.repeat(32), kind: 'text', label: 'Eligible example.txt', sourceBytes: 80, processedBytes: 80, pageCount: 0 };
+    expect(validAttachmentSummaries([])).toBe(true); expect(validAttachmentSummaries([text])).toBe(true);
+    expect(validAttachmentSummaries([{ ...text, kind: 'image', pageCount: 1 }])).toBe(true);
+    for (const pageCount of [1, 20]) expect(validAttachmentSummaries([{ ...text, kind: 'pdf', pageCount }])).toBe(true);
+    for (const pageCount of [0, 21, 1.5]) expect(validAttachmentSummaries([{ ...text, kind: 'pdf', pageCount }])).toBe(false);
+    expect(validAttachmentSummaries([{ ...text, kind: 'image', pageCount: 2 }])).toBe(false);
+    for (const key of ['path', 'url', 'bytes', 'approved', 'base64']) expect(validAttachmentSummaries([{ ...text, [key]: 'untrusted' }])).toBe(false);
+    for (const label of ['../secret.txt', 'C:\\Users\\Owner\\private.txt', 'x\n.txt', 'x\u202e.txt', 'x\u200b.txt', 'é'.repeat(61), '\ud800', '']) expect(validAttachmentSummaries([{ ...text, label }])).toBe(false);
+    for (const id of ['../x', 'A'.repeat(32), 'a'.repeat(33)]) expect(validAttachmentSummaries([{ ...text, id }])).toBe(false);
+    for (const sourceBytes of [0, -1, 0.5, Infinity, Number.MAX_SAFE_INTEGER + 1]) expect(validAttachmentSummaries([{ ...text, sourceBytes }])).toBe(false);
+    expect(validAttachmentSummaries([text, text])).toBe(false);
+    expect(validAttachmentSummaries(Array.from({ length: 5 }, (_, index) => ({ ...text, id: String(index).repeat(32) })))).toBe(false);
+  });
+  it('rejects excessive per-file, aggregate and total-PDF-page metadata without treating renderer checks as native enforcement', () => {
+    const pdf = { id: 'a'.repeat(32), kind: 'pdf', label: 'Eligible example.pdf', sourceBytes: 8 * 1024 * 1024, processedBytes: 4 * 1024 * 1024, pageCount: 10 };
+    const second = { ...pdf, id: 'b'.repeat(32) };
+    expect(validAttachmentSummaries([pdf, second])).toBe(true);
+    expect(validAttachmentSummaries([{ ...pdf, sourceBytes: pdf.sourceBytes + 1 }])).toBe(false);
+    expect(validAttachmentSummaries([{ ...pdf, processedBytes: pdf.processedBytes + 1 }])).toBe(false);
+    expect(validAttachmentSummaries([pdf, second, { ...pdf, id: 'c'.repeat(32), sourceBytes: 1, processedBytes: 1, pageCount: 1 }])).toBe(false);
+    expect(validAttachmentSummaries([{ ...pdf, sourceBytes: 1, processedBytes: 1, pageCount: 20 }, { ...second, sourceBytes: 1, processedBytes: 1, pageCount: 1 }])).toBe(false);
+    expect(validAttachmentSummaries([{ ...pdf, kind: 'text', pageCount: 0, processedBytes: 128 * 1024 }])).toBe(true);
+    expect(validAttachmentSummaries([{ ...pdf, kind: 'text', pageCount: 0, processedBytes: 128 * 1024 + 1 }])).toBe(false);
+  });
+  it('admits optional display-only processed references on user entries and rejects originals, grants or assistant attachments', () => {
+    const item = saved('c', 'Synthetic document fixture');
+    const attachment = { id: 'a'.repeat(32), kind: 'pdf', label: 'Synthetic.pdf', sourceBytes: 80, processedBytes: 60, pageCount: 2 };
+    const user = { ...item.entries[0], processedAttachments: [attachment] };
+    expect(validConversation({ ...item, entries: [user, item.entries[1]] })).toBe(true);
+    expect(validConversation({ ...item, entries: [{ ...user, processedAttachments: [] }, item.entries[1]] })).toBe(true);
+    expect(validConversation({ ...item, entries: [item.entries[0], { ...item.entries[1], processedAttachments: [attachment] }] })).toBe(false);
+    for (const field of ['originalBytes', 'filePath', 'approved', 'grant', 'fileData']) {
+      expect(validConversation({ ...item, entries: [{ ...user, [field]: 'forged' }] })).toBe(false);
+      expect(validConversation({ ...item, entries: [{ ...user, processedAttachments: [{ ...attachment, [field]: 'forged' }] }] })).toBe(false);
+    }
+    for (const value of [null, 'original.pdf', { id: attachment.id }]) expect(validConversation({ ...item, entries: [{ ...user, processedAttachments: value }] })).toBe(false);
   });
 });

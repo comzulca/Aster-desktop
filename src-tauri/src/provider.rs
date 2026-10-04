@@ -2,6 +2,7 @@
 //! parameters come from the renderer. Approved bytes are dispatched verbatim.
 
 use crate::policy::{ChatMessage, Model, MAX_MESSAGE_BYTES};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use futures_util::StreamExt;
 use reqwest::{header, redirect::Policy, Client, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -83,7 +84,11 @@ fn unique_json(bytes: &[u8]) -> Result<Value, ProviderFailure> {
 
 pub const ENDPOINT: &str = "https://api.meta.ai/v1/chat/completions";
 pub const MAX_COMPLETION_TOKENS: u64 = 8192;
-const MAX_REQUEST_BYTES: usize = 512 * 1024;
+pub(crate) const MAX_REQUEST_BYTES: usize = 24 * 1024 * 1024;
+const MAX_TEXT_REQUEST_BYTES: usize = 512 * 1024;
+const MAX_INLINE_FILES: usize = 4;
+const MAX_INLINE_SOURCE_BYTES: usize = 8 * 1024 * 1024;
+const MAX_INLINE_TOTAL_BYTES: usize = 16 * 1024 * 1024;
 const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 const MAX_FRAME_BYTES: usize = 256 * 1024;
 const MAX_EVENTS: usize = 262_144;
@@ -235,10 +240,147 @@ pub fn exact_body_with_effort(
         "max_completion_tokens":MAX_COMPLETION_TOKENS, "n":1, "store":false
     }))
     .map_err(|_| ProviderFailure::InvalidInput)?;
-    if bytes.len() > MAX_REQUEST_BYTES {
+    if bytes.len() > MAX_TEXT_REQUEST_BYTES {
         return Err(ProviderFailure::InvalidInput);
     }
     Ok(bytes)
+}
+
+/// Host-only borrowed media from the immutable, identity-checked, parsed
+/// snapshot. No URL, filename, file ID, path, MIME or role is renderer input.
+pub(crate) enum InlineMedia<'a> {
+    Png(&'a [u8]),
+    Pdf(&'a [u8]),
+}
+
+fn inline_part(index: usize, media: &InlineMedia<'_>) -> Result<Value, ProviderFailure> {
+    let (bytes, mime, limit, signature) = match media {
+        InlineMedia::Png(bytes) => (
+            *bytes,
+            "image/png",
+            4 * 1024 * 1024,
+            bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
+        ),
+        InlineMedia::Pdf(bytes) => (
+            *bytes,
+            "application/pdf",
+            MAX_INLINE_SOURCE_BYTES,
+            bytes.starts_with(b"%PDF-"),
+        ),
+    };
+    if bytes.is_empty() || bytes.len() > limit || !signature {
+        return Err(ProviderFailure::InvalidInput);
+    }
+    let data = format!("data:{mime};base64,{}", STANDARD.encode(bytes));
+    Ok(match media {
+        InlineMedia::Png(_) => json!({"type":"image_url","image_url":{"url":data,"detail":"high"}}),
+        InlineMedia::Pdf(_) => {
+            json!({"type":"file","file":{"filename":format!("attachment-{:02}.pdf",index+1),"file_data":data}})
+        }
+    })
+}
+
+pub(crate) fn exact_body_with_media(
+    model: Model,
+    messages: &[ChatMessage],
+    effort: ReasoningEffort,
+    media: &[InlineMedia<'_>],
+) -> Result<Vec<u8>, ProviderFailure> {
+    // Preserve the existing exact text-only contract, including its smaller
+    // context bound; raising the media cap does not expand text admission.
+    let text_body = exact_body_with_effort(model, messages, effort)?;
+    if media.is_empty() {
+        return Ok(text_body);
+    }
+    if media.len() > MAX_INLINE_FILES {
+        return Err(ProviderFailure::InvalidInput);
+    }
+    let total = media.iter().try_fold(0usize, |sum, item| {
+        let length = match item {
+            InlineMedia::Png(bytes) | InlineMedia::Pdf(bytes) => bytes.len(),
+        };
+        sum.checked_add(length).ok_or(ProviderFailure::InvalidInput)
+    })?;
+    if total > MAX_INLINE_TOTAL_BYTES {
+        return Err(ProviderFailure::InvalidInput);
+    }
+    let mut value: Value =
+        serde_json::from_slice(&text_body).map_err(|_| ProviderFailure::InvalidInput)?;
+    let last = value["messages"]
+        .as_array_mut()
+        .and_then(|items| items.last_mut())
+        .ok_or(ProviderFailure::InvalidInput)?;
+    let mut parts = vec![
+        json!({"type":"text","text":messages.last().ok_or(ProviderFailure::InvalidInput)?.content}),
+    ];
+    for (index, item) in media.iter().enumerate() {
+        parts.push(inline_part(index, item)?);
+    }
+    last["content"] = Value::Array(parts);
+    let body = serde_json::to_vec(&value).map_err(|_| ProviderFailure::InvalidInput)?;
+    if body.len() > MAX_REQUEST_BYTES {
+        return Err(ProviderFailure::InvalidInput);
+    }
+    validate_approved_body(model, &body)?;
+    Ok(body)
+}
+
+fn exact_keys(value: &Value, expected: &[&str]) -> bool {
+    value.as_object().is_some_and(|object| {
+        object.len() == expected.len() && object.keys().all(|key| expected.contains(&key.as_str()))
+    })
+}
+
+fn validate_inline_part(index: usize, part: &Value) -> Result<usize, ProviderFailure> {
+    let (data, prefix, limit, png) = match part["type"].as_str() {
+        Some("image_url")
+            if exact_keys(part, &["type", "image_url"])
+                && exact_keys(&part["image_url"], &["url", "detail"])
+                && part["image_url"]["detail"] == "high" =>
+        {
+            (
+                part["image_url"]["url"].as_str(),
+                "data:image/png;base64,",
+                4 * 1024 * 1024,
+                true,
+            )
+        }
+        Some("file")
+            if exact_keys(part, &["type", "file"])
+                && exact_keys(&part["file"], &["filename", "file_data"])
+                && part["file"]["filename"] == format!("attachment-{:02}.pdf", index + 1) =>
+        {
+            (
+                part["file"]["file_data"].as_str(),
+                "data:application/pdf;base64,",
+                MAX_INLINE_SOURCE_BYTES,
+                false,
+            )
+        }
+        _ => return Err(ProviderFailure::InvalidContract),
+    };
+    let encoded = data
+        .and_then(|text| text.strip_prefix(prefix))
+        .ok_or(ProviderFailure::InvalidContract)?;
+    // Bound before allocation. Canonical STANDARD excludes padding ambiguity,
+    // nonzero trailing bits, whitespace, remote URLs and uploaded file IDs.
+    if encoded.is_empty() || encoded.len() > limit.div_ceil(3) * 4 {
+        return Err(ProviderFailure::InvalidContract);
+    }
+    let decoded = STANDARD
+        .decode(encoded)
+        .map_err(|_| ProviderFailure::InvalidContract)?;
+    if decoded.len() > limit
+        || STANDARD.encode(&decoded) != encoded
+        || !(if png {
+            decoded.starts_with(b"\x89PNG\r\n\x1a\n")
+        } else {
+            decoded.starts_with(b"%PDF-")
+        })
+    {
+        return Err(ProviderFailure::InvalidContract);
+    }
+    Ok(decoded.len())
 }
 
 /// Validate the immutable allocation without serialising or rebuilding it.
@@ -284,6 +426,9 @@ fn validate_approved_body(model: Model, body: &[u8]) -> Result<(), ProviderFailu
     {
         return Err(ProviderFailure::InvalidContract);
     }
+    let mut text_bytes = 0usize;
+    let mut media_bytes = 0usize;
+    let mut has_media = false;
     for (index, message) in messages.iter().skip(1).enumerate() {
         let entry = message
             .as_object()
@@ -293,9 +438,32 @@ fn validate_approved_body(model: Model, body: &[u8]) -> Result<(), ProviderFailu
         } else {
             "assistant"
         };
-        let text = message["content"]
-            .as_str()
-            .ok_or(ProviderFailure::InvalidContract)?;
+        let text = if let Some(text) = message["content"].as_str() {
+            text
+        } else {
+            // Only the newest user turn may carry freshly selected media.
+            // Restored history never manufactures a native PDF/file grant.
+            let parts = message["content"]
+                .as_array()
+                .ok_or(ProviderFailure::InvalidContract)?;
+            if expected_role != "user"
+                || index + 2 != messages.len()
+                || !(2..=MAX_INLINE_FILES + 1).contains(&parts.len())
+                || !exact_keys(&parts[0], &["type", "text"])
+                || parts[0]["type"] != "text"
+            {
+                return Err(ProviderFailure::InvalidContract);
+            }
+            has_media = true;
+            for (part_index, part) in parts.iter().skip(1).enumerate() {
+                media_bytes = media_bytes
+                    .checked_add(validate_inline_part(part_index, part)?)
+                    .ok_or(ProviderFailure::InvalidContract)?;
+            }
+            parts[0]["text"]
+                .as_str()
+                .ok_or(ProviderFailure::InvalidContract)?
+        };
         if entry.len() != 2
             || message["role"] != expected_role
             || text.trim().is_empty()
@@ -309,6 +477,15 @@ fn validate_approved_body(model: Model, body: &[u8]) -> Result<(), ProviderFailu
         {
             return Err(ProviderFailure::InvalidContract);
         }
+        text_bytes = text_bytes
+            .checked_add(text.len())
+            .ok_or(ProviderFailure::InvalidContract)?;
+    }
+    if text_bytes > MAX_TEXT_REQUEST_BYTES
+        || media_bytes > MAX_INLINE_TOTAL_BYTES
+        || (!has_media && body.len() > MAX_TEXT_REQUEST_BYTES)
+    {
+        return Err(ProviderFailure::InvalidContract);
     }
     Ok(())
 }
@@ -882,6 +1059,118 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // T-078/T-081: native PDF bytes, not a raster substitute; no URL or
+    // persistent file ID. Protocol fixtures do not prove parser/live success.
+    #[test]
+    fn multimodal_body_keeps_exact_native_pdf_and_closed_image_parts() {
+        use base64::Engine as _;
+        let pdf = b"%PDF-1.7\nsynthetic contract fixture";
+        let png = b"\x89PNG\r\n\x1a\nsynthetic contract fixture";
+        let body = exact_body_with_media(
+            Model::MuseSpark,
+            &messages(),
+            ReasoningEffort::Medium,
+            &[InlineMedia::Pdf(pdf), InlineMedia::Png(png)],
+        )
+        .unwrap();
+        validate_approved_body(Model::MuseSpark, &body).unwrap();
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        let parts = value["messages"].as_array().unwrap().last().unwrap()["content"]
+            .as_array()
+            .unwrap();
+        assert_eq!(parts[1]["file"]["filename"], "attachment-01.pdf");
+        assert_eq!(
+            parts[1]["file"]["file_data"],
+            format!(
+                "data:application/pdf;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(pdf)
+            )
+        );
+        assert_eq!(parts[2]["image_url"]["detail"], "high");
+        assert_eq!(
+            parts[2]["image_url"]["url"],
+            format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(png)
+            )
+        );
+        assert!(!String::from_utf8(body).unwrap().contains("file_id"));
+    }
+
+    #[test]
+    fn media_contract_denies_urls_ids_extra_fields_and_previous_turn_arrays() {
+        let body = exact_body_with_media(
+            Model::MuseSpark,
+            &messages(),
+            ReasoningEffort::Medium,
+            &[InlineMedia::Pdf(b"%PDF-1.7\nsynthetic")],
+        )
+        .unwrap();
+        let valid: Value = serde_json::from_slice(&body).unwrap();
+        for hostile in [
+            json!({"type":"file","file":{"filename":"attachment-01.pdf","file_url":"https://example.invalid/document.pdf"}}),
+            json!({"type":"file","file":{"filename":"attachment-01.pdf","file_id":"file-forged"}}),
+            json!({"type":"image_url","image_url":{"url":"https://example.invalid/image.png","detail":"high"}}),
+            json!({"type":"file","file":{"filename":"personal-name.pdf","file_data":valid["messages"][1]["content"][1]["file"]["file_data"]}}),
+            json!({"type":"file","file":{"filename":"attachment-01.pdf","file_data":valid["messages"][1]["content"][1]["file"]["file_data"],"approved":true}}),
+            json!({"type":"file","file":{"filename":"attachment-01.pdf","file_data":"data:application/pdf;base64,AAAA"}}),
+        ] {
+            let mut value = valid.clone();
+            value["messages"][1]["content"][1] = hostile;
+            assert!(
+                validate_approved_body(Model::MuseSpark, &serde_json::to_vec(&value).unwrap())
+                    .is_err()
+            );
+        }
+        let mut value = valid.clone();
+        value["messages"].as_array_mut().unwrap().extend([
+            json!({"role":"assistant","content":"Synthetic answer"}),
+            json!({"role":"user","content":"Next prompt"}),
+        ]);
+        assert!(
+            validate_approved_body(Model::MuseSpark, &serde_json::to_vec(&value).unwrap()).is_err()
+        );
+    }
+
+    #[test]
+    fn media_count_signature_size_and_empty_path_preserve_old_text_contract() {
+        assert_eq!(
+            exact_body_with_media(Model::MuseSpark, &messages(), ReasoningEffort::Medium, &[])
+                .unwrap(),
+            exact_body_with_effort(Model::MuseSpark, &messages(), ReasoningEffort::Medium).unwrap()
+        );
+        assert!(exact_body_with_media(
+            Model::MuseSpark,
+            &messages(),
+            ReasoningEffort::Medium,
+            &[InlineMedia::Pdf(b"not a PDF")]
+        )
+        .is_err());
+        let pdf = b"%PDF-1.7\nsynthetic";
+        assert!(exact_body_with_media(
+            Model::MuseSpark,
+            &messages(),
+            ReasoningEffort::Medium,
+            &[
+                InlineMedia::Pdf(pdf),
+                InlineMedia::Pdf(pdf),
+                InlineMedia::Pdf(pdf),
+                InlineMedia::Pdf(pdf),
+                InlineMedia::Pdf(pdf)
+            ]
+        )
+        .is_err());
+        let mut oversized = b"%PDF-1.7\n".to_vec();
+        oversized.resize(8 * 1024 * 1024 + 1, b' ');
+        assert!(exact_body_with_media(
+            Model::MuseSpark,
+            &messages(),
+            ReasoningEffort::Medium,
+            &[InlineMedia::Pdf(&oversized)]
+        )
+        .is_err());
+    }
     use std::{
         io::{Read, Write},
         net::{TcpListener, TcpStream},

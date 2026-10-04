@@ -16,6 +16,10 @@ fn main() {
             "send_message",
             "cancel_message",
             "window_action",
+            "startup_shell_ready",
+            "select_attachments",
+            "remove_attachment",
+            "review_processed_attachment",
         ]),
     ))
     .expect("Tauri capability generation must succeed");

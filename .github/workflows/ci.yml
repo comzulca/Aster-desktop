@@ -222,6 +222,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           corepack pnpm exec tauri build --ci --no-sign
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Synthetic pre-bootstrap checks only: no GUI, owner stores, key,
+          # Meta endpoint or normal application startup is entered.
+          $diagnostic = @(& .\src-tauri\target\release\aster-desktop.exe --aster-attachment-fixture)
+          $diagnosticExit = $LASTEXITCODE
+          $diagnostic | Set-Content -LiteralPath reports/attachment-worker-fixture.json -Encoding utf8NoBOM
+          $diagnostic | Write-Output
+          if ($diagnosticExit -ne 0) { throw 'Synthetic native attachment/Job fixture failed; retain report without promoting the package.' }
+          $diagnosticReport = ($diagnostic -join "`n") | ConvertFrom-Json
+          if ($diagnosticReport.schemaVersion -ne 1 -or -not $diagnosticReport.allPassed -or $diagnosticReport.cases.Count -ne 15 -or $diagnosticReport.resourceKillChecks.Count -ne 6) { throw 'Unexpected native attachment fixture receipt.' }
+          if (@($diagnosticReport.cases | Where-Object { $_.status -cne 'PASS' }).Count -ne 0 -or @($diagnosticReport.resourceKillChecks | Where-Object { $_.status -cne 'PASS' }).Count -ne 0) { throw 'Every codec and resource case requires an independently observed PASS.' }
           git diff --exit-code -- pnpm-lock.yaml src-tauri/Cargo.lock
           if ($LASTEXITCODE -ne 0) { throw 'Locked dependency inputs changed during the build.' }
           git diff --exit-code
@@ -231,7 +241,7 @@ jobs:
           $candidates = @(Get-ChildItem -LiteralPath src-tauri/target/release/bundle/nsis -File -Filter '*-setup.exe' -ErrorAction Stop)
           if ($candidates.Count -ne 1 -or $candidates[0].Length -le 0) { throw 'Expected exactly one nonempty NSIS setup executable.' }
           $installer = $candidates[0]
-          if ($installer.Name -cne 'Aster Desktop_0.2.2_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
+          if ($installer.Name -cne 'Aster Desktop_0.2.3_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
           $sevenZip = Get-Command 7z.exe -ErrorAction Stop
           $rawPayloadList = Join-Path $env:RUNNER_TEMP 'aster-installer-payload-list-raw.txt'
           $payloadListing = @(& $sevenZip.Source l -slt -ba $installer.FullName)
@@ -331,6 +341,14 @@ jobs:
           }
           $details | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath reports/engineering-installer/manifest.json -Encoding utf8
           Get-Content -LiteralPath reports/engineering-installer/manifest.json
+      - name: Preserve synthetic attachment diagnostics even on failure
+        if: ${{ always() && hashFiles('reports/attachment-worker-fixture.json') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: attachment-worker-evidence-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/attachment-worker-fixture.json
+          retention-days: 14
+          if-no-files-found: error
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: UNSIGNED-engineering-aster-desktop-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}

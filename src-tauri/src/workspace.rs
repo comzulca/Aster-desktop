@@ -1399,6 +1399,23 @@ fn risky_format_mark(ch: char) -> bool {
     )
 }
 
+/// Host-only native-selector bytes. This is deliberately not an IPC route or
+/// a project root grant; all selected ancestors remain pinned for the read.
+pub(crate) fn read_selected_attachment(
+    path: &std::path::Path,
+    maximum: usize,
+) -> Result<zeroize::Zeroizing<Vec<u8>>, WorkspaceError> {
+    #[cfg(windows)]
+    {
+        windows_fs::read_selected_attachment(path, maximum)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (path, maximum);
+        Err(WorkspaceError::Unavailable)
+    }
+}
+
 #[cfg(windows)]
 fn sha256_hex(bytes: &[u8]) -> String {
     use std::fmt::Write as _;
@@ -1738,6 +1755,49 @@ mod windows_fs {
         let text = String::from_utf8(bytes).map_err(|_| WorkspaceError::Denied)?;
         validate_text(&text, MAX_READ_BYTES)?;
         Ok((text, id))
+    }
+
+    pub(super) fn read_selected_attachment(
+        selected: &Path,
+        maximum: usize,
+    ) -> Result<zeroize::Zeroizing<Vec<u8>>, WorkspaceError> {
+        let _ = local_absolute(selected)?;
+        let parent = selected.parent().ok_or(WorkspaceError::Denied)?;
+        let root = select_root(parent.to_path_buf())?;
+        let components = selected_relative_path(&root, selected)?;
+        if components.len() != 1 || maximum == 0 || maximum > 8 * 1024 * 1024 {
+            return Err(WorkspaceError::Denied);
+        }
+        check_root(&root)?;
+        let mut file = OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(selected)
+            .map_err(|_| WorkspaceError::Io)?;
+        let before = file_info(&file)?;
+        let id = check_info(&before, false)?;
+        let size = ((before.size_high as u64) << 32) | before.size_low as u64;
+        if size == 0 || size > maximum as u64 || id.volume != root.id.volume {
+            return Err(WorkspaceError::TooLarge);
+        }
+        let mut bytes = zeroize::Zeroizing::new(Vec::with_capacity(size as usize));
+        (&mut file)
+            .take(maximum as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| WorkspaceError::Io)?;
+        let after = file_info(&file)?;
+        if check_info(&after, false)? != id
+            || before.size_high != after.size_high
+            || before.size_low != after.size_low
+            || before.modified.high != after.modified.high
+            || before.modified.low != after.modified.low
+            || bytes.len() != size as usize
+        {
+            return Err(WorkspaceError::Conflict);
+        }
+        check_root(&root)?;
+        Ok(bytes)
     }
 
     pub(super) fn check_root(root: &Root) -> Result<(), WorkspaceError> {

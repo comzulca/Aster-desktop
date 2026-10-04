@@ -6,6 +6,10 @@ async function callHost<T>(command: string, args?: Record<string, unknown>): Pro
   return invoke<T>(command, args);
 }
 export const nativeBridge: Bridge = {
+  shellReady: input => callHost('startup_shell_ready', { input }),
+  selectAttachments: input => callHost('select_attachments', { input }),
+  removeAttachment: input => callHost('remove_attachment', { input }),
+  viewProcessedAttachment: input => callHost('review_processed_attachment', { input }),
   windowAction: input => callHost('window_action', { input }),
   async subscribeClose(callback) {
     if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) throw new Error('host_unavailable');
