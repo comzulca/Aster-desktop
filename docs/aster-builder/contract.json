@@ -4,7 +4,7 @@
     "name": "Aster Desktop v0.2.3",
     "platform": "Windows-11-x64",
     "release_class": "development",
-    "source_revision": "UNPINNED"
+    "source_revision": "20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac"
   },
   "policy": {
     "allow_automatic_provider_fallback": false,
@@ -1182,18 +1182,30 @@
   "gates": [
     {
       "phase": 0,
-      "status": "NOT RUN",
-      "reason": "Isolated v0.2.3 inventory is documented from baseline 7f8de9c1db74de92672976eb5af3ee9f54e68fef; exact committed design-review metadata and fresh source qualification are not yet recorded. No predecessor gate PASS transfers."
+      "status": "PASS",
+      "source_revision": "20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac",
+      "environment": "Manual design-only review by Codex custody subagent; QUARK2\\CodexSandboxOffline; Microsoft Windows NT 10.0.26300.0; no app/native/provider execution or owner-session acceptance",
+      "command": "Manual inventory/provenance review: git rev-parse HEAD; git rev-parse 20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac^{tree}; git show --format='%H %T %P' --no-patch 20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac; Get-Content -LiteralPath AGENTS.md and docs/aster-builder/phase-0-inventory.md; exact read steps/results in DESIGN-V023-0001",
+      "run_at_utc": "2026-10-04T11:17:41.1101682Z",
+      "evidence_paths": ["docs/qa/DESIGN-V023-0001.md", "docs/aster-builder/phase-0-inventory.md"]
     },
     {
       "phase": 1,
-      "status": "NOT RUN",
-      "reason": "SPEC-0005 stable requirement/acceptance map is pre-implementation; exact committed design review/evidence metadata is pending."
+      "status": "PASS",
+      "source_revision": "20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac",
+      "environment": "Manual design-only review by Codex custody subagent; QUARK2\\CodexSandboxOffline; Microsoft Windows NT 10.0.26300.0; no fixture execution or runtime qualification",
+      "command": "Manual specification/trace review: Get-Content -LiteralPath docs/specs/SPEC-0005.md, docs/aster-builder/contract.json and docs/aster-builder/verification-plan.md; map stable requirements to AC/T IDs and non-goals; fixed P1 source/fixture inspection and steps in DESIGN-V023-0001",
+      "run_at_utc": "2026-10-04T11:17:41.1101682Z",
+      "evidence_paths": ["docs/qa/DESIGN-V023-0001.md", "docs/specs/SPEC-0005.md", "docs/aster-builder/verification-plan.md"]
     },
     {
       "phase": 2,
-      "status": "NOT RUN",
-      "reason": "ADR-0018/0019/0020 and THREAT-MODEL-0005 fix crossings, numerical bounds, temporary native PDF custody and external Office conversion. Exact committed review/evidence metadata remains pending."
+      "status": "PASS",
+      "source_revision": "20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac",
+      "environment": "Manual design-only review by Codex custody subagent; QUARK2\\CodexSandboxOffline; Microsoft Windows NT 10.0.26300.0; native enforcement/resource/financial/provider qualification remains independent and unproved",
+      "command": "Manual threat/crossing review: Get-Content -LiteralPath docs/security/THREAT-MODEL-0005.md and docs/adr/ADR-0018.md, ADR-0019.md, ADR-0020.md; inspect P1 host, worker, review, provider, history and negative-fixture definitions with rg/Get-Content/git show; map controls/residual owners in DESIGN-V023-0001; no tests executed",
+      "run_at_utc": "2026-10-04T11:17:41.1101682Z",
+      "evidence_paths": ["docs/qa/DESIGN-V023-0001.md", "docs/security/THREAT-MODEL-0005.md", "docs/adr/ADR-0018.md", "docs/adr/ADR-0019.md", "docs/adr/ADR-0020.md"]
     },
     {
       "phase": 3,

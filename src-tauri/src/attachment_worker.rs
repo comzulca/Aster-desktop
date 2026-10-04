@@ -573,11 +573,11 @@ mod native {
                 };
                 if created {
                     // Never resume an unexpectedly admitted child and never run UI.
-                    let process = Handle::new(process.hProcess)?;
+                    let child = Handle::new(process.hProcess)?;
                     let _thread = Handle::new(process.hThread)?;
                     unsafe {
-                        TerminateProcess(process.0, 1);
-                        WaitForSingleObject(process.0, 1000);
+                        TerminateProcess(child.0, 1);
+                        WaitForSingleObject(child.0, 1000);
                     }
                 }
                 let after = job_stats(null_mut())?;

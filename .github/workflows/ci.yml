@@ -109,6 +109,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo --version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Record actual hosted execution context
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force reports | Out-Null
+          $revision = & git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $revision -cne $env:GITHUB_SHA) { throw 'Hosted fixture source identity changed.' }
+          [ordered]@{
+            classification = 'hosted-source-fixtures-not-owner-session'
+            source_revision = $revision
+            workflow_run_id = $env:GITHUB_RUN_ID
+            workflow_run_attempt = $env:GITHUB_RUN_ATTEMPT
+            principal = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            os_version = [System.Environment]::OSVersion.VersionString
+            recorded_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+          } | ConvertTo-Json | Tee-Object -FilePath reports/windows-execution-context.json
       - name: Generate locked source notices for bundle resources
         shell: pwsh
         run: |
@@ -336,6 +351,8 @@ jobs:
               'installer-payload-list.txt' = (Get-FileHash reports/installer-payload-list.txt -Algorithm SHA256).Hash.ToLowerInvariant()
             }
             runner = $env:RUNNER_OS
+            principal = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            os_version = [System.Environment]::OSVersion.VersionString
             rustc_version = (& rustc --version)
             built_at_utc = (Get-Date).ToUniversalTime().ToString('o')
           }

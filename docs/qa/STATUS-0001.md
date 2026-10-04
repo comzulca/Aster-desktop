@@ -4,6 +4,16 @@
 
 ## Active v0.2.3 development — 2026-10-04
 
+**Current hosted outcome — FAIL:** draft PR #30/P1 `20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac`, run `37197489295` attempt 1. Windows-host job `111422400305` failed `cargo check --locked --all-targets` at step 9 with E0609 (`attachment_worker.rs:577`, `11:12:58.5875858Z`) and E0597 (`lib.rs:1359`, `11:13:01.8405490Z`); failure `2026-10-04T11:13:03.4230606Z`. Installer job `111423689117` is SKIPPED. Source-policy/frontend successes remain scoped; not 4/4. The working-tree handle rename and tail-lock semicolon are narrow unqualified corrections, not new PASS or a guessed successor source. Local Code Integrity FAIL101/4551 remains separate. See [CI-V023-0001](CI-V023-0001.md). No installer/native/installed/Meta or merge/release/signing promotion.
+
+### Retained earlier P1 partial-success progression
+
+**Observed publication checkpoint:** [draft PR #30](https://github.com/comzulca/Aster-desktop/pull/30) at P1 `20ecc095a1f4c5c418bd1cd8d66cb5953caf54ac`, tree `0fedd7cf09f696f8b6d7ce3d88eaa1ff1fc4fa75`, direct parent/main `23524097156f652e7f0fcfb3a8af49cfcf8f6bc7`. [Run 37197489295](https://github.com/comzulca/Aster-desktop/actions/runs/37197489295), attempt 1, is in progress: source-policy `111422250820` and frontend `111422281323` succeeded; windows-host `111422400305` remains in progress at Rust step 9. No fourth-job, complete-suite/native/package outcome is observed; not 4/4. No merge/release/signing authority.
+
+Clean local P1 partial checks, all on QUARK2\CodexSandboxOffline / Windows NT 10.0.26300.0: frontend `frontend-20261004T110359825Z` passes typecheck/100 tests/eight files/build at `11:03:59.9255061Z`–`11:04:14.2496992Z`; source `source-20261004T110526608Z` exits 0 at `11:05:26.7095555Z`–`11:05:27.5176167Z`; metadata `metadata-20261004T110528773Z` exits 0 at `11:05:28.8727724Z`–`11:05:32.8913733Z`. These do not prove full Cargo, native/installed/Meta or installer acceptance. New later QA/docs need their own source checks. See [CI-V023-0001](CI-V023-0001.md) and [LOCAL-V023-0001](LOCAL-V023-0001.md).
+
+## Retained pre-publication checkpoint — 4 October
+
 Read-only remote verification on 4 October observes main `23524097156f652e7f0fcfb3a8af49cfcf8f6bc7` containing merged v0.2.2 PR #29. Retained 3 October open/unmerged statements below are historical, not current remote status. No v0.2.3 merge/release/signing authority or fresh source/package/native qualification follows from that remote observation.
 
 Status: **source implementation/integration in progress; no final clean-source qualification or v0.2.3 installer yet**. The isolated baseline is predecessor documentation HEAD `7f8de9c1db74de92672976eb5af3ee9f54e68fef`, not a tested new runtime. [SPEC-0005](../specs/SPEC-0005.md), [ADR-0018](../adr/ADR-0018.md), [ADR-0019](../adr/ADR-0019.md), [ADR-0020](../adr/ADR-0020.md) and [THREAT-MODEL-0005](../security/THREAT-MODEL-0005.md) define the new requirements and dependent qualification. [LOCAL-V023-0001](LOCAL-V023-0001.md) owns final exact evidence; the [current documentation index](../V0.2.3-DOCUMENTATION-INDEX.md) reconciles earlier applicability.

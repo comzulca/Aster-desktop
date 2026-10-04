@@ -1358,7 +1358,7 @@ pub fn run() {
                 }
                 if let Ok(mut registry) = host.attachments.lock() {
                     registry.prune_expired();
-                }
+                };
             });
             Ok(())
         })
