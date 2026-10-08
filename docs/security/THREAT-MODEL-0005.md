@@ -1,5 +1,12 @@
 # THREAT-MODEL-0005 — v0.2.3 attachments and initial reveal
 
+## 8 October 2026 diagnostic boundary amendment
+
+TM-029 / SEC-028 / AC-072 / T-082 additionally covers diagnostic text/data disclosure and treating child exit codes as successful content. [PDF-DIAGNOSTIC-20261008](../qa/PDF-DIAGNOSTIC-20261008.md) specifies closed static WinRT/normalisation-stage mappings, nonzero failures, PDF-codec-only parent decoding and negative classification/stop/receipt tests. No raw native error, HRESULT, source bytes, path, environment or key may cross this diagnostic. A compromised child can misstate a stage; it still cannot admit content through an error code. Numeric and invariant denials remain generic and fail closed. Token/Job/environment limits and the residual no-network/filesystem-compromise qualification gap are unchanged.
+
+The completed P5 worker/package outcome remains FAIL (valid two-page PDF), not a diagnosed cause. Changed-source native/runtime/containment and all new regressions are NOT RUN here. Existing owner startup/local execution failures and all older scoped records remain intact; no manual, live or production acceptance is asserted.
+
+
 Status on 4 October 2026: **implemented engineering draft; fresh final-source/native/installed qualification pending**. The mapped host controls now exist in dirty development source under SPEC-0005 / ADR-0018..0020; their presence is not execution proof. [LOCAL-V023-0001](../qa/LOCAL-V023-0001.md) retains the current Code Integrity compiler-helper block, advisory warnings and partial checkpoints. No full Cargo, worker-containment, native PDF/review, installed flicker cure or Meta PASS is inferred.
 
 The bounded ten-second reveal attempt requires an available OS/UI loop. Scoped-hook/show failure can leave presentation unsuccessful and is diagnosed, not silently labelled visible. The dated fail-visible design language below is not an absolute completed-paint guarantee. Imported-source expiry is shared across both review stages without renewal. Source now polls host-only cancellation on 200-ms modal timer intervals while the message pump runs and checks before opening, after return and approval consumption. Normal unwinding adds no renderer grant and does not guarantee physical secure erasure or hard scheduling; fresh compiler/test/native qualification remains pending.

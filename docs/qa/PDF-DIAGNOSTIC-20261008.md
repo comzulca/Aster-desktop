@@ -1,0 +1,40 @@
+# 8 October 2026 PDF failure-stage diagnostic amendment
+
+Status: proposed diagnostic change; final-source compilation and hosted execution NOT RUN.
+Baseline: draft PR #30 head fcf5526c0889a6df737925718d1c2ff323baa4d1. Latest run 37207862545 tested merge 2664cf18592d38bb7cae6d2eff5e1dae5512bd51 and failed engineering-installer job 111457997051. Retain every predecessor failure and NOT RUN outcome.
+
+## Requirement and acceptance amendment (before implementation)
+
+This narrows existing SEC-028 / NFR-009 -> TM-029 -> AC-072/AC-073 -> T-078/T-082/T-083. The actual-executable synthetic receipt shall identify one static stage from a closed enum when a mapped Windows Runtime call (including runtime initialisation) fails, or rendered-page PNG normalisation returns Invalid/Unsupported/Worker. Coverage is deliberately limited to these exception/error-return sites. Normalisation Limit or boundary/cancellation errors retain their existing categories. Short store/read counts, numeric bounds, empty/oversized output, dimension mismatches, page/aggregate validation and other invariant guards retain their existing Invalid/Limit categories and generic child exit 3. Panic, I/O and unknown failures also remain generic; no stage is invented for them. The receipt must not return WinRT error messages, HRESULT values, source bytes, filenames, paths, environment contents, principal identifiers or credentials. A stage is a diagnostic location, not a proven cause, a bypass authorisation or a successful PDF result.
+
+The successful worker binary protocol and all admission, validation, token, empty environment, inherited handles, suspended Job assignment, CPU/memory/wall/process bounds, termination, cleanup poisoning, temporary originals and disclosure/storage rules remain unchanged. Reserved nonzero child exit codes carry only closed PDF stage identities. The parent may interpret these codes only for its exact PDF codec operation and must return an error without accepting content. Unknown, non-PDF or resource-probe exit codes remain generic worker failure. No retry, in-host PDF processing or unrestricted fallback is added.
+
+## Threat amendment
+
+TM-029 additionally covers diagnostic text/data exfiltration, confusion of a child exit code with successful content and misclassification of unknown or unrelated failure codes. Use exhaustive static stage/reason/exit mappings, strict known-code decoding and operation-bound admission. The renderer receives no stage string, error payload or new capability. A compromised child can lie about a failure stage, but cannot use the stage to admit content. The stage therefore guides bounded synthetic debugging only and cannot prove the native cause or parser confinement.
+
+## Mandatory regression definitions (before implementation)
+
+- T-082: every reserved stage round-trips to its unique nonzero code; generic/unknown codes are refused; names contain only ASCII lowercase/hyphens and have bounded length.
+- T-082: even a known stage exit code is a generic error for image/text or resource-probe mode; no stage code is success. Existing unknown/suffix/output/source binding tests remain mandatory.
+- T-082: the exact normalisation error-mapping helper preserves Limit, Isolation, Cancelled, Timeout and an existing PDF-stage error; only Invalid/Unsupported/Worker maps to the closed normalisation stage. This pure regression does not decode a PDF or credit resource containment.
+- T-083: a private injected-processing/resource seam exercises the same production classification, later-work stopping and report computation. Inject every Pdf(stage) error on an accepted synthetic PDF case; require its actual branch to emit FAIL/static reason, the following case and all six resource probes to become NOT RUN, exactly one processor call and zero resource calls, and computed allPassed=false/qualificationComplete=false. No private error fields can be serialised. This seam adds no runtime IPC or arbitrary fixture input route.
+- Existing fifteen codec cases and six actual-executable resource probes, strict malformed whole-input cases, all-page PDF pixel/order/page-overflow assertions and all five CI jobs remain mandatory. No expected FAIL is converted into PASS.
+
+## Source-bound evidence
+
+Latest Windows library test synthetic_pdf_retains_all_pages_in_order_and_rejects_over_limit passed at 2026-10-04T14:20:09.5312853Z in job 111452909256. The actual restricted executable receipt at 14:48:54.5718866Z passed text, PNG, JPEG and static GIF, then failed native-two-page-pdf with worker-failed-on-valid-synthetic-input. Ten later codec cases and six resource probes were NOT RUN. NSIS build reported 21.87 MiB, which is not package qualification. The library success does not prove the restricted worker route.
+
+The predecessor installer job 111446599731 (run 37204516581) failed stdout capture with OS error 232. Current explicit pipeline consumer fixes capture and exposes the distinct PDF failure; preserve both results. Current source collapses child errors/panics to exit 3 and parent Worker, so the exact WinRT/normalisation stage and narrower native cause are unproved. Empty environment or low integrity are hypotheses, not grounds to weaken controls.
+
+## Validation plan
+
+Run the existing locked Linux production-module codec harness, Windows all-target Cargo check/Clippy/full fixture suite, exact synthetic credential tests on the disposable hosted runner only, and engineering-installer actual-executable diagnostic with all fifteen/six outcomes. Capture exact head/merge tree, run/job IDs, UTC, principal/OS, commands and receipt. If a native PDF stage still fails, retain FAIL and diagnose from that evidence; no final package or native/installed/live PASS follows. No owner app/setup/private data is executed or modified by this proposal.
+
+## Local source-format checkpoint
+
+Follow-up at 2026-10-08T16:53:34Z: the revised private fixture-injection seam and category-preserving normalisation mapper passed the same four-file rustfmt syntax/format command (exit 0). Four new regression definitions remain NOT RUN; no executed Rust/native/package result is implied.
+
+At 2026-10-08T16:42:56Z, rustfmt 1.97.0 with edition 2021 and skip_children=true checked only the four staged Rust files and returned exit 0. This is syntax/format evidence, not Cargo type checking, executed Rust tests, restricted-worker or native PDF PASS. Cargo/full Windows/native/package checks remain NOT RUN for this uncommitted staged proposal. Static comparison additionally confirms unchanged token, Job-limit, child-boundary-verifier, launch-setup and cleanup regions against the exact baseline blobs.
+
+

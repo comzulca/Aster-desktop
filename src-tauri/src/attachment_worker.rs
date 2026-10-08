@@ -2,8 +2,9 @@
 //! A restricted low-integrity token/Job is NOT a no-network security sandbox.
 
 use crate::attachment_processing::{
-    self, InputKind, ProcessedAttachment, ProcessedContent, ProcessingError, MAX_PDF_PAGES,
-    MAX_PNG_BYTES, MAX_RGBA_BYTES, MAX_SOURCE_BYTES, MAX_TEXT_BYTES, MAX_WORKER_OUTPUT_BYTES,
+    self, InputKind, PdfFailureStage, ProcessedAttachment, ProcessedContent, ProcessingError,
+    MAX_PDF_PAGES, MAX_PNG_BYTES, MAX_RGBA_BYTES, MAX_SOURCE_BYTES, MAX_TEXT_BYTES,
+    MAX_WORKER_OUTPUT_BYTES,
 };
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
@@ -110,6 +111,25 @@ pub fn run_resource_worker_stdio() -> Result<(), ProcessingError> {
     }
     #[cfg(not(windows))]
     Err(ProcessingError::Isolation)
+}
+
+/// Closed failure codes only: never serialize native error text or successful output.
+pub(crate) fn worker_failure_exit(error: ProcessingError) -> u32 {
+    match error {
+        ProcessingError::Pdf(stage) => stage.worker_exit_code(),
+        _ => 3,
+    }
+}
+
+/// A code is meaningful only for the parent's exact PDF codec invocation.
+/// Even a recognised stage remains terminal failure, never content admission.
+fn worker_exit_error(kind: InputKind, codec_mode: bool, exit_code: u32) -> ProcessingError {
+    if codec_mode && kind == InputKind::Pdf {
+        if let Some(stage) = PdfFailureStage::from_worker_exit(exit_code) {
+            return ProcessingError::Pdf(stage);
+        }
+    }
+    ProcessingError::Worker
 }
 
 fn io_error(_: std::io::Error) -> ProcessingError {
@@ -1416,10 +1436,16 @@ mod native {
                     WAIT_OBJECT_0 => {
                         natural_exit = !job_closed;
                         let mut exit_code = 1;
-                        if unsafe { GetExitCodeProcess(process_handle.0, &mut exit_code) } == 0
-                            || exit_code != 0
-                        {
+                        if unsafe { GetExitCodeProcess(process_handle.0, &mut exit_code) } == 0 {
                             result = Some(Err(ProcessingError::Worker));
+                            break;
+                        }
+                        if exit_code != 0 {
+                            result = Some(Err(worker_exit_error(
+                                kind,
+                                matches!(mode, Mode::Codec),
+                                exit_code,
+                            )));
                             break;
                         }
                         if writing.is_some() && reading.is_some() && stderr.is_some() {
@@ -1824,6 +1850,47 @@ mod native {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_failure_exit_codes_are_pdf_codec_only_and_fail_closed() {
+        for stage in PdfFailureStage::ALL {
+            let code = worker_failure_exit(ProcessingError::Pdf(stage));
+            assert_ne!(code, 0);
+            assert_eq!(
+                worker_exit_error(InputKind::Pdf, true, code),
+                ProcessingError::Pdf(stage)
+            );
+            for kind in [
+                InputKind::Text,
+                InputKind::Png,
+                InputKind::Jpeg,
+                InputKind::Gif,
+            ] {
+                assert_eq!(worker_exit_error(kind, true, code), ProcessingError::Worker);
+            }
+            assert_eq!(
+                worker_exit_error(InputKind::Pdf, false, code),
+                ProcessingError::Worker
+            );
+        }
+        for error in [
+            ProcessingError::Invalid,
+            ProcessingError::Limit,
+            ProcessingError::Unsupported,
+            ProcessingError::Isolation,
+            ProcessingError::Cancelled,
+            ProcessingError::Timeout,
+            ProcessingError::Worker,
+        ] {
+            assert_eq!(worker_failure_exit(error), 3);
+        }
+        for code in [0, 1, 3, 63, 82, 255, u32::MAX] {
+            assert_eq!(
+                worker_exit_error(InputKind::Pdf, true, code),
+                ProcessingError::Worker
+            );
+        }
+    }
+
     #[test]
     fn closed_request_refuses_unknown_suffix_and_oversized_lengths() {
         let mut request = Vec::new();

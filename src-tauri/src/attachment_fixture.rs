@@ -262,6 +262,24 @@ fn cases() -> Result<Vec<Case>, ProcessingError> {
 /// Executes each fixed synthetic operation once. A launch/security/system failure
 /// stops further child creation; there is no retry, fallback or OS-setting change.
 pub fn run() -> FixtureReport {
+    run_cases(
+        cases(),
+        attachment_processing::process_isolated,
+        attachment_worker::run_resource_probe,
+    )
+}
+
+/// Private test seam for the actual classification/stop/report computation.
+/// Production uses only its fixed synthetic inputs and real bounded callbacks.
+fn run_cases(
+    cases: Result<Vec<Case>, ProcessingError>,
+    mut process: impl FnMut(
+        InputKind,
+        &[u8],
+        &AtomicBool,
+    ) -> Result<ProcessedAttachment, ProcessingError>,
+    mut resource_probe: impl FnMut(ResourceScenario) -> ResourceProbeResult,
+) -> FixtureReport {
     let mut report = FixtureReport {
         schema_version: 1,
         classification: "synthetic-byte-worker-fixture",
@@ -270,7 +288,7 @@ pub fn run() -> FixtureReport {
         cases: Vec::new(),
         resource_kill_checks: Vec::new(),
     };
-    let cases = match cases() {
+    let cases = match cases {
         Ok(cases) => cases,
         Err(_) => {
             report.cases.push(CaseResult {
@@ -292,37 +310,40 @@ pub fn run() -> FixtureReport {
             });
             continue;
         }
-        let (passed, reason) =
-            match attachment_processing::process_isolated(case.kind, &case.source, &cancelled) {
-                Ok(result) => match case.accepted {
-                    Some(expected) if expected(&case.source, &result) => {
-                        (true, "exact-synthetic-content-and-boundary")
-                    }
-                    Some(_) => (false, "processed-content-mismatch"),
-                    None => (false, "invalid-input-was-admitted"),
-                },
-                Err(
-                    error @ (ProcessingError::Isolation
-                    | ProcessingError::Timeout
-                    | ProcessingError::Cancelled),
-                ) => {
-                    boundary_available = false;
-                    (
-                        false,
-                        match error {
-                            ProcessingError::Isolation => "boundary-unavailable",
-                            ProcessingError::Timeout => "unexpected-fixture-timeout",
-                            _ => "unexpected-cancellation",
-                        },
-                    )
+        let (passed, reason) = match process(case.kind, &case.source, &cancelled) {
+            Ok(result) => match case.accepted {
+                Some(expected) if expected(&case.source, &result) => {
+                    (true, "exact-synthetic-content-and-boundary")
                 }
-                Err(ProcessingError::Worker) if case.accepted.is_some() => {
-                    boundary_available = false;
-                    (false, "worker-failed-on-valid-synthetic-input")
-                }
-                Err(_) if case.accepted.is_none() => (true, "whole-operation-denied"),
-                Err(_) => (false, "valid-synthetic-input-was-refused"),
-            };
+                Some(_) => (false, "processed-content-mismatch"),
+                None => (false, "invalid-input-was-admitted"),
+            },
+            Err(
+                error @ (ProcessingError::Isolation
+                | ProcessingError::Timeout
+                | ProcessingError::Cancelled),
+            ) => {
+                boundary_available = false;
+                (
+                    false,
+                    match error {
+                        ProcessingError::Isolation => "boundary-unavailable",
+                        ProcessingError::Timeout => "unexpected-fixture-timeout",
+                        _ => "unexpected-cancellation",
+                    },
+                )
+            }
+            Err(ProcessingError::Pdf(stage)) if case.accepted.is_some() => {
+                boundary_available = false;
+                (false, stage.diagnostic_reason())
+            }
+            Err(ProcessingError::Worker) if case.accepted.is_some() => {
+                boundary_available = false;
+                (false, "worker-failed-on-valid-synthetic-input")
+            }
+            Err(_) if case.accepted.is_none() => (true, "whole-operation-denied"),
+            Err(_) => (false, "valid-synthetic-input-was-refused"),
+        };
         report.cases.push(CaseResult {
             code: case.code,
             status: if passed { "PASS" } else { "FAIL" },
@@ -331,7 +352,7 @@ pub fn run() -> FixtureReport {
     }
     for scenario in ResourceScenario::ALL {
         if boundary_available {
-            let result = attachment_worker::run_resource_probe(scenario);
+            let result = resource_probe(scenario);
             if !result.boundary_available {
                 boundary_available = false;
             }
@@ -363,6 +384,65 @@ pub fn run() -> FixtureReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn injected_pdf_stage_failure_stops_later_work_and_reports_static_reason() {
+        for stage in attachment_processing::PdfFailureStage::ALL {
+            let process_calls = std::cell::Cell::new(0);
+            let resource_calls = std::cell::Cell::new(0);
+            let report = run_cases(
+                Ok(vec![
+                    Case {
+                        code: "native-two-page-pdf",
+                        kind: InputKind::Pdf,
+                        source: b"%PDF-closed-synthetic-stage-fixture".to_vec(),
+                        accepted: Some(pdf_expected),
+                    },
+                    Case {
+                        code: "native-text",
+                        kind: InputKind::Text,
+                        source: b"later-synthetic-operation".to_vec(),
+                        accepted: Some(text_expected),
+                    },
+                ]),
+                |kind, source, _| {
+                    process_calls.set(process_calls.get() + 1);
+                    assert_eq!(kind, InputKind::Pdf);
+                    assert_eq!(source, b"%PDF-closed-synthetic-stage-fixture");
+                    Err(ProcessingError::Pdf(stage))
+                },
+                |_| {
+                    resource_calls.set(resource_calls.get() + 1);
+                    panic!("failed PDF boundary must stop resource probes")
+                },
+            );
+            assert_eq!(process_calls.get(), 1);
+            assert_eq!(resource_calls.get(), 0);
+            assert_eq!(report.cases.len(), 2);
+            assert_eq!(report.cases[0].status, "FAIL");
+            assert_eq!(report.cases[1].status, "NOT RUN");
+            assert_eq!(report.cases[1].reason, "earlier-boundary-failure");
+            assert_eq!(
+                report.resource_kill_checks.len(),
+                ResourceScenario::ALL.len()
+            );
+            assert!(report.resource_kill_checks.iter().all(|result| {
+                result.status == "NOT RUN"
+                    && result.reason == "earlier-boundary-failure"
+                    && !result.boundary_available
+            }));
+            let body = serde_json::to_value(&report).unwrap();
+            assert_eq!(body["allPassed"], false);
+            assert_eq!(body["qualificationComplete"], false);
+            assert_eq!(body["cases"][0]["status"], "FAIL");
+            assert_eq!(body["cases"][0]["reason"], stage.diagnostic_reason());
+            let case = body["cases"][0].as_object().unwrap();
+            assert_eq!(case.len(), 3);
+            assert!(case
+                .keys()
+                .all(|key| ["code", "status", "reason"].contains(&key.as_str())));
+        }
+    }
+
     #[test]
     fn construction_is_closed_synthetic_and_bounded() {
         let cases = cases().unwrap();

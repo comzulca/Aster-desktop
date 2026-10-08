@@ -1297,7 +1297,12 @@ pub fn run() {
         }
         LaunchMode::AttachmentWorker => {
             let result = std::panic::catch_unwind(attachment_worker::run_worker_stdio);
-            std::process::exit(if matches!(result, Ok(Ok(()))) { 0 } else { 3 });
+            let exit = match result {
+                Ok(Ok(())) => 0,
+                Ok(Err(error)) => attachment_worker::worker_failure_exit(error),
+                Err(_) => 3,
+            };
+            std::process::exit(exit as i32);
         }
         LaunchMode::Invalid => {
             eprintln!("aster_startup=invalid_arguments");

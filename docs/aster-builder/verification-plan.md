@@ -1,5 +1,12 @@
 # Aster Desktop — versioned verification procedures
 
+## 8 October 2026 additional T-082/T-083 definitions — NOT RUN
+
+Before implementation, [PDF-DIAGNOSTIC-20261008](../qa/PDF-DIAGNOSTIC-20261008.md) extends existing SEC-028/NFR-009/TM-029/AC-072/AC-073 tests without retiring any prior case. Four pure regressions cover closed PDF stage/code grammar, strict PDF-codec-only failure decoding, preservation of limit/cancellation/boundary categories, and the actual injected failure-classification/stop/report path (one process call, zero later resource calls, FAIL then NOT RUN, false aggregate flags). No fabricated receipt or positive error code may qualify content. Numeric/invariant PDF guard failures remain generic; stage output is not a proven cause.
+
+The latest completed P5 actual-executable run `37207862545` remains PDF/package FAIL; ten later codec cases and six resource probes are NOT RUN. Fresh final-source five-job CI and the unchanged fifteen codec/six resource probes are mandatory after the diagnostic and compatible source-map-js 1.2.2 lock changes. All four new regressions are NOT RUN at this amendment; formatting is syntax evidence only. Retain separate manual installed/startup/accessibility/full-visual/live/containment requirements and all historical failures.
+
+
 ## Active v0.2.3 procedures — 2026-10-03
 
 4 October authority amendment: the owner authorises publishing v0.2.3 code and all updated documentation via a PR and executing GitHub checks, not merging, signing or publishing a release. Remote main `23524097156f652e7f0fcfb3a8af49cfcf8f6bc7` already merges PR #29; preserve its owner-startup FAIL record and do not publish the discarded local v0.2.1 commit series. This supersedes only the dated publication-pending wording below. Bounds and schemas are fixed in ADR-0019/0020; fresh execution remains mandatory.

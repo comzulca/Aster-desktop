@@ -42,6 +42,84 @@ impl TryFrom<u8> for InputKind {
     }
 }
 
+/// Failure location only, never a success receipt or native error message.
+/// Reserved nonzero child codes disclose no source/path/environment/HRESULT.
+/// Covers mapped WinRT/normalisation errors only; invariant/limit guards stay generic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u32)]
+pub enum PdfFailureStage {
+    InitialiseRuntime = 64,
+    CreateInputStream = 65,
+    CreateInputWriter = 66,
+    WriteInput = 67,
+    StoreInput = 68,
+    DetachInput = 69,
+    SeekInput = 70,
+    LoadDocument = 71,
+    InspectDocument = 72,
+    ReadPage = 73,
+    ReadPageSize = 74,
+    CreateRenderOptions = 75,
+    ConfigureRender = 76,
+    CreateOutputStream = 77,
+    RenderPage = 78,
+    ReadOutput = 79,
+    NormalisePage = 80,
+    ClosePage = 81,
+}
+impl PdfFailureStage {
+    pub const ALL: [Self; 18] = [
+        Self::InitialiseRuntime,
+        Self::CreateInputStream,
+        Self::CreateInputWriter,
+        Self::WriteInput,
+        Self::StoreInput,
+        Self::DetachInput,
+        Self::SeekInput,
+        Self::LoadDocument,
+        Self::InspectDocument,
+        Self::ReadPage,
+        Self::ReadPageSize,
+        Self::CreateRenderOptions,
+        Self::ConfigureRender,
+        Self::CreateOutputStream,
+        Self::RenderPage,
+        Self::ReadOutput,
+        Self::NormalisePage,
+        Self::ClosePage,
+    ];
+    pub fn worker_exit_code(self) -> u32 {
+        self as u32
+    }
+    pub fn from_worker_exit(code: u32) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|stage| stage.worker_exit_code() == code)
+    }
+    pub fn diagnostic_reason(self) -> &'static str {
+        match self {
+            Self::InitialiseRuntime => "pdf-initialise-runtime",
+            Self::CreateInputStream => "pdf-create-input-stream",
+            Self::CreateInputWriter => "pdf-create-input-writer",
+            Self::WriteInput => "pdf-write-input",
+            Self::StoreInput => "pdf-store-input",
+            Self::DetachInput => "pdf-detach-input",
+            Self::SeekInput => "pdf-seek-input",
+            Self::LoadDocument => "pdf-load-document",
+            Self::InspectDocument => "pdf-inspect-document",
+            Self::ReadPage => "pdf-read-page",
+            Self::ReadPageSize => "pdf-read-page-size",
+            Self::CreateRenderOptions => "pdf-create-render-options",
+            Self::ConfigureRender => "pdf-configure-render",
+            Self::CreateOutputStream => "pdf-create-output-stream",
+            Self::RenderPage => "pdf-render-page",
+            Self::ReadOutput => "pdf-read-output",
+            Self::NormalisePage => "pdf-normalise-page",
+            Self::ClosePage => "pdf-close-page",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProcessingError {
     Invalid,
@@ -51,6 +129,18 @@ pub enum ProcessingError {
     Cancelled,
     Timeout,
     Worker,
+    Pdf(PdfFailureStage),
+}
+
+#[cfg(any(windows, test))]
+fn pdf_normalisation_error(error: ProcessingError) -> ProcessingError {
+    match error {
+        ProcessingError::Invalid | ProcessingError::Unsupported | ProcessingError::Worker => {
+            ProcessingError::Pdf(PdfFailureStage::NormalisePage)
+        }
+        // Numeric bounds and boundary/cancellation categories remain intact.
+        _ => error,
+    }
 }
 
 #[derive(Debug)]
@@ -455,33 +545,52 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
     }
     // Dedicated child thread, before any Tauri/native app bootstrap. No STA pump.
     if unsafe { RoInitialize(1) } < 0 {
-        return Err(ProcessingError::Worker);
+        return Err(ProcessingError::Pdf(PdfFailureStage::InitialiseRuntime));
     }
     let _apartment = Apartment;
-    let fail = |_| ProcessingError::Invalid;
-    let stream = InMemoryRandomAccessStream::new().map_err(fail)?;
-    let writer = DataWriter::CreateDataWriter(&stream).map_err(fail)?;
-    writer.WriteBytes(bytes).map_err(fail)?;
-    if writer.StoreAsync().map_err(fail)?.join().map_err(fail)? as usize != bytes.len() {
+    let fail = |stage| move |_: windows::core::Error| ProcessingError::Pdf(stage);
+    let stream =
+        InMemoryRandomAccessStream::new().map_err(fail(PdfFailureStage::CreateInputStream))?;
+    let writer =
+        DataWriter::CreateDataWriter(&stream).map_err(fail(PdfFailureStage::CreateInputWriter))?;
+    writer
+        .WriteBytes(bytes)
+        .map_err(fail(PdfFailureStage::WriteInput))?;
+    if writer
+        .StoreAsync()
+        .map_err(fail(PdfFailureStage::StoreInput))?
+        .join()
+        .map_err(fail(PdfFailureStage::StoreInput))? as usize
+        != bytes.len()
+    {
         return Err(ProcessingError::Invalid);
     }
-    writer.DetachStream().map_err(fail)?;
-    stream.Seek(0).map_err(fail)?;
+    writer
+        .DetachStream()
+        .map_err(fail(PdfFailureStage::DetachInput))?;
+    stream.Seek(0).map_err(fail(PdfFailureStage::SeekInput))?;
     let document = PdfDocument::LoadFromStreamAsync(&stream)
-        .map_err(fail)?
+        .map_err(fail(PdfFailureStage::LoadDocument))?
         .join()
-        .map_err(fail)?;
-    if document.IsPasswordProtected().map_err(fail)? {
+        .map_err(fail(PdfFailureStage::LoadDocument))?;
+    if document
+        .IsPasswordProtected()
+        .map_err(fail(PdfFailureStage::InspectDocument))?
+    {
         return Err(ProcessingError::Unsupported);
     }
-    let count = document.PageCount().map_err(fail)? as usize;
+    let count = document
+        .PageCount()
+        .map_err(fail(PdfFailureStage::InspectDocument))? as usize;
     if count == 0 || count > MAX_PDF_PAGES {
         return Err(ProcessingError::Limit);
     }
     let mut pages = Vec::with_capacity(count);
     for index in 0..count {
-        let page = document.GetPage(index as u32).map_err(fail)?;
-        let size = page.Size().map_err(fail)?;
+        let page = document
+            .GetPage(index as u32)
+            .map_err(fail(PdfFailureStage::ReadPage))?;
+        let size = page.Size().map_err(fail(PdfFailureStage::ReadPageSize))?;
         // Windows PDF sizes are device-independent pixels (96 DPI).
         let width_f = (f64::from(size.Width) * f64::from(PDF_DPI) / 96.0).ceil();
         let height_f = (f64::from(size.Height) * f64::from(PDF_DPI) / 96.0).ceil();
@@ -503,43 +612,59 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
         {
             return Err(ProcessingError::Limit);
         }
-        let options = PdfPageRenderOptions::new().map_err(fail)?;
+        let options =
+            PdfPageRenderOptions::new().map_err(fail(PdfFailureStage::CreateRenderOptions))?;
         options
-            .SetBitmapEncoderId(BitmapEncoder::PngEncoderId().map_err(fail)?)
-            .map_err(fail)?;
-        options.SetIsIgnoringHighContrast(true).map_err(fail)?;
-        options.SetDestinationWidth(width).map_err(fail)?;
-        options.SetDestinationHeight(height).map_err(fail)?;
-        let output = InMemoryRandomAccessStream::new().map_err(fail)?;
+            .SetBitmapEncoderId(
+                BitmapEncoder::PngEncoderId().map_err(fail(PdfFailureStage::ConfigureRender))?,
+            )
+            .map_err(fail(PdfFailureStage::ConfigureRender))?;
+        options
+            .SetIsIgnoringHighContrast(true)
+            .map_err(fail(PdfFailureStage::ConfigureRender))?;
+        options
+            .SetDestinationWidth(width)
+            .map_err(fail(PdfFailureStage::ConfigureRender))?;
+        options
+            .SetDestinationHeight(height)
+            .map_err(fail(PdfFailureStage::ConfigureRender))?;
+        let output =
+            InMemoryRandomAccessStream::new().map_err(fail(PdfFailureStage::CreateOutputStream))?;
         page.RenderWithOptionsToStreamAsync(&output, &options)
-            .map_err(fail)?
+            .map_err(fail(PdfFailureStage::RenderPage))?
             .join()
-            .map_err(fail)?;
-        let length =
-            usize::try_from(output.Size().map_err(fail)?).map_err(|_| ProcessingError::Limit)?;
+            .map_err(fail(PdfFailureStage::RenderPage))?;
+        let length = usize::try_from(output.Size().map_err(fail(PdfFailureStage::ReadOutput))?)
+            .map_err(|_| ProcessingError::Limit)?;
         if length == 0 || length > MAX_SOURCE_BYTES {
             return Err(ProcessingError::Limit);
         }
-        let input = output.GetInputStreamAt(0).map_err(fail)?;
-        let reader = DataReader::CreateDataReader(&input).map_err(fail)?;
+        let input = output
+            .GetInputStreamAt(0)
+            .map_err(fail(PdfFailureStage::ReadOutput))?;
+        let reader =
+            DataReader::CreateDataReader(&input).map_err(fail(PdfFailureStage::ReadOutput))?;
         if reader
             .LoadAsync(length as u32)
-            .map_err(fail)?
+            .map_err(fail(PdfFailureStage::ReadOutput))?
             .join()
-            .map_err(fail)? as usize
+            .map_err(fail(PdfFailureStage::ReadOutput))? as usize
             != length
         {
             return Err(ProcessingError::Invalid);
         }
         let mut rendered = vec![0; length];
-        reader.ReadBytes(&mut rendered).map_err(fail)?;
-        let normalised = decode_static_image(InputKind::Png, &rendered)?;
+        reader
+            .ReadBytes(&mut rendered)
+            .map_err(fail(PdfFailureStage::ReadOutput))?;
+        let normalised =
+            decode_static_image(InputKind::Png, &rendered).map_err(pdf_normalisation_error)?;
         if normalised.width != width || normalised.height != height {
             return Err(ProcessingError::Invalid);
         }
         pages.push(normalised);
         validate_pages(&pages)?;
-        page.Close().map_err(fail)?;
+        page.Close().map_err(fail(PdfFailureStage::ClosePage))?;
     }
     if pages.len() != count {
         return Err(ProcessingError::Invalid);
@@ -550,6 +675,45 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn normalisation_diagnostics_preserve_limit_and_boundary_errors() {
+        for error in [
+            ProcessingError::Invalid,
+            ProcessingError::Unsupported,
+            ProcessingError::Worker,
+        ] {
+            assert_eq!(
+                pdf_normalisation_error(error),
+                ProcessingError::Pdf(PdfFailureStage::NormalisePage)
+            );
+        }
+        for error in [
+            ProcessingError::Limit,
+            ProcessingError::Isolation,
+            ProcessingError::Cancelled,
+            ProcessingError::Timeout,
+            ProcessingError::Pdf(PdfFailureStage::ReadOutput),
+        ] {
+            assert_eq!(pdf_normalisation_error(error), error);
+        }
+    }
+
+    #[test]
+    fn pdf_failure_stages_are_closed_bounded_and_never_success() {
+        for stage in PdfFailureStage::ALL {
+            let code = stage.worker_exit_code();
+            assert!((64..=81).contains(&code));
+            assert_eq!(PdfFailureStage::from_worker_exit(code), Some(stage));
+            let reason = stage.diagnostic_reason();
+            assert!(reason.len() <= 32);
+            assert!(reason.starts_with("pdf-"));
+            assert!(reason.chars().all(|c| c.is_ascii_lowercase() || c == '-'));
+        }
+        for code in [0, 1, 3, 63, 82, 255, u32::MAX] {
+            assert_eq!(PdfFailureStage::from_worker_exit(code), None);
+        }
+    }
+
     #[test]
     fn dimensions_and_signature_fail_closed() {
         assert_eq!(validate_dimensions(2048, 2048).unwrap(), 16_777_216);
