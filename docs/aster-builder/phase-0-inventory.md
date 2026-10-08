@@ -1,5 +1,10 @@
 # Phase 0 — project inventory and provenance
 
+## Current evidence navigation — 8 October 2026
+
+The [8 October reconciliation record](../qa/OCT8-RECONCILIATION-20261008.md) owns the actual latest source, dependency, design, CI/package and remaining acceptance status. The original dated checkpoints below retain their own source and outcomes. Earlier “current”, “pending”, authority or no-publication wording is historical where superseded there; no previous PASS transfers to changed source. Source design, hosted synthetic qualification and owner installed/native/live/production acceptance remain independent. Preserve the owner-reported startup FAIL and every earlier execution failure.
+
+
 ## Active v0.2.3 inventory — 2026-10-03
 
 4 October current P4 checkpoint: [DESIGN-V023-0001](../qa/DESIGN-V023-0001.md) records a fresh fixed-source manual review of `7eee831fe3a775884992c20928a1f232e311eb13` / tree `bf165533fffe0370605e389f17106c5956c858f7`, `13:11:12.7713751Z`–`13:18:22.1801080Z`, **phases 0–2 PASS for design/provenance only**. This later documentation checkpoint repins the active ledger without crediting a future source or runtime execution. Prior P1/P3 manual/structural results below remain historical. [CI-V023-0001](../qa/CI-V023-0001.md) records observed P4 publication, actual tested merge-ref and scoped source/frontend/Linux-codec successes, preserving P1/P2/P3 whole-source failures. Compound tests/gates 3–9 remain NOT RUN; no qualified setup/hash, installed/Meta cure, merge/signing/release authority follows.

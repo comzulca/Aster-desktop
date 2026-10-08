@@ -526,19 +526,37 @@ fn render_pdf(_: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
 }
 
 #[cfg(windows)]
+fn admit_memory_stream_capabilities(can_read: bool, can_write: bool) -> windows::core::Result<()> {
+    if can_read && can_write {
+        Ok(())
+    } else {
+        Err(windows::core::Error::from_hresult(
+            windows::Win32::Foundation::E_FAIL,
+        ))
+    }
+}
+
+#[cfg(windows)]
+fn new_memory_backing_stream() -> windows::core::Result<windows::Win32::System::Com::IStream> {
+    // Safety: None passes a null initial buffer and zero byte count, requesting
+    // fresh private memory. COM reference ownership retains the allocation.
+    // No caller-owned handle/buffer, file, custom loader or retry is involved.
+    unsafe { windows::Win32::UI::Shell::SHCreateMemStream(None) }.ok_or_else(|| {
+        windows::core::Error::from_hresult(windows::Win32::Foundation::E_OUTOFMEMORY)
+    })
+}
+
+#[cfg(windows)]
 fn new_memory_stream() -> windows::core::Result<windows::Storage::Streams::IRandomAccessStream> {
-    use windows::Win32::Foundation::HGLOBAL;
-    use windows::Win32::System::Com::StructuredStorage::CreateStreamOnHGlobal;
     use windows::Win32::System::WinRT::{CreateRandomAccessStreamOverStream, BSOS_DEFAULT};
 
-    // Safety: a null handle requests a fresh, empty OS-owned allocation.
-    // Final COM release frees it; no external handle or memory pointer is used.
-    // The documented adapter retains the base stream. No class-activation
-    // retry, file-backed stream, custom DLL load or environment change occurs.
-    unsafe {
-        let backing = CreateStreamOnHGlobal(HGLOBAL::default(), true)?;
-        CreateRandomAccessStreamOverStream(&backing, BSOS_DEFAULT)
-    }
+    let backing = new_memory_backing_stream()?;
+    // Safety: the fixed documented adapter receives our owned COM stream;
+    // its typed interface retains the backing. The adapter option is unchanged.
+    let stream: windows::Storage::Streams::IRandomAccessStream =
+        unsafe { CreateRandomAccessStreamOverStream(&backing, BSOS_DEFAULT) }?;
+    admit_memory_stream_capabilities(stream.CanRead()?, stream.CanWrite()?)?;
+    Ok(stream)
 }
 
 #[cfg(windows)]
@@ -1170,6 +1188,16 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
+    fn memory_stream_capability_admission_denies_each_false_combination() {
+        assert!(admit_memory_stream_capabilities(true, true).is_ok());
+        for (can_read, can_write) in [(true, false), (false, true), (false, false)] {
+            let error = admit_memory_stream_capabilities(can_read, can_write).unwrap_err();
+            assert_eq!(error.code(), windows::Win32::Foundation::E_FAIL);
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
     fn documented_memory_stream_round_trip_clone_and_lifetime() {
         use windows::Storage::Streams::{DataReader, DataWriter};
         use windows::Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED};
@@ -1183,6 +1211,18 @@ mod tests {
             }
         }
         let _apartment = Apartment;
+
+        // Measure the actual fixed synthetic backing; P7 did not record Stat.
+        let backing = new_memory_backing_stream().unwrap();
+        let mut stat = windows::Win32::System::Com::STATSTG::default();
+        unsafe { backing.Stat(&mut stat, windows::Win32::System::Com::STATFLAG_NONAME) }.unwrap();
+        assert!(stat.pwcsName.is_null());
+        assert_eq!(
+            stat.grfMode.0 & 3,
+            windows::Win32::System::Com::STGM_READWRITE.0
+        );
+        assert_eq!(stat.cbSize, 0);
+        drop(backing);
 
         let stream = new_memory_stream().unwrap();
         let independent = new_memory_stream().unwrap();

@@ -2,7 +2,7 @@
 
 ## Current integration checkpoint — 8 October 2026
 
-The [8 October reconciliation record](docs/qa/OCT8-RECONCILIATION-20261008.md) owns the current dependency, PR and exact-source gate status. The entries below are retained dated evidence: “current”, “pending”, “no installer” and earlier PR/check-only authority refer to their stated historical checkpoints, not a new result or the latest owner authorisation. P6 completed with restricted PDF FAIL at stream construction; a built but unqualified setup is not a qualified hand-off. The documented memory-stream successor requires fresh gates. Owner-reported v0.2.2 flicker FAIL and unexecuted installed/native/live/production obligations remain distinct.
+The [8 October reconciliation record](docs/qa/OCT8-RECONCILIATION-20261008.md) owns the current dependency, PR and exact-source gate status. PR #38 and Dependabot #31/#32 are normally merged after their exact-source gates. P7 head ddb932ddd70fb141b17e07819ca9c0bd44f92956/run37824444382 completed FAIL: three independent jobs PASS, Windows memory-stream CanWrite regression FAIL (227 library PASS/one FAIL/two ignored), installer SKIPPED. The P8 [pre-implementation successor contract](docs/qa/PDF-SH-MEMORY-STREAM-20261008.md) selects one documented memory backing allocation with fail-closed access validation; fresh exact-source gates are NOT RUN, not a proved cure. [P7 design review](docs/qa/DESIGN-P7-20261008.md) remains scoped design-only history. All earlier “current”, “pending”, package and check-only authority wording below is dated history, not current approval. P6/P5/earlier FAILs and owner-reported v0.2.2 flicker FAIL remain. No owner-installed/native/live/signing or production PASS is granted.
 
 
 ## Retained P4 completed outcome — hosted FAIL

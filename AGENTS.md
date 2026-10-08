@@ -2,6 +2,16 @@ All agent-internal instructions, agent-to-agent exchanges, AGENTS.md files, tool
 
 # Aster-desktop repository instructions
 
+## 8 October P8 pre-implementation writable-memory-stream amendment
+
+Latest executed baseline is P7 head `ddb932ddd70fb141b17e07819ca9c0bd44f92956`, tested merge `e9e63fcdaf0d0726100c191def2efe4f91ca9a77`, identical tree `a50005e0757c68c7c8f2dcaa821fc8f0d24a6774`, [run 37824444382](https://github.com/comzulca/Aster-desktop/actions/runs/37824444382), attempt 1: three independent jobs PASS, windows-host `113473931021` FAIL, engineering-installer `113481749294` SKIPPED. At `2026-10-08T18:46:06.7574475Z` the library reports 227 PASS, one FAIL, two ignored; the retained direct stream test failed its original `fresh.CanWrite().unwrap()` assertion. P7 did not measure IStream::Stat. The earlier exact-P7 phases 0–2 design PASS remains scoped historical evidence, not native success or P8 qualification.
+
+Before source implementation, follow `docs/qa/PDF-SH-MEMORY-STREAM-20261008.md` and the amended SPEC-0005/TM-029/ADR-0019/verification plan. Replace only the private COM backing constructor with fixed `SHCreateMemStream(None)`; a null allocation maps internally to documented E_OUTOFMEMORY. Retain the same typed IRandomAccessStream adapter and BSOS_DEFAULT. Require successful CanRead/CanWrite calls and both true; false maps internally to fixed E_FAIL at the existing constructor stages 65/77. Retain the original read/write assertion and add direct synthetic IStream::Stat(STATFLAG_NONAME) access-mode verification, not guessed P7 metadata.
+
+No retry/fallback, BSOS_PREFERDESTINATIONSTREAM workaround, file/temp/custom loader, registry/environment/token/handle/Job/budget/protocol/renderer expansion is authorised. Win32_UI_Shell enables only the fixed documented OS import, not shell/process/path authority. Paging/dump/secure-zeroisation and parser-compromise confinement residuals remain. All mandatory final-source jobs and fifteen/six executable probes must actually pass before conditional integration; manual/live/signing/production acceptance stays separate.
+
+P8 is a before-implementation proposal with no source SHA/run or fresh design/runtime/package PASS. The earlier documents below retain their original source-specific checkpoints where superseded here. Preserve P7 FAIL/SKIPPED, P6/P5/earlier execution failures and owner/local startup/Code Integrity failures; all 42 compound tests remain NOT RUN.
+
 ## 8 October P7 staged memory-stream remediation amendment
 
 The current completed PR #30 baseline is P6 head `b79d19862998eaaf2b3f6d2785bee40f7d5cfac3`, actual tested merge `7476cd3dd73bcb71a20e159d53d15966065e8cd2`, equal tree `02038302434b990e2d8cee8a0f3a22c3e3d01441`, run `37813484995` attempt 1. Four source jobs passed, but installer `113446659411` receipt `2026-10-08T17:43:07.3888342Z` has four codec PASS followed by native-two-page-pdf FAIL/`pdf-create-input-stream`; ten codec/six resource cases are NOT RUN and qualification flags are false. Preserve that FAIL, P5/P4/earlier failures, owner startup reports and local Code Integrity failures.

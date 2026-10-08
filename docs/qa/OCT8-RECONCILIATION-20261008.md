@@ -1,5 +1,30 @@
 # 8 October 2026 source and documentation reconciliation
 
+## Dated successor preparation checkpoint — 8 October 2026, 18:59 UTC
+
+This is an in-progress evidence amendment, not the final completion record. Main is v0.2.2 at cf126816ac7347110fb522acfac3838813108d47 after normally merging PR #32. Its tree bef3dd2765df63ec8a565c8821d1873e79476289 equals tested merge be69a74a3334834215048fede3ef634be1bda035/head88a0cb305c2344975aab44e756539d7f756c14fe; all four jobs passed in run37822485130. Its unsigned candidate is 21437413bytes/SHA25663acdd05f7b267c9ff3e63b3fcb8073c2264128fa7b1b6f994a90cd797898768, built2026-10-08T18:55:12.7102196Z, artifact11572566869/archiveSHA25612a77d7259cc7ee7c9756e7cf106d38329506146718ff17113d667162cb651bb. This is hosted candidate evidence, not an owner-delivered/installed or production artifact.
+
+PR #31's actual main push run37822321356 independently passed all four jobs. Its unsigned installer is 21437413bytes/SHA256757c9c31625acb9871f558f76ed44464663bfb0e72e81d5f8c40fb568d1b6e34, built2026-10-08T18:41:10.4995904Z, artifact11572055353/archiveSHA2569597ae237a314230860bddfd7079b44ed0fde5832677c399f6357771cd50add5. Same-source trees do not imply identical binary hashes.
+
+PR #33 is refreshed safely on actual main #32: headb550d73e50fe75c804377f1ccd3eb5b080258ffa/tested merge95ac5bc90d56101bb9c223575390373c01357abd/tree89d9efbda1b403ce8daea44315f2783393206ca6, run37828328378. The full152leaf comparison preserves150 leaves plus reviewed API manifest/lock delta; Cargo19f8f19a793aa3bfc19d6931f96b92c8a172ae1f retains Tokio1.53.2/dialog2.8.1. Source-policy passed; other gates are pending, not inherited PASS. PR #34–#37 still require individual latest-main refresh and every fresh mandatory gate before merge.
+
+### Actual P7 completed FAIL, retained separately from the proposal
+
+P7 head ddb932ddd70fb141b17e07819ca9c0bd44f92956, tested merge e9e63fcdaf0d0726100c191def2efe4f91ca9a77, equal tree a50005e0757c68c7c8f2dcaa821fc8f0d24a6774, run37824444382 attempt1: source-policy113473513202, frontend113473585544 and codec-source-fixtures113473585597 PASS; windows-host113473931021 FAIL; engineering-installer113481749294 SKIPPED. Windows formatting/check/Clippy passed, but the new documented_memory_stream_round_trip_clone_and_lifetime regression failed at line1193 on fresh.CanWrite() at2026-10-08T18:46:06.7567770Z. Final library result227PASS/oneFAIL/twoignored at18:46:06.7574475Z, exit1 at18:46:07.3639321Z. The unrestricted synthetic PDF test passed separately; no restricted-child PDF, fifteen-codec/six-resource or installer qualification ran. Later separate authorised credential/audit evidence cannot be credited after the failed step. Windows evidence artifact11571278097/archiveSHA256734b1d51587f14dbed7f69e674b25c07319ce450f844df941fddf01c3fb961c7 records this failure, not a qualified setup. The hosted runner is not the owner's interactive Windows11.
+
+The [P7 design review](DESIGN-P7-20261008.md) is exact-source scoped design-only PASS, not runtime acceptance; this later actual test FAIL does not rewrite that earlier scope. P6 stage65, P5 PDF, P4 stdout, earlier failures and owner v0.2.2 flicker/local Code Integrity FAILs remain immutable historical observations.
+
+The P8 [pre-implementation contract](PDF-SH-MEMORY-STREAM-20261008.md) selects one documented SHCreateMemStream(None) backing allocation, the same typed BSOS_DEFAULT adapter and fail-closed CanRead/CanWrite checks. A synthetic Stat(NONAME) access-mode assertion supplements every unchanged original clone/lifetime/round-trip assertion. P7 Stat was not measured: a mode-metadata mismatch is an inference, not a proved cause. No token, environment, loader, Job, budget, format, parser, worker fallback/retry or qualification weakening is authorised. P8 is staged with fresh design/source/native/probe/package gates NOT RUN until its exact published source is reviewed/executed. No merged v0.2.3 or qualified owner hand-off exists.
+
+### Supplemental registry metadata gap resolved
+
+At2026-10-08T18:28:58.0749601Z the remaining primary npm registry metadata read for @tauri-apps/cli-darwin-arm64@2.12.1 succeeded and its integrity matched the exact cumulative candidate. The reviewed51/51 changed package metadata/integrity/license fields are complete. The earlier50/51 transport-gap checkpoint below remains dated history. This does not prove downloaded tarball/license text, regenerated installed notices, runtime compatibility or production redistribution rights; hosted final-source dependency/license/SBOM/package gates remain separate.
+
+Three reviewed CI failure notices remain UNREAD pending actual resolution: retained P5, P6 and new P7. Only four superseded earlier notices had UNREAD removed. No unrelated promotion, key/security/subscription mutation or notification change was made. Final fresh primary/broad searches and final documentation/data reconciliation are still required.
+
+## Retained P7 prepublication checkpoint
+
+
 Status: **work in progress**, not completion, installed acceptance or production release. Observed source facts below supersede current-status prose in retained earlier checkpoints, not their original results. Later source changes need fresh applicable gates.
 
 ## Authority and release boundary
