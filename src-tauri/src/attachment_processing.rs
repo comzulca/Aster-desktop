@@ -559,6 +559,297 @@ fn new_memory_stream() -> windows::core::Result<windows::Storage::Streams::IRand
     Ok(stream)
 }
 
+// P9 TEST-ONLY BEGIN
+#[cfg(all(test, windows))]
+mod pdf_test_diagnostic {
+    use super::PdfFailureStage;
+    use std::cell::Cell;
+    use std::io::Write;
+    use std::marker::PhantomData;
+
+    #[derive(Clone, Copy)]
+    enum Phase {
+        Valid,
+        Limit,
+    }
+
+    #[derive(Clone, Copy)]
+    pub(super) enum Edge {
+        Enter,
+        Leave,
+    }
+
+    #[derive(Clone, Copy)]
+    pub(super) enum Case {
+        ValidBegin,
+        ValidEnd,
+        AssertionsDone,
+        LimitBegin,
+        LimitEnd,
+        Complete,
+    }
+
+    #[derive(Clone, Copy)]
+    pub(super) enum Teardown {
+        BodyComplete,
+        UninitEnter,
+        UninitLeave,
+    }
+
+    enum Marker {
+        Operation(PdfFailureStage, Edge),
+        Case(Case),
+        Teardown(Teardown),
+    }
+
+    std::thread_local! {
+        static PHASE: Cell<Option<Phase>> = const { Cell::new(None) };
+    }
+
+    // Finite static byte strings only: no input, stage number or error formatting.
+    const OPERATIONS: [[[&[u8]; 2]; 18]; 2] = [
+        [
+            [
+                b"ASTER_PDF_DIAG_V1|valid|64|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|64|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|65|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|65|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|66|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|66|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|67|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|67|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|68|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|68|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|69|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|69|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|70|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|70|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|71|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|71|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|72|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|72|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|73|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|73|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|74|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|74|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|75|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|75|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|76|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|76|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|77|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|77|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|78|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|78|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|79|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|79|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|80|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|80|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|valid|81|enter\n",
+                b"ASTER_PDF_DIAG_V1|valid|81|leave\n",
+            ],
+        ],
+        [
+            [
+                b"ASTER_PDF_DIAG_V1|limit|64|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|64|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|65|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|65|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|66|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|66|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|67|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|67|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|68|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|68|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|69|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|69|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|70|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|70|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|71|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|71|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|72|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|72|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|73|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|73|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|74|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|74|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|75|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|75|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|76|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|76|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|77|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|77|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|78|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|78|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|79|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|79|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|80|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|80|leave\n",
+            ],
+            [
+                b"ASTER_PDF_DIAG_V1|limit|81|enter\n",
+                b"ASTER_PDF_DIAG_V1|limit|81|leave\n",
+            ],
+        ],
+    ];
+
+    pub(super) struct PhaseGuard {
+        previous: Option<Phase>,
+        // The activation belongs to this test thread and cannot cross threads.
+        _thread_bound: PhantomData<*mut ()>,
+    }
+
+    impl PhaseGuard {
+        pub(super) fn valid() -> Self {
+            Self {
+                previous: PHASE.with(|phase| phase.replace(Some(Phase::Valid))),
+                _thread_bound: PhantomData,
+            }
+        }
+
+        pub(super) fn limit(&self) {
+            PHASE.with(|phase| phase.set(Some(Phase::Limit)));
+        }
+    }
+
+    impl Drop for PhaseGuard {
+        fn drop(&mut self) {
+            PHASE.with(|phase| phase.set(self.previous));
+        }
+    }
+
+    fn emit(marker: Marker) {
+        PHASE.with(|phase| {
+            let Some(phase) = phase.get() else {
+                return;
+            };
+            let bytes: &[u8] = match marker {
+                Marker::Operation(stage, edge) => {
+                    let phase_index = match phase {
+                        Phase::Valid => 0,
+                        Phase::Limit => 1,
+                    };
+                    let edge_index = match edge {
+                        Edge::Enter => 0,
+                        Edge::Leave => 1,
+                    };
+                    OPERATIONS[phase_index][stage as usize - 64][edge_index]
+                }
+                Marker::Case(case) => match case {
+                    Case::ValidBegin => b"ASTER_PDF_DIAG_V1|valid_begin\n",
+                    Case::ValidEnd => b"ASTER_PDF_DIAG_V1|valid_end\n",
+                    Case::AssertionsDone => b"ASTER_PDF_DIAG_V1|assertions_done\n",
+                    Case::LimitBegin => b"ASTER_PDF_DIAG_V1|limit_begin\n",
+                    Case::LimitEnd => b"ASTER_PDF_DIAG_V1|limit_end\n",
+                    Case::Complete => b"ASTER_PDF_DIAG_V1|complete\n",
+                },
+                Marker::Teardown(teardown) => match (phase, teardown) {
+                    (Phase::Valid, Teardown::BodyComplete) => {
+                        b"ASTER_PDF_DIAG_V1|valid|body_complete\n"
+                    }
+                    (Phase::Valid, Teardown::UninitEnter) => {
+                        b"ASTER_PDF_DIAG_V1|valid|uninit_enter\n"
+                    }
+                    (Phase::Valid, Teardown::UninitLeave) => {
+                        b"ASTER_PDF_DIAG_V1|valid|uninit_leave\n"
+                    }
+                    (Phase::Limit, Teardown::BodyComplete) => {
+                        b"ASTER_PDF_DIAG_V1|limit|body_complete\n"
+                    }
+                    (Phase::Limit, Teardown::UninitEnter) => {
+                        b"ASTER_PDF_DIAG_V1|limit|uninit_enter\n"
+                    }
+                    (Phase::Limit, Teardown::UninitLeave) => {
+                        b"ASTER_PDF_DIAG_V1|limit|uninit_leave\n"
+                    }
+                },
+            };
+            // Direct stderr bypasses libtest's capture buffer. A write failure
+            // leaves an incomplete trace; it never changes a processing result.
+            let mut stderr = std::io::stderr().lock();
+            let _ = stderr.write_all(bytes);
+            let _ = stderr.flush();
+        });
+    }
+
+    pub(super) fn operation(stage: PdfFailureStage, edge: Edge) {
+        emit(Marker::Operation(stage, edge));
+    }
+
+    pub(super) fn case(case: Case) {
+        emit(Marker::Case(case));
+    }
+
+    pub(super) fn teardown(teardown: Teardown) {
+        emit(Marker::Teardown(teardown));
+    }
+}
+// P9 TEST-ONLY END
 #[cfg(windows)]
 fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
     use windows::Data::Pdf::{PdfDocument, PdfPageRenderOptions};
@@ -572,23 +863,94 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
     struct Apartment;
     impl Drop for Apartment {
         fn drop(&mut self) {
+            // P9 TEST-ONLY BEGIN
+            #[cfg(all(test, windows))]
+            pdf_test_diagnostic::teardown(pdf_test_diagnostic::Teardown::UninitEnter);
+            // P9 TEST-ONLY END
             unsafe {
                 RoUninitialize();
             }
+            // P9 TEST-ONLY BEGIN
+            #[cfg(all(test, windows))]
+            pdf_test_diagnostic::teardown(pdf_test_diagnostic::Teardown::UninitLeave);
+            // P9 TEST-ONLY END
         }
     }
     // Dedicated child thread, before any Tauri/native app bootstrap. No STA pump.
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::InitialiseRuntime,
+        pdf_test_diagnostic::Edge::Enter,
+    );
+    // P9 TEST-ONLY END
     if unsafe { RoInitialize(1) } < 0 {
         return Err(ProcessingError::Pdf(PdfFailureStage::InitialiseRuntime));
     }
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::InitialiseRuntime,
+        pdf_test_diagnostic::Edge::Leave,
+    );
+    // P9 TEST-ONLY END
     let _apartment = Apartment;
     let fail = |stage| move |_: windows::core::Error| ProcessingError::Pdf(stage);
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::CreateInputStream,
+        pdf_test_diagnostic::Edge::Enter,
+    );
+    // P9 TEST-ONLY END
     let stream = new_memory_stream().map_err(fail(PdfFailureStage::CreateInputStream))?;
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::CreateInputStream,
+        pdf_test_diagnostic::Edge::Leave,
+    );
+    // P9 TEST-ONLY END
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::CreateInputWriter,
+        pdf_test_diagnostic::Edge::Enter,
+    );
+    // P9 TEST-ONLY END
     let writer =
         DataWriter::CreateDataWriter(&stream).map_err(fail(PdfFailureStage::CreateInputWriter))?;
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::CreateInputWriter,
+        pdf_test_diagnostic::Edge::Leave,
+    );
+    // P9 TEST-ONLY END
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::WriteInput,
+        pdf_test_diagnostic::Edge::Enter,
+    );
+    // P9 TEST-ONLY END
     writer
         .WriteBytes(bytes)
         .map_err(fail(PdfFailureStage::WriteInput))?;
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::WriteInput,
+        pdf_test_diagnostic::Edge::Leave,
+    );
+    // P9 TEST-ONLY END
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::StoreInput,
+        pdf_test_diagnostic::Edge::Enter,
+    );
+    // P9 TEST-ONLY END
     if writer
         .StoreAsync()
         .map_err(fail(PdfFailureStage::StoreInput))?
@@ -598,14 +960,64 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
     {
         return Err(ProcessingError::Invalid);
     }
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::StoreInput,
+        pdf_test_diagnostic::Edge::Leave,
+    );
+    // P9 TEST-ONLY END
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::DetachInput,
+        pdf_test_diagnostic::Edge::Enter,
+    );
+    // P9 TEST-ONLY END
     writer
         .DetachStream()
         .map_err(fail(PdfFailureStage::DetachInput))?;
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::DetachInput,
+        pdf_test_diagnostic::Edge::Leave,
+    );
+    // P9 TEST-ONLY END
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(PdfFailureStage::SeekInput, pdf_test_diagnostic::Edge::Enter);
+    // P9 TEST-ONLY END
     stream.Seek(0).map_err(fail(PdfFailureStage::SeekInput))?;
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(PdfFailureStage::SeekInput, pdf_test_diagnostic::Edge::Leave);
+    // P9 TEST-ONLY END
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::LoadDocument,
+        pdf_test_diagnostic::Edge::Enter,
+    );
+    // P9 TEST-ONLY END
     let document = PdfDocument::LoadFromStreamAsync(&stream)
         .map_err(fail(PdfFailureStage::LoadDocument))?
         .join()
         .map_err(fail(PdfFailureStage::LoadDocument))?;
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::LoadDocument,
+        pdf_test_diagnostic::Edge::Leave,
+    );
+    // P9 TEST-ONLY END
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::InspectDocument,
+        pdf_test_diagnostic::Edge::Enter,
+    );
+    // P9 TEST-ONLY END
     if document
         .IsPasswordProtected()
         .map_err(fail(PdfFailureStage::InspectDocument))?
@@ -615,15 +1027,44 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
     let count = document
         .PageCount()
         .map_err(fail(PdfFailureStage::InspectDocument))? as usize;
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::operation(
+        PdfFailureStage::InspectDocument,
+        pdf_test_diagnostic::Edge::Leave,
+    );
+    // P9 TEST-ONLY END
     if count == 0 || count > MAX_PDF_PAGES {
         return Err(ProcessingError::Limit);
     }
     let mut pages = Vec::with_capacity(count);
     for index in 0..count {
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(PdfFailureStage::ReadPage, pdf_test_diagnostic::Edge::Enter);
+        // P9 TEST-ONLY END
         let page = document
             .GetPage(index as u32)
             .map_err(fail(PdfFailureStage::ReadPage))?;
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(PdfFailureStage::ReadPage, pdf_test_diagnostic::Edge::Leave);
+        // P9 TEST-ONLY END
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::ReadPageSize,
+            pdf_test_diagnostic::Edge::Enter,
+        );
+        // P9 TEST-ONLY END
         let size = page.Size().map_err(fail(PdfFailureStage::ReadPageSize))?;
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::ReadPageSize,
+            pdf_test_diagnostic::Edge::Leave,
+        );
+        // P9 TEST-ONLY END
         // Windows PDF sizes are device-independent pixels (96 DPI).
         let width_f = (f64::from(size.Width) * f64::from(PDF_DPI) / 96.0).ceil();
         let height_f = (f64::from(size.Height) * f64::from(PDF_DPI) / 96.0).ceil();
@@ -645,8 +1086,29 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
         {
             return Err(ProcessingError::Limit);
         }
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::CreateRenderOptions,
+            pdf_test_diagnostic::Edge::Enter,
+        );
+        // P9 TEST-ONLY END
         let options =
             PdfPageRenderOptions::new().map_err(fail(PdfFailureStage::CreateRenderOptions))?;
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::CreateRenderOptions,
+            pdf_test_diagnostic::Edge::Leave,
+        );
+        // P9 TEST-ONLY END
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::ConfigureRender,
+            pdf_test_diagnostic::Edge::Enter,
+        );
+        // P9 TEST-ONLY END
         options
             .SetBitmapEncoderId(
                 BitmapEncoder::PngEncoderId().map_err(fail(PdfFailureStage::ConfigureRender))?,
@@ -661,11 +1123,53 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
         options
             .SetDestinationHeight(height)
             .map_err(fail(PdfFailureStage::ConfigureRender))?;
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::ConfigureRender,
+            pdf_test_diagnostic::Edge::Leave,
+        );
+        // P9 TEST-ONLY END
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::CreateOutputStream,
+            pdf_test_diagnostic::Edge::Enter,
+        );
+        // P9 TEST-ONLY END
         let output = new_memory_stream().map_err(fail(PdfFailureStage::CreateOutputStream))?;
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::CreateOutputStream,
+            pdf_test_diagnostic::Edge::Leave,
+        );
+        // P9 TEST-ONLY END
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::RenderPage,
+            pdf_test_diagnostic::Edge::Enter,
+        );
+        // P9 TEST-ONLY END
         page.RenderWithOptionsToStreamAsync(&output, &options)
             .map_err(fail(PdfFailureStage::RenderPage))?
             .join()
             .map_err(fail(PdfFailureStage::RenderPage))?;
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::RenderPage,
+            pdf_test_diagnostic::Edge::Leave,
+        );
+        // P9 TEST-ONLY END
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::ReadOutput,
+            pdf_test_diagnostic::Edge::Enter,
+        );
+        // P9 TEST-ONLY END
         let length = usize::try_from(output.Size().map_err(fail(PdfFailureStage::ReadOutput))?)
             .map_err(|_| ProcessingError::Limit)?;
         if length == 0 || length > MAX_SOURCE_BYTES {
@@ -689,6 +1193,20 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
         reader
             .ReadBytes(&mut rendered)
             .map_err(fail(PdfFailureStage::ReadOutput))?;
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::ReadOutput,
+            pdf_test_diagnostic::Edge::Leave,
+        );
+        // P9 TEST-ONLY END
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::NormalisePage,
+            pdf_test_diagnostic::Edge::Enter,
+        );
+        // P9 TEST-ONLY END
         let normalised =
             decode_static_image(InputKind::Png, &rendered).map_err(pdf_normalisation_error)?;
         if normalised.width != width || normalised.height != height {
@@ -696,11 +1214,36 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
         }
         pages.push(normalised);
         validate_pages(&pages)?;
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::NormalisePage,
+            pdf_test_diagnostic::Edge::Leave,
+        );
+        // P9 TEST-ONLY END
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::ClosePage,
+            pdf_test_diagnostic::Edge::Enter,
+        );
+        // P9 TEST-ONLY END
         page.Close().map_err(fail(PdfFailureStage::ClosePage))?;
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::operation(
+            PdfFailureStage::ClosePage,
+            pdf_test_diagnostic::Edge::Leave,
+        );
+        // P9 TEST-ONLY END
     }
     if pages.len() != count {
         return Err(ProcessingError::Invalid);
     }
+    // P9 TEST-ONLY BEGIN
+    #[cfg(all(test, windows))]
+    pdf_test_diagnostic::teardown(pdf_test_diagnostic::Teardown::BodyComplete);
+    // P9 TEST-ONLY END
     Ok(pages)
 }
 
@@ -1320,8 +1863,18 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn synthetic_pdf_retains_all_pages_in_order_and_rejects_over_limit() {
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        let diagnostic_phase = pdf_test_diagnostic::PhaseGuard::valid();
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::case(pdf_test_diagnostic::Case::ValidBegin);
+        // P9 TEST-ONLY END
         let original = synthetic_pdf(2);
         let processed = process_in_worker(InputKind::Pdf, &original).unwrap();
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::case(pdf_test_diagnostic::Case::ValidEnd);
+        // P9 TEST-ONLY END
         assert_eq!(processed.source_sha256, source_hash(&original));
         let ProcessedContent::Pages(pages) = processed.content else {
             panic!("pages")
@@ -1331,9 +1884,23 @@ mod tests {
         let centre = (75 * 150 + 75) * 4;
         assert_eq!(&pages[0].rgba[centre..centre + 4], &[255, 0, 0, 255]);
         assert_eq!(&pages[1].rgba[centre..centre + 4], &[0, 0, 255, 255]);
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::case(pdf_test_diagnostic::Case::AssertionsDone);
+        #[cfg(all(test, windows))]
+        diagnostic_phase.limit();
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::case(pdf_test_diagnostic::Case::LimitBegin);
+        // P9 TEST-ONLY END
         assert!(matches!(
             process_in_worker(InputKind::Pdf, &synthetic_pdf(MAX_PDF_PAGES + 1)),
             Err(ProcessingError::Limit)
         ));
+        // P9 TEST-ONLY BEGIN
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::case(pdf_test_diagnostic::Case::LimitEnd);
+        #[cfg(all(test, windows))]
+        pdf_test_diagnostic::case(pdf_test_diagnostic::Case::Complete);
+        // P9 TEST-ONLY END
     }
 }

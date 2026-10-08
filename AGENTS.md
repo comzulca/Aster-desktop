@@ -2,6 +2,18 @@ All agent-internal instructions, agent-to-agent exchanges, AGENTS.md files, tool
 
 # Aster-desktop repository instructions
 
+## 8 October P9 pre-implementation bounded crash diagnostic
+
+Baseline is published P8 head e12238573d2a4a2ef0ef341b147919eafc62f868, tree 96245af612833f883e0dfaae2528d4a0239ab367, actual tested merge a12bed6f7551bdfc04012e1b7d2b1f343f87a202, run 37831962851 attempt 1. Windows job 113499637646 completed FAIL: 231 tests announced, 20 individual ok outcomes, then STATUS_ACCESS_VIOLATION / 0xc0000005 at 2026-10-08T19:42:44.3402152Z, with no aggregate summary, named failing assertion or crash attribution. Both new direct stream regressions reported ok; engineering-installer 113506283489 was SKIPPED. This is not a PDF cure or restricted-worker result.
+
+Read the [P9 before-code diagnostic contract](docs/qa/PDF-CRASH-DIAGNOSTIC-20261008.md) before implementation. Keep the mandatory complete Rust suite first, changing only its fixed step id; the bounded diagnostic follows only failure() and that step's failure outcome, using the already-built exact library harness. Preserve the failed job even if the diagnostic passes. Do not skip/filter/waive the full suite, change later default gates or replace the five mandatory jobs / fifteen codec / six resource cases.
+
+Only private cfg(all(test, windows)) thread-local fixed-phase/static stderr checkpoints inside the existing exact synthetic PDF case are proposed. Keep all production expressions/async chains/COM ownership/error categories and authority unchanged. Follow the closed marker schema, one-executable admission, fixed byte/line/marker limits and shared 30-second process/drain control budget; incomplete cleanup fails closed. Never log raw captured prose, native errors/HRESULTs, paths, private bytes or credentials; no dump/debugger/custom loader/security change is authorised.
+
+Explicit dependency-evidence corrigendum: the auxiliary one-PASS / 157-filtered case is private_store::tests::isolated_native_child_lease_is_denied, not native credential execution. Both native credential tests remain ignored / NOT RUN in those dependency runs. The inaccurate retained P8 reconciliation paragraph must be preserved as dated history with this explicit correction; it grants no Credential Manager PASS and does not negate genuine completed dependency-job results. P8's authorised credential follow-up was itself SKIPPED.
+
+P9 is a before-implementation diagnostic proposal: no P9 source SHA, run, design/runtime/package PASS or qualified payload is claimed. All earlier P8/P7/P6/P5 and other failures, owner startup/Code Integrity results and manual/live/production gaps remain source-bound history; all 42 compound tests remain NOT RUN. The separate P8 design review cannot promote P9.
+
 ## 8 October P8 pre-implementation writable-memory-stream amendment
 
 Latest executed baseline is P7 head `ddb932ddd70fb141b17e07819ca9c0bd44f92956`, tested merge `e9e63fcdaf0d0726100c191def2efe4f91ca9a77`, identical tree `a50005e0757c68c7c8f2dcaa821fc8f0d24a6774`, [run 37824444382](https://github.com/comzulca/Aster-desktop/actions/runs/37824444382), attempt 1: three independent jobs PASS, windows-host `113473931021` FAIL, engineering-installer `113481749294` SKIPPED. At `2026-10-08T18:46:06.7574475Z` the library reports 227 PASS, one FAIL, two ignored; the retained direct stream test failed its original `fresh.CanWrite().unwrap()` assertion. P7 did not measure IStream::Stat. The earlier exact-P7 phases 0–2 design PASS remains scoped historical evidence, not native success or P8 qualification.

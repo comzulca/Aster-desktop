@@ -1,5 +1,7 @@
 # P8 documented writable backing stream — before-implementation contract (8 October 2026)
 
+> Current-source applicability — 8 October 2026, P9 preparation: the [dated reconciliation](OCT8-RECONCILIATION-20261008.md) supersedes current-status claims below. PR #38 and #31–#34 are normally merged after four source-bound gates; PR #35–#37 and PR #30 are not complete. P8's native Windows access violation remains FAIL, its installer SKIPPED. The [P9 contract](PDF-CRASH-DIAGNOSTIC-20261008.md) admits only test-only diagnosis after the unchanged complete suite fails; 112 counted pure checks and static review are not native qualification or an installer PASS. The dependency auxiliary test is an isolation lease test, not native credential execution. Original dated results, owner v0.2.2 flicker/Code Integrity FAIL, credential custody and manual/live/production obligations remain unchanged.
+
 Status at creation: local pre-implementation specification, threat, decision and test amendment only. Baseline P7 is executed FAIL; P8 has no implementation, published head/run, exact-source design PASS, native/package outcome or deliverable hash. Parent must read this and its governing amendments before authorising source implementation. Documents alone grant no new runtime authority.
 
 ## Exact baseline and observed failure

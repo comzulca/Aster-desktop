@@ -193,8 +193,20 @@ jobs:
           cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run complete Rust fixture suite
+        id: complete-rust-fixtures
         run: |
           cargo test --manifest-path src-tauri/Cargo.toml --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Diagnose exact synthetic PDF library case after full-suite failure
+        if: ${{ failure() && steps.complete-rust-fixtures.outcome == 'failure' }}
+        shell: pwsh
+        timeout-minutes: 2
+        run: |
+          python --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I scripts/qa/run_pdf_library_crash_diagnostic.py --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I scripts/qa/run_pdf_library_crash_diagnostic.py --run
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run owner-authorised disposable synthetic credential fixtures
         shell: pwsh
