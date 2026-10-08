@@ -2,6 +2,16 @@ All agent-internal instructions, agent-to-agent exchanges, AGENTS.md files, tool
 
 # Aster-desktop repository instructions
 
+## 8 October P7 staged memory-stream remediation amendment
+
+The current completed PR #30 baseline is P6 head `b79d19862998eaaf2b3f6d2785bee40f7d5cfac3`, actual tested merge `7476cd3dd73bcb71a20e159d53d15966065e8cd2`, equal tree `02038302434b990e2d8cee8a0f3a22c3e3d01441`, run `37813484995` attempt 1. Four source jobs passed, but installer `113446659411` receipt `2026-10-08T17:43:07.3888342Z` has four codec PASS followed by native-two-page-pdf FAIL/`pdf-create-input-stream`; ten codec/six resource cases are NOT RUN and qualification flags are false. Preserve that FAIL, P5/P4/earlier failures, owner startup reports and local Code Integrity failures.
+
+Carry the existing pre-implementation `docs/qa/PDF-MEMORY-STREAM-20261008.md` contract into SPEC-0005, THREAT-MODEL-0005, ADR-0019 and the verification plan. The staged P7 correction uses only one documented private null-HGLOBAL COM allocation plus fixed IRandomAccessStream adapter for the PDF input/output constructors. COM allocation/adapter failures stay closed at stages 65/77; all other mapped errors/generic bounds keep their categories. No activation retry, alternate parser, path/file/DLL/registry/environment exception, broader token/Job, packet or renderer authority is granted.
+
+A stage is not an activation HRESULT, SystemRoot root cause or proved cure. Final allocation release/free is not secure zeroisation; unmanaged paging/dump and parser-compromise/no-network/filesystem residuals remain. Direct synthetic stream tests cannot qualify the restricted PDF worker or owner app. P7 is a local staging label with no published head/run or fresh phase 0–2 design PASS; all changed-source gates are NOT RUN until exact published-source evidence exists. All five mandatory CI jobs and fifteen/six actual-executable probes remain required before the already owner-authorised conditional integration. Manual/installed/live/signing/production acceptance remains separate.
+
+The older dated instructions and outcomes below remain historical source-specific records where superseded by this narrow amendment; no authority expands by documentation alone.
+
 This repository is a new Windows 11 desktop agentic harness. Follow the installed `aster-builder` skill and the versioned requirements under `docs/specs/` in order: inventory, specification, threat model/ADRs, host/UI, provider pairs, persistence, local tools, optional services, quality, release. The skill and these instructions guide development; neither can grant a running model a tool or credential.
 
 ## Authority and trust

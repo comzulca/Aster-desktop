@@ -4,7 +4,7 @@
     "name": "Aster Desktop v0.2.3",
     "platform": "Windows-11-x64",
     "release_class": "development",
-    "source_revision": "fcf5526c0889a6df737925718d1c2ff323baa4d1"
+    "source_revision": "b79d19862998eaaf2b3f6d2785bee40f7d5cfac3"
   },
   "policy": {
     "allow_automatic_provider_fallback": false,
@@ -1141,7 +1141,7 @@
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 5,
       "status": "NOT RUN",
-      "reason": "FR-027 / AC-068 is a specified v0.2.3 procedure, not executed evidence. New host, visual review, processed-history/resource/financial bounds and installed acceptance require exact new-source results as applicable; see SPEC-0005 and LOCAL-V023-0001. The 8 October closed PDF-stage amendment and four new regressions require fresh exact-source execution; PDF-DIAGNOSTIC-20261008 and the amended verification plan preserve all mandatory fifteen/six cases and failure evidence."
+      "reason": "FR-027 / AC-068 is a specified v0.2.3 procedure, not executed evidence. New host, visual review, processed-history/resource/financial bounds and installed acceptance require exact new-source results as applicable; see SPEC-0005 and LOCAL-V023-0001. The 8 October closed PDF-stage amendment and four new regressions require fresh exact-source execution; PDF-DIAGNOSTIC-20261008 and the amended verification plan preserve all mandatory fifteen/six cases and failure evidence. The four diagnostic regressions subsequently passed only at P6, whose actual restricted PDF/package still FAIL in run 37813484995. The staged P7 fixed COM memory-stream amendment adds a direct round-trip/independent-stream/clone-position/lifetime regression and retains all original fifteen/six probes; no P6 subset result satisfies this compound acceptance or transfers to P7. See PDF-MEMORY-STREAM-20261008; allocation/adapter stages 65/77 remain errors, no proved cause/cure or secure-zeroisation/containment claim."
     },
     {
       "id": "T-079",
@@ -1169,31 +1169,31 @@
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 5,
       "status": "NOT RUN",
-      "reason": "SEC-028 / AC-072 is a specified v0.2.3 procedure, not executed evidence. New host, visual review, processed-history/resource/financial bounds and installed acceptance require exact new-source results as applicable; see SPEC-0005 and LOCAL-V023-0001. The 8 October closed PDF-stage amendment and four new regressions require fresh exact-source execution; PDF-DIAGNOSTIC-20261008 and the amended verification plan preserve all mandatory fifteen/six cases and failure evidence."
+      "reason": "SEC-028 / AC-072 is a specified v0.2.3 procedure, not executed evidence. New host, visual review, processed-history/resource/financial bounds and installed acceptance require exact new-source results as applicable; see SPEC-0005 and LOCAL-V023-0001. The 8 October closed PDF-stage amendment and four new regressions require fresh exact-source execution; PDF-DIAGNOSTIC-20261008 and the amended verification plan preserve all mandatory fifteen/six cases and failure evidence. The four diagnostic regressions subsequently passed only at P6, whose actual restricted PDF/package still FAIL in run 37813484995. The staged P7 fixed COM memory-stream amendment adds a direct round-trip/independent-stream/clone-position/lifetime regression and retains all original fifteen/six probes; no P6 subset result satisfies this compound acceptance or transfers to P7. See PDF-MEMORY-STREAM-20261008; allocation/adapter stages 65/77 remain errors, no proved cause/cure or secure-zeroisation/containment claim."
     },
     {
       "id": "T-083",
       "path": "docs/aster-builder/verification-plan.md",
       "verification_phase": 9,
       "status": "NOT RUN",
-      "reason": "NFR-009 / AC-073 is a specified v0.2.3 procedure, not executed evidence. New host, visual review, processed-history/resource/financial bounds and installed acceptance require exact new-source results as applicable; see SPEC-0005 and LOCAL-V023-0001. The 8 October closed PDF-stage amendment and four new regressions require fresh exact-source execution; PDF-DIAGNOSTIC-20261008 and the amended verification plan preserve all mandatory fifteen/six cases and failure evidence."
+      "reason": "NFR-009 / AC-073 is a specified v0.2.3 procedure, not executed evidence. New host, visual review, processed-history/resource/financial bounds and installed acceptance require exact new-source results as applicable; see SPEC-0005 and LOCAL-V023-0001. The 8 October closed PDF-stage amendment and four new regressions require fresh exact-source execution; PDF-DIAGNOSTIC-20261008 and the amended verification plan preserve all mandatory fifteen/six cases and failure evidence. The four diagnostic regressions subsequently passed only at P6, whose actual restricted PDF/package still FAIL in run 37813484995. The staged P7 fixed COM memory-stream amendment adds a direct round-trip/independent-stream/clone-position/lifetime regression and retains all original fifteen/six probes; no P6 subset result satisfies this compound acceptance or transfers to P7. See PDF-MEMORY-STREAM-20261008; allocation/adapter stages 65/77 remain errors, no proved cause/cure or secure-zeroisation/containment claim."
     }
   ],
   "gates": [
     {
       "phase": 0,
       "status": "NOT RUN",
-      "reason": "Changed closed PDF-stage diagnostic and security lock successor require fresh source-bound design/trace/threat review. Earlier P4 design PASS remains historical in DESIGN-V023-0001 and does not transfer. P5 is the latest completed tested baseline, not changed-source qualification."
+      "reason": "P7 documented COM memory-stream constructor successor is locally staged and has no published exact-source design/trace/threat qualification. Latest completed baseline is P6 head b79d19862998eaaf2b3f6d2785bee40f7d5cfac3, actually tested as merge 7476cd3dd73bcb71a20e159d53d15966065e8cd2 at equal tree 02038302434b990e2d8cee8a0f3a22c3e3d01441; project.source_revision identifies that baseline head, not P7 PASS. Earlier P4/P6 source design reviews remain source-specific history. Fresh committed-source review is required; see PDF-MEMORY-STREAM-20261008 and the amended specification/threat/ADR/verification documents."
     },
     {
       "phase": 1,
       "status": "NOT RUN",
-      "reason": "Changed closed PDF-stage diagnostic and security lock successor require fresh source-bound design/trace/threat review. Earlier P4 design PASS remains historical in DESIGN-V023-0001 and does not transfer. P5 is the latest completed tested baseline, not changed-source qualification."
+      "reason": "P7 documented COM memory-stream constructor successor is locally staged and has no published exact-source design/trace/threat qualification. Latest completed baseline is P6 head b79d19862998eaaf2b3f6d2785bee40f7d5cfac3, actually tested as merge 7476cd3dd73bcb71a20e159d53d15966065e8cd2 at equal tree 02038302434b990e2d8cee8a0f3a22c3e3d01441; project.source_revision identifies that baseline head, not P7 PASS. Earlier P4/P6 source design reviews remain source-specific history. Fresh committed-source review is required; see PDF-MEMORY-STREAM-20261008 and the amended specification/threat/ADR/verification documents."
     },
     {
       "phase": 2,
       "status": "NOT RUN",
-      "reason": "Changed closed PDF-stage diagnostic and security lock successor require fresh source-bound design/trace/threat review. Earlier P4 design PASS remains historical in DESIGN-V023-0001 and does not transfer. P5 is the latest completed tested baseline, not changed-source qualification."
+      "reason": "P7 documented COM memory-stream constructor successor is locally staged and has no published exact-source design/trace/threat qualification. Latest completed baseline is P6 head b79d19862998eaaf2b3f6d2785bee40f7d5cfac3, actually tested as merge 7476cd3dd73bcb71a20e159d53d15966065e8cd2 at equal tree 02038302434b990e2d8cee8a0f3a22c3e3d01441; project.source_revision identifies that baseline head, not P7 PASS. Earlier P4/P6 source design reviews remain source-specific history. Fresh committed-source review is required; see PDF-MEMORY-STREAM-20261008 and the amended specification/threat/ADR/verification documents."
     },
     {
       "phase": 3,
@@ -1223,12 +1223,12 @@
     {
       "phase": 8,
       "status": "FAIL",
-      "reason": "Latest completed P5 run37207862545, actual tested merge2664cf18592d38bb7cae6d2eff5e1dae5512bd51: four jobs PASS, installer FAIL on valid two-page restricted PDF; ten later codec cases/six resource probes NOT RUN. Windows library223PASS/twoignored and exact two separately authorised disposable fixtures1PASS each do not qualify the worker/package. Closed-stage diagnostic plus compatible source-map-js1.2.2 successor and four regressions are NOT RUN; retain historical runtime/local/owner failures and allowed audit warnings."
+      "reason": "Latest completed P6 run 37813484995 attempt 1, actual tested merge 7476cd3dd73bcb71a20e159d53d15966065e8cd2: four jobs PASS; installer 113446659411 FAIL, receipt 2026-10-08T17:43:07.3888342Z has four codec PASS then native-two-page-pdf FAIL/pdf-create-input-stream, ten codec/six resource cases NOT RUN, false qualification flags. Windows library 227 PASS/two ignored and exact two disposable credential cases one PASS each do not qualify the restricted worker/package. P7 fixed COM memory-stream successor and new direct regression are NOT RUN; retain P5 PDF FAIL, earlier failures, allowed audit warnings, and owner/local residuals. Stage localisation proves no activation HRESULT/SystemRoot cause or cure."
     },
     {
       "phase": 9,
       "status": "NOT RUN",
-      "reason": "No qualified v0.2.3 installer/hash, installed/manual/full-visual/live or production acceptance exists. Owner now conditionally authorises PR30 normal integration only after all mandatory final-source CI gates pass, not signing, production release or redistribution. Changed-source native/package checks remain NOT RUN; preserve P5 PDF FAIL."
+      "reason": "No qualified v0.2.3 installer/application hash, installed/manual/full-visual/live or production acceptance exists. P6 built-but-unqualified setup and actual restricted PDF FAIL remain, as does P5 failure. P7 is locally staged with no published head/run; all changed-source native/package qualification is NOT RUN. Owner conditionally authorises normal PR30 integration only after all mandatory final-source CI gates pass, not signing, production release or redistribution. Final COM release/free is not secure zeroisation; unmanaged paging/dump and confinement residuals remain."
     }
   ],
   "release": {

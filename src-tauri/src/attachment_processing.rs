@@ -44,7 +44,7 @@ impl TryFrom<u8> for InputKind {
 
 /// Failure location only, never a success receipt or native error message.
 /// Reserved nonzero child codes disclose no source/path/environment/HRESULT.
-/// Covers mapped WinRT/normalisation errors only; invariant/limit guards stay generic.
+/// Covers mapped native stream/WinRT/normalisation errors; invariant/limit guards stay generic.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum PdfFailureStage {
@@ -526,10 +526,26 @@ fn render_pdf(_: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
 }
 
 #[cfg(windows)]
+fn new_memory_stream() -> windows::core::Result<windows::Storage::Streams::IRandomAccessStream> {
+    use windows::Win32::Foundation::HGLOBAL;
+    use windows::Win32::System::Com::StructuredStorage::CreateStreamOnHGlobal;
+    use windows::Win32::System::WinRT::{CreateRandomAccessStreamOverStream, BSOS_DEFAULT};
+
+    // Safety: a null handle requests a fresh, empty OS-owned allocation.
+    // Final COM release frees it; no external handle or memory pointer is used.
+    // The documented adapter retains the base stream. No class-activation
+    // retry, file-backed stream, custom DLL load or environment change occurs.
+    unsafe {
+        let backing = CreateStreamOnHGlobal(HGLOBAL::default(), true)?;
+        CreateRandomAccessStreamOverStream(&backing, BSOS_DEFAULT)
+    }
+}
+
+#[cfg(windows)]
 fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
     use windows::Data::Pdf::{PdfDocument, PdfPageRenderOptions};
     use windows::Graphics::Imaging::BitmapEncoder;
-    use windows::Storage::Streams::{DataReader, DataWriter, InMemoryRandomAccessStream};
+    use windows::Storage::Streams::{DataReader, DataWriter};
     #[link(name = "runtimeobject")]
     unsafe extern "system" {
         fn RoInitialize(init_type: u32) -> i32;
@@ -549,8 +565,7 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
     }
     let _apartment = Apartment;
     let fail = |stage| move |_: windows::core::Error| ProcessingError::Pdf(stage);
-    let stream =
-        InMemoryRandomAccessStream::new().map_err(fail(PdfFailureStage::CreateInputStream))?;
+    let stream = new_memory_stream().map_err(fail(PdfFailureStage::CreateInputStream))?;
     let writer =
         DataWriter::CreateDataWriter(&stream).map_err(fail(PdfFailureStage::CreateInputWriter))?;
     writer
@@ -628,8 +643,7 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
         options
             .SetDestinationHeight(height)
             .map_err(fail(PdfFailureStage::ConfigureRender))?;
-        let output =
-            InMemoryRandomAccessStream::new().map_err(fail(PdfFailureStage::CreateOutputStream))?;
+        let output = new_memory_stream().map_err(fail(PdfFailureStage::CreateOutputStream))?;
         page.RenderWithOptionsToStreamAsync(&output, &options)
             .map_err(fail(PdfFailureStage::RenderPage))?
             .join()
@@ -1152,6 +1166,69 @@ mod tests {
             validate_pages(&[oversized]),
             Err(ProcessingError::Limit)
         ));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn documented_memory_stream_round_trip_clone_and_lifetime() {
+        use windows::Storage::Streams::{DataReader, DataWriter};
+        use windows::Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED};
+
+        // This is a direct synthetic COM fixture, not a restricted-child PASS.
+        unsafe { RoInitialize(RO_INIT_MULTITHREADED) }.unwrap();
+        struct Apartment;
+        impl Drop for Apartment {
+            fn drop(&mut self) {
+                unsafe { RoUninitialize() };
+            }
+        }
+        let _apartment = Apartment;
+
+        let stream = new_memory_stream().unwrap();
+        let independent = new_memory_stream().unwrap();
+        for fresh in [&stream, &independent] {
+            assert_eq!(fresh.Size().unwrap(), 0);
+            assert_eq!(fresh.Position().unwrap(), 0);
+            assert!(fresh.CanRead().unwrap());
+            assert!(fresh.CanWrite().unwrap());
+        }
+
+        let expected = b"synthetic-memory-stream";
+        let writer = DataWriter::CreateDataWriter(&stream).unwrap();
+        writer.WriteBytes(expected).unwrap();
+        assert_eq!(
+            writer.StoreAsync().unwrap().join().unwrap() as usize,
+            expected.len()
+        );
+        writer.DetachStream().unwrap();
+        assert_eq!(stream.Size().unwrap() as usize, expected.len());
+        assert_eq!(independent.Size().unwrap(), 0);
+        stream.Seek(0).unwrap();
+
+        let cloned = stream.CloneStream().unwrap();
+        assert_eq!(cloned.Position().unwrap(), 0);
+        cloned.Seek(1).unwrap();
+        assert_eq!(cloned.Position().unwrap(), 1);
+        assert_eq!(stream.Position().unwrap(), 0);
+        cloned.Seek(0).unwrap();
+        drop(writer);
+        drop(stream);
+
+        // The clone and adapter must retain the backing allocation themselves.
+        let input = cloned.GetInputStreamAt(0).unwrap();
+        let reader = DataReader::CreateDataReader(&input).unwrap();
+        assert_eq!(
+            reader
+                .LoadAsync(expected.len() as u32)
+                .unwrap()
+                .join()
+                .unwrap() as usize,
+            expected.len()
+        );
+        let mut actual = vec![0; expected.len()];
+        reader.ReadBytes(&mut actual).unwrap();
+        assert_eq!(actual, expected);
+        assert_eq!(independent.Size().unwrap(), 0);
     }
 
     #[cfg(windows)]

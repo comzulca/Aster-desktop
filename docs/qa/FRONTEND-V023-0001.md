@@ -1,5 +1,10 @@
 # FRONTEND-V023-0001 — source-bound renderer evidence
 
+## Current integration checkpoint — 8 October 2026
+
+The [8 October reconciliation record](OCT8-RECONCILIATION-20261008.md) owns the current dependency, PR and exact-source gate status. The entries below are retained dated evidence: “current”, “pending”, “no installer” and earlier PR/check-only authority refer to their stated historical checkpoints, not a new result or the latest owner authorisation. P6 completed with restricted PDF FAIL at stream construction; a built but unqualified setup is not a qualified hand-off. The documented memory-stream successor requires fresh gates. Owner-reported v0.2.2 flicker FAIL and unexecuted installed/native/live/production obligations remain distinct.
+
+
 Current whole-workflow disposition: P4 [run 37204516581](https://github.com/comzulca/Aster-desktop/actions/runs/37204516581) completed FAIL, with four successful jobs but an installer stdout OS232/missing-receipt failure after bundling. The scoped renderer results below remain PASS at their actual source; they do not qualify a package or any fifteen-codec/six-resource executable outcome. Later CI capture/test-only credential amendments require fresh evidence; no renderer behaviour changes or installed cure are asserted. See [CI-V023-0001](CI-V023-0001.md).
 
 ## Published P4 renderer checks — 13:03/13:08 UTC, 4 October

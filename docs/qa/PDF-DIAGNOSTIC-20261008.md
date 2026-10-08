@@ -1,5 +1,15 @@
 # 8 October 2026 PDF failure-stage diagnostic amendment
 
+## 8 October 2026 executed P6 and memory-stream successor scope
+
+Latest completed diagnostic source is P6 head `b79d19862998eaaf2b3f6d2785bee40f7d5cfac3`, actual tested merge `7476cd3dd73bcb71a20e159d53d15966065e8cd2`, equal tree `02038302434b990e2d8cee8a0f3a22c3e3d01441`, [run 37813484995](https://github.com/comzulca/Aster-desktop/actions/runs/37813484995), attempt 1. Its four new pure regressions passed in windows-host `113436577060`; this is scoped regression evidence, not compound T-082/T-083 or native containment/PDF PASS. Installer `113446659411` receipt at `2026-10-08T17:43:07.3888342Z` passed four codec cases, failed `native-two-page-pdf` at `pdf-create-input-stream`, and left ten codec/six resource cases NOT RUN with false qualification flags. Preserve P5 and earlier failures. The 21.82-MiB compiled setup is unqualified.
+
+The P6 stage identifies its former input-stream constructor before any PDF bytes are written/document loaded; the HRESULT and activation subcall remain unreported. No SystemRoot/environment/token cause or cure is established. The pre-implementation [PDF-MEMORY-STREAM-20261008](PDF-MEMORY-STREAM-20261008.md) amendment selects a fixed documented COM memory allocation/adapter construction for stages 65/77 without a prior activation attempt, retry or fallback. Therefore the staged P7 mapping covers **native stream/WinRT/normalisation errors**, including the two COM constructor error-return sites, not only WinRT activation. It retains the exact eighteen static stages/codes, generic numeric/invariant/boundary categories and PDF-codec-only nonzero-error semantics. No raw native message/HRESULT/private bytes/path/environment/key reaches receipt or renderer.
+
+P7 remains locally staged, not a published head or executed result. Its new direct memory-stream regression, existing four diagnostic regressions and complete fifteen/six actual-executable probes need fresh exact-source execution. Empty environment, token/Low IL, Job limits, inherited handles, packet/admission and cleanup poisoning remain unchanged. Final COM release/free is not secure zeroisation; unmanaged memory paging/dump and parser-compromise/no-network/filesystem residuals remain. No installed/manual/live/package/production PASS follows.
+
+All baseline/proposed/uncommitted and validation statements below are retained dated pre-P6 records, not current execution status. This overlay expands only the two mapped native construction sites for the specified successor, not the successful protocol or diagnostic data permitted.
+
 Status: proposed diagnostic change; final-source compilation and hosted execution NOT RUN.
 Baseline: draft PR #30 head fcf5526c0889a6df737925718d1c2ff323baa4d1. Latest run 37207862545 tested merge 2664cf18592d38bb7cae6d2eff5e1dae5512bd51 and failed engineering-installer job 111457997051. Retain every predecessor failure and NOT RUN outcome.
 

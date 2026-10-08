@@ -1,5 +1,10 @@
 # PACKAGING-0001 — unsigned engineering installer gate
 
+## Current integration checkpoint — 8 October 2026
+
+The [8 October reconciliation record](OCT8-RECONCILIATION-20261008.md) owns the current dependency, PR and exact-source gate status. The entries below are retained dated evidence: “current”, “pending”, “no installer” and earlier PR/check-only authority refer to their stated historical checkpoints, not a new result or the latest owner authorisation. P6 completed with restricted PDF FAIL at stream construction; a built but unqualified setup is not a qualified hand-off. The documented memory-stream successor requires fresh gates. Owner-reported v0.2.2 flicker FAIL and unexecuted installed/native/live/production obligations remain distinct.
+
+
 **v0.2.3 applicability — 4 October 2026, Edinburgh / Europe/London:** dated evidence below retains its original source, version and result; it does not qualify changed v0.2.3 bytes. Unchanged constraints remain subject to the [current documentation index](../V0.2.3-DOCUMENTATION-INDEX.md) and [SPEC-0005](../specs/SPEC-0005.md). The owner authorises a v0.2.3 PR and GitHub checks only, not merge, release or signing. Final-source, package, native and live qualification require independent evidence in [LOCAL-V023-0001](../qa/LOCAL-V023-0001.md). No retired provider, historical grant or old PASS is reactivated.
 
 ## v0.2.3 packaging qualification pending — 2026-10-04

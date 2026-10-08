@@ -1,6 +1,11 @@
 # Meta Contributor attachments — v0.2.3 development contract
 
-## Current P4 completed outcome — hosted FAIL
+## Current integration checkpoint — 8 October 2026
+
+The [8 October reconciliation record](../qa/OCT8-RECONCILIATION-20261008.md) owns the current dependency, PR and exact-source gate status. The entries below are retained dated evidence: “current”, “pending”, “no installer” and earlier PR/check-only authority refer to their stated historical checkpoints, not a new result or the latest owner authorisation. P6 completed with restricted PDF FAIL at stream construction; a built but unqualified setup is not a qualified hand-off. The documented memory-stream successor requires fresh gates. Owner-reported v0.2.2 flicker FAIL and unexecuted installed/native/live/production obligations remain distinct.
+
+
+## Retained P4 completed outcome — hosted FAIL
 
 Observed at **`2026-10-04T13:48:39Z`, Edinburgh / Europe/London (BST)**: [run 37204516581](https://github.com/comzulca/Aster-desktop/actions/runs/37204516581), tested M4 `c3839b52a012f83aa112f97dac5590681e5e23ef` for [draft PR #30](https://github.com/comzulca/Aster-desktop/pull/30)/P4 `7eee831fe3a775884992c20928a1f232e311eb13`, completed **FAIL**. Source-policy, frontend, codec-source-fixtures and windows-host passed; engineering-installer `111446599731` failed. Native release compilation finished at `13:46:10.9171697Z` and NSIS bundling reported 21.87 MiB at `13:46:13.0798094Z`, but a main-thread stdout panic followed at `13:46:13.2933739Z` (OS error 232, pipe being closed), with an `Unexpected` native-fixture receipt at `13:46:13.5291426Z`. There are no fifteen codec/six resource outcomes or qualified payload/hash from this attempt. A compiled setup is not a qualified final engineering installer and is not ready for hand-off. [CI-V023-0001](../qa/CI-V023-0001.md) retains the detailed evidence; earlier partial P4 observations below remain dated history, not the current result.
 
