@@ -559,6 +559,99 @@ fn new_memory_stream() -> windows::core::Result<windows::Storage::Streams::IRand
     Ok(stream)
 }
 
+// P10 SCOPED FACTORIES BEGIN
+#[cfg(windows)]
+mod scoped_pdf_factories {
+    use windows::core::{factory, Interface, Param, Result, Type, GUID};
+    use windows::Data::Pdf::{IPdfDocumentStatics, PdfDocument, PdfPageRenderOptions};
+    use windows::Graphics::Imaging::{BitmapEncoder, IBitmapEncoderStatics};
+    use windows::Storage::Streams::{
+        DataReader, DataWriter, IDataReaderFactory, IDataWriterFactory, IInputStream,
+        IOutputStream, IRandomAccessStream,
+    };
+    use windows::Win32::System::WinRT::IActivationFactory;
+
+    // Fixed class/interface pairs and operation-local owned factories avoid the
+    // generated static FactoryCache. The pinned upstream factory loader and its
+    // inherited internal recovery behavior remain unchanged; no Aster retry or
+    // caller-selected class, IID, path or cached COM lifetime is introduced.
+    pub(super) fn data_writer<P0>(outputstream: P0) -> Result<DataWriter>
+    where
+        P0: Param<IOutputStream>,
+    {
+        let factory = factory::<DataWriter, IDataWriterFactory>()?;
+        // Safety: the pinned generated vtable and Param ABI match exactly. The
+        // borrowed parameter lives through the call; successful output transfers
+        // ownership once with Type::from_abi, preserving failed/null semantics.
+        unsafe {
+            let mut result__ = core::mem::zeroed();
+            (Interface::vtable(&factory).CreateDataWriter)(
+                Interface::as_raw(&factory),
+                outputstream.param().abi(),
+                &mut result__,
+            )
+            .and_then(|| Type::from_abi(result__))
+        }
+    }
+
+    pub(super) fn data_reader<P0>(inputstream: P0) -> Result<DataReader>
+    where
+        P0: Param<IInputStream>,
+    {
+        let factory = factory::<DataReader, IDataReaderFactory>()?;
+        // Safety: this is the generated reader invocation with an owned scoped
+        // factory, identical typed parameter ABI and checked ownership transfer.
+        unsafe {
+            let mut result__ = core::mem::zeroed();
+            (Interface::vtable(&factory).CreateDataReader)(
+                Interface::as_raw(&factory),
+                inputstream.param().abi(),
+                &mut result__,
+            )
+            .and_then(|| Type::from_abi(result__))
+        }
+    }
+
+    pub(super) fn load_document<P0>(
+        inputstream: P0,
+    ) -> Result<windows_future::IAsyncOperation<PdfDocument>>
+    where
+        P0: Param<IRandomAccessStream>,
+    {
+        let factory = factory::<PdfDocument, IPdfDocumentStatics>()?;
+        // Safety: the pinned generated stream ABI and async-operation output
+        // conversion are unchanged. The caller retains its original join/order.
+        unsafe {
+            let mut result__ = core::mem::zeroed();
+            (Interface::vtable(&factory).LoadFromStreamAsync)(
+                Interface::as_raw(&factory),
+                inputstream.param().abi(),
+                &mut result__,
+            )
+            .and_then(|| Type::from_abi(result__))
+        }
+    }
+
+    pub(super) fn render_options() -> Result<PdfPageRenderOptions> {
+        let factory = factory::<PdfPageRenderOptions, IActivationFactory>()?;
+        // Safety: the fixed public activation interface creates an owned
+        // IInspectable; the normal typed cast preserves the generated sequence.
+        unsafe { factory.ActivateInstance() }.and_then(|instance| instance.cast())
+    }
+
+    pub(super) fn png_encoder_id() -> Result<GUID> {
+        let factory = factory::<BitmapEncoder, IBitmapEncoderStatics>()?;
+        // Safety: the pinned generated method writes a GUID value, not an
+        // interface. Only a successful HRESULT exposes that initialized output.
+        unsafe {
+            let mut result__ = core::mem::zeroed();
+            (Interface::vtable(&factory).PngEncoderId)(Interface::as_raw(&factory), &mut result__)
+                .map(|| result__)
+        }
+    }
+}
+// P10 SCOPED FACTORIES END
+
 // P9 TEST-ONLY BEGIN
 #[cfg(all(test, windows))]
 mod pdf_test_diagnostic {
@@ -852,9 +945,6 @@ mod pdf_test_diagnostic {
 // P9 TEST-ONLY END
 #[cfg(windows)]
 fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
-    use windows::Data::Pdf::{PdfDocument, PdfPageRenderOptions};
-    use windows::Graphics::Imaging::BitmapEncoder;
-    use windows::Storage::Streams::{DataReader, DataWriter};
     #[link(name = "runtimeobject")]
     unsafe extern "system" {
         fn RoInitialize(init_type: u32) -> i32;
@@ -918,8 +1008,8 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
         pdf_test_diagnostic::Edge::Enter,
     );
     // P9 TEST-ONLY END
-    let writer =
-        DataWriter::CreateDataWriter(&stream).map_err(fail(PdfFailureStage::CreateInputWriter))?;
+    let writer = scoped_pdf_factories::data_writer(&stream)
+        .map_err(fail(PdfFailureStage::CreateInputWriter))?;
     // P9 TEST-ONLY BEGIN
     #[cfg(all(test, windows))]
     pdf_test_diagnostic::operation(
@@ -1000,7 +1090,7 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
         pdf_test_diagnostic::Edge::Enter,
     );
     // P9 TEST-ONLY END
-    let document = PdfDocument::LoadFromStreamAsync(&stream)
+    let document = scoped_pdf_factories::load_document(&stream)
         .map_err(fail(PdfFailureStage::LoadDocument))?
         .join()
         .map_err(fail(PdfFailureStage::LoadDocument))?;
@@ -1093,8 +1183,8 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
             pdf_test_diagnostic::Edge::Enter,
         );
         // P9 TEST-ONLY END
-        let options =
-            PdfPageRenderOptions::new().map_err(fail(PdfFailureStage::CreateRenderOptions))?;
+        let options = scoped_pdf_factories::render_options()
+            .map_err(fail(PdfFailureStage::CreateRenderOptions))?;
         // P9 TEST-ONLY BEGIN
         #[cfg(all(test, windows))]
         pdf_test_diagnostic::operation(
@@ -1111,7 +1201,8 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
         // P9 TEST-ONLY END
         options
             .SetBitmapEncoderId(
-                BitmapEncoder::PngEncoderId().map_err(fail(PdfFailureStage::ConfigureRender))?,
+                scoped_pdf_factories::png_encoder_id()
+                    .map_err(fail(PdfFailureStage::ConfigureRender))?,
             )
             .map_err(fail(PdfFailureStage::ConfigureRender))?;
         options
@@ -1179,7 +1270,7 @@ fn render_pdf(bytes: &[u8]) -> Result<Vec<ProcessedPage>, ProcessingError> {
             .GetInputStreamAt(0)
             .map_err(fail(PdfFailureStage::ReadOutput))?;
         let reader =
-            DataReader::CreateDataReader(&input).map_err(fail(PdfFailureStage::ReadOutput))?;
+            scoped_pdf_factories::data_reader(&input).map_err(fail(PdfFailureStage::ReadOutput))?;
         if reader
             .LoadAsync(length as u32)
             .map_err(fail(PdfFailureStage::ReadOutput))?
@@ -1742,7 +1833,6 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn documented_memory_stream_round_trip_clone_and_lifetime() {
-        use windows::Storage::Streams::{DataReader, DataWriter};
         use windows::Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED};
 
         // This is a direct synthetic COM fixture, not a restricted-child PASS.
@@ -1777,7 +1867,7 @@ mod tests {
         }
 
         let expected = b"synthetic-memory-stream";
-        let writer = DataWriter::CreateDataWriter(&stream).unwrap();
+        let writer = scoped_pdf_factories::data_writer(&stream).unwrap();
         writer.WriteBytes(expected).unwrap();
         assert_eq!(
             writer.StoreAsync().unwrap().join().unwrap() as usize,
@@ -1799,7 +1889,7 @@ mod tests {
 
         // The clone and adapter must retain the backing allocation themselves.
         let input = cloned.GetInputStreamAt(0).unwrap();
-        let reader = DataReader::CreateDataReader(&input).unwrap();
+        let reader = scoped_pdf_factories::data_reader(&input).unwrap();
         assert_eq!(
             reader
                 .LoadAsync(expected.len() as u32)
@@ -1813,6 +1903,77 @@ mod tests {
         assert_eq!(actual, expected);
         assert_eq!(independent.Size().unwrap(), 0);
     }
+
+    // P10 TWO-APARTMENT TEST BEGIN
+    #[cfg(windows)]
+    #[test]
+    fn scoped_pdf_factories_survive_two_successive_apartments() {
+        use windows::core::GUID;
+        use windows::Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED};
+
+        struct Apartment;
+        impl Drop for Apartment {
+            fn drop(&mut self) {
+                unsafe { RoUninitialize() };
+            }
+        }
+
+        // Exactly two non-overlapping scopes on this ordinary test thread. Only
+        // copyable GUID evidence crosses scopes; no COM factory/object does.
+        let mut encoder_ids = [GUID::zeroed(); 2];
+        for encoder_id in &mut encoder_ids {
+            unsafe { RoInitialize(RO_INIT_MULTITHREADED) }.unwrap();
+            let _apartment = Apartment;
+            let stream = new_memory_stream().unwrap();
+            let expected = b"synthetic-scoped-factory";
+            let writer = scoped_pdf_factories::data_writer(&stream).unwrap();
+            writer.WriteBytes(expected).unwrap();
+            assert_eq!(
+                writer.StoreAsync().unwrap().join().unwrap() as usize,
+                expected.len()
+            );
+            writer.DetachStream().unwrap();
+            assert_eq!(stream.Size().unwrap() as usize, expected.len());
+            stream.Seek(0).unwrap();
+            let input = stream.GetInputStreamAt(0).unwrap();
+            let reader = scoped_pdf_factories::data_reader(&input).unwrap();
+            assert_eq!(
+                reader
+                    .LoadAsync(expected.len() as u32)
+                    .unwrap()
+                    .join()
+                    .unwrap() as usize,
+                expected.len()
+            );
+            let mut actual = [0; 24];
+            assert_eq!(actual.len(), expected.len());
+            reader.ReadBytes(&mut actual).unwrap();
+            assert_eq!(&actual, expected);
+
+            let options = scoped_pdf_factories::render_options().unwrap();
+            options.SetDestinationWidth(16).unwrap();
+            options.SetDestinationHeight(8).unwrap();
+            options.SetIsIgnoringHighContrast(true).unwrap();
+            assert_eq!(options.DestinationWidth().unwrap(), 16);
+            assert_eq!(options.DestinationHeight().unwrap(), 8);
+            assert!(options.IsIgnoringHighContrast().unwrap());
+            let png_id = scoped_pdf_factories::png_encoder_id().unwrap();
+            assert_ne!(png_id, GUID::zeroed());
+            options.SetBitmapEncoderId(png_id).unwrap();
+            assert_eq!(options.BitmapEncoderId().unwrap(), png_id);
+            *encoder_id = png_id;
+
+            // All joined operations are already dropped. Explicitly release
+            // every owned interface before this iteration's apartment guard.
+            drop(options);
+            drop(reader);
+            drop(input);
+            drop(writer);
+            drop(stream);
+        }
+        assert_eq!(encoder_ids[0], encoder_ids[1]);
+    }
+    // P10 TWO-APARTMENT TEST END
 
     #[cfg(windows)]
     fn synthetic_pdf(page_count: usize) -> Vec<u8> {

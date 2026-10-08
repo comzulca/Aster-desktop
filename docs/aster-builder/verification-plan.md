@@ -1,5 +1,17 @@
 # Aster Desktop — versioned verification procedures
 
+<!-- P10 BEFORE-CODE BEGIN -->
+## 8 October P10 scoped WinRT factories - before implementation
+
+Read the [P10 before-code factory contract](../qa/PDF-SCOPED-FACTORIES-20261008.md) before implementation. This local governance proposal does not implement or authorize a release.
+
+The latest published P9 source is head `3be1d7365e23b7f2f6c9820fa7c9bae249159b62`, tree `6d4c24794d6ff21714bf528c274a510f26c387e5`, tested merge `7fe50dbc24b7774e6681f5fb9227fe1f823c2dc0`, run `37843254867` attempt 1. Its complete Windows suite is FAIL (`0xc0000005`); its separate bounded synthetic PDF diagnostic is PASS. Neither result identifies a crash cause or proves a cure, worker qualification, packaging or owner acceptance.
+
+Use the contract's phase 0 inventory, phase 1 narrow implementation checks and phase 2 source-bound acceptance. Review the exact helper ABI/error/ownership mapping, manifest/lock delta and two successive apartment scopes before publication. Then run the original complete parallel suite and all mandatory final-source jobs without filters, ignores or serialization. The existing bounded single-case diagnostic remains supplementary only. Record every new runtime, package, restricted-worker, compound, owner/manual and live-provider result as NOT RUN until independently obtained for its exact source.
+
+All new P10 runtime/package/compound results are NOT RUN. Historical P9 and earlier ledgers below remain source-bound records, not current-source PASS claims.
+<!-- P10 BEFORE-CODE END -->
+
 ## 8 October P9 pre-implementation bounded crash diagnostic
 
 Baseline is published P8 head e12238573d2a4a2ef0ef341b147919eafc62f868, tree 96245af612833f883e0dfaae2528d4a0239ab367, actual tested merge a12bed6f7551bdfc04012e1b7d2b1f343f87a202, run 37831962851 attempt 1. Windows job 113499637646 completed FAIL: 231 tests announced, 20 individual ok outcomes, then STATUS_ACCESS_VIOLATION / 0xc0000005 at 2026-10-08T19:42:44.3402152Z, with no aggregate summary, named failing assertion or crash attribution. Both new direct stream regressions reported ok; engineering-installer 113506283489 was SKIPPED. This is not a PDF cure or restricted-worker result.

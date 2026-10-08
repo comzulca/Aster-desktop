@@ -1,5 +1,80 @@
 # 8 October 2026 source and documentation reconciliation
 
+<!-- P10 CURRENT APPLICABILITY BEGIN -->
+> Current-source applicability — 8 October 2026, 21:51:41 UTC: the [dated reconciliation](OCT8-RECONCILIATION-20261008.md) owns this checkpoint. PR #38 and #31–#35 are normally merged after their four exact-source gates; #36/#37 remain pending. P9's complete Windows suite is FAIL; its isolated synthetic diagnostic PASS does not override it. The [P10 scoped-factory contract](PDF-SCOPED-FACTORIES-20261008.md) received before-code design approval at 21:47:59 UTC; source/documentation preparation is in progress, not a published or native/package PASS. Earlier “current” headings and statuses below are retained dated history, not the latest source result. The dependency auxiliary case is a private child lease-denial test, not Credential Manager proof. Owner v0.2.2 flicker/Code Integrity FAIL and all 42 compound cases NOT RUN remain; manual/live/signing/production acceptance is not inferred.
+<!-- P10 CURRENT APPLICABILITY END -->
+
+<!-- P10 RECONCILIATION BEGIN -->
+## P10 current checkpoint and actual P9 outcome — 2026-10-08 21:51:41 UTC
+
+This dated checkpoint supersedes current-status wording in every retained section below, without deleting or changing any original source-bound outcome. It is work in progress, not a completion report, released build, owner acceptance or production promotion. The eight P10 before-code governing documents are frozen at their approved bytes; their draft-era NOT RUN statements remain recognisable as historical design records. The latest reviewed implementation proposal is the [P10 scoped WinRT factory contract](PDF-SCOPED-FACTORIES-20261008.md).
+
+### Actual completed PR #30 P9: full-suite FAIL, isolated diagnostic PASS
+
+P9 head is `3be1d7365e23b7f2f6c9820fa7c9bae249159b62`, tree `6d4c24794d6ff21714bf528c274a510f26c387e5`, actual tested merge `7fe50dbc24b7774e6681f5fb9227fe1f823c2dc0`, [run 37843254867](https://github.com/comzulca/Aster-desktop/actions/runs/37843254867), attempt 1. The tested merge, not a substituted head or later tree, identifies the executed source.
+
+| P9 observation | Actual result and scope |
+| --- | --- |
+| Source-policy, frontend, Linux codec-source-fixtures | PASS on that tested source; no Windows, restricted-worker or installer inference. |
+| Complete Windows native suite, job `113538055535` | FAIL: 231 cases announced, 20 individual `ok` outcomes, no aggregate summary, then `0xc0000005 / STATUS_ACCESS_VIOLATION` at `2026-10-08T21:13:44.7617924Z`. No aggregate pass/fail count or crashing-thread attribution can be invented. |
+| Full-suite PDF markers | Six observed test-thread markers, ending at `ASTER_PDF_DIAG_V1\|valid\|66\|enter` around the unchanged DataWriter creator. This is the last observed location, not proof that this test thread crashed or that a factory/cache/apartment fault caused it. |
+| Separate failure-only exact PDF diagnostic | PASS: exactly `attachment_processing::tests::synthetic_pdf_retains_all_pages_in_order_and_rejects_over_limit`, exit zero, all 83 expected dynamic checkpoints, cleanup complete, not poisoned, 2,959 captured bytes, 359 ms. Classification is `hosted-synthetic-pdf-library-diagnostic-not-worker-qualification`. |
+| Collector checks | 112 counted pure checks under hosted Python 3.12.10; the earlier local 112-check result used bundled Python 3.12.14. Helper assertions count; these are not 112 native fixtures. |
+| Later credential follow-ups, audit and SBOM | SKIPPED after the complete-suite failure. P5/P6 results cannot fill this P9 gap. |
+| Engineering-installer, job `113544542397` | SKIPPED; all 15 actual-release-executable codec cases and six resource cases are NOT RUN. No qualified P9 setup exists. |
+| Failure/diagnostic artifact | `11578902930`, 603,990 bytes, archive SHA-256 `dcc6a1daba8cb1878b415c1e8a33ef0134804a7ac76ad898c82724ece155cdc4`. API/upload metadata agree; an independent download is NOT RUN. This is not an installer hash. |
+
+The isolated diagnostic success does not clear the mandatory complete-suite FAIL, establish the native cause or qualify the restricted worker. PR #30 remains an unqualified draft; root recorded the failure in its body and comment `6069402943`. All P8/P7/P6/P5 and earlier failures and skipped/unexecuted stages remain source-specific history. No new owner/native/startup/live/signing/production PASS follows.
+
+### Before-code P10 approval and strictly bounded pending implementation
+
+Main-agent phase 0–2 review approved the exact eight-file before-code contract at `2026-10-08T21:47:59Z`, before behavioral changes. This is scoped design approval, not runtime, package or worker approval. Candidate preparation is in progress; no P10 head, tested merge, workflow run, qualified setup or native execution result is recorded by this checkpoint.
+
+The permitted behavioral delta is five private fixed typed operation-local WinRT factory helpers, exactly five production creator substitutions and writer/reader substitutions in the existing roundtrip fixture, exactly one new Windows-only test with two successive balanced non-overlapping apartment scopes, and only the direct already-locked Windows-only `windows-future = { version = '=0.3.2', default-features = false }` declaration/root lock edge. Existing package versions/checksums/effective features stay fixed. This scope is a cache-lifetime hypothesis to test, not a proved P9 diagnosis or cure. The inherited pinned upstream factory loader has existing internal retry/MTA/DLL behavior; no new Aster caller loader, fallback or retry is permitted, and absence of upstream fallback must not be claimed.
+
+The original full parallel suite, all original assertions/joins/guards/drops, fixed production stages, P9 marker definitions/calls and expected 83-checkpoint trace, collector and CI bytes remain required unchanged. Restricted token, empty child environment, handle allowlist, create-suspended-before-Job admission, one-process/256-MiB/10-CPU-second/15-wall-second limits and bounded cleanup/poison controls remain exact. No application-owned static factory/MTA-cookie leak or generic class/IID/path selection is permitted.
+
+P10's new unit, complete Windows suite and all five source-policy/frontend/Linux-codec/Windows/engineering-installer jobs are NOT RUN for the pending candidate. All 15 codec and six resource qualifications need actual final-executable evidence. Final cumulative dependency or documentation changes require fresh applicable gates; older green runs cannot approve a changed tree. Only all mandatory final-source successes permit the owner's authorised normal PR merge, without a bypass. All 42 compound cases remain NOT RUN.
+
+### Completed dependencies and actual main35
+
+PR #38 and Dependabot #31–#35 are normally merged after each candidate's four exact-source jobs completed PASS. Main remains the v0.2.2 profile, not merged v0.2.3. The latest observed main is `e8ed06fb0a6599205515ae61736d879873a91984`, tree `6964b46ea1e2c44d549914068fe41adadfdb11ce`.
+
+PR #35 normally merged at `2026-10-08T21:27:20Z`. Its head `fe3cd90cc8d7cd43beb3d69ff24b7424d9b0dbb6`, actual tested merge `533ede6008fde8ca1a9ec23d4fb7d5ddd2717cde` and final main share that approved tree; [run 37841050836](https://github.com/comzulca/Aster-desktop/actions/runs/37841050836), attempt 1, passed all four candidate jobs. The scoped update is Vitest 5.0.2 → 5.0.3 with its required why-is-node-running 3.2.1 edge, retaining already-gated API/Vite/PostCSS/source-map-js and Cargo updates.
+
+Its unsigned engineering candidate receipt is source-bound to the tested merge: built `2026-10-08T21:18:58.4011224Z`, 21,435,015 bytes, executable SHA-256 `e99f9fb9abea195e3b13eddf9bc73f39666656222a263c4fa5ee10968d400b5a`, Authenticode `NotSigned`. Artifact `11579622221` is 8,024,266 bytes, archive SHA-256 `dc69d3b1c3627b9b3b55fe2d409a3c4d9bb949620261721ee52170f16ded7331`. API/upload receipt agreement is not independent binary download, owner delivery/installation or production permission.
+
+Post-merge actual-main builds are distinct from their earlier PR candidates:
+
+| Actual main build | Completed source-bound result | Its own unsigned executable receipt |
+| --- | --- | --- |
+| Main33 `6696f0d0ba3310029e13715c33aa2bc3680f131f`, tree `89d9efbda1b403ce8daea44315f2783393206ca6`, [run 37834178787](https://github.com/comzulca/Aster-desktop/actions/runs/37834178787) | All four jobs PASS; completed `2026-10-08T20:27:20Z`. | 21,437,413 bytes, `NotSigned`, executable SHA-256 `b4f7efdea838dd5d3f0533ace3167a20332502fba40dfc70ed006f8e87c17b7e`; artifact `11576129597`, archive SHA-256 `d5cde137ae8ac338ea54ff671eb0a4248ca173fc0c712515e694992e0c274e57`. |
+| Main34 `f23ef2a32476775ee8ddf3530fa0e478f2e1014f`, tree `0623023600189e4ec6f0abf442d6779af902ce89`, [run 37840754741](https://github.com/comzulca/Aster-desktop/actions/runs/37840754741) | All four jobs PASS; completed `2026-10-08T21:20:13Z`. | 21,433,774 bytes, `NotSigned`, executable SHA-256 `ff4985e02cc2cd7e510a889f567111f4930271983722d5cedc65e692557ac4da`; artifact `11580126446`, archive SHA-256 `548d92a329358fd18776f612dbad86bc458ec439d4eaf1c8e2bcbc200aa94df0`. |
+| Main35 `e8ed06fb0a6599205515ae61736d879873a91984`, tree `6964b46ea1e2c44d549914068fe41adadfdb11ce`, [run 37846897918](https://github.com/comzulca/Aster-desktop/actions/runs/37846897918) | Source-policy/frontend PASS; Windows active, installer pending at 21:50:16 UTC. Full post-merge result pending, not PASS. | No completed final-build receipt is claimed at this checkpoint. |
+
+Identical source trees do not imply identical executable hashes. Archive hashes and executable hashes have different subjects. These actual-main receipt observations do not create owner or production acceptance.
+
+### Remaining one-by-one dependency qualification
+
+PR #36 was refreshed by normal leased fast-forward to head `dc33c8b925e5745a47c7b09680511166b294391b` on actual main35; its tree `86bc4b1952d06d3cd7865fa9469b469612cd5ce2` preserves all 152 expected leaves and previously gated cumulative dependencies except its reviewed manifest/lock delta. Its actual tested merge is `657ebb1de2d65fb54a26f44c4e4ffed49b27d458`, [run 37847175795](https://github.com/comzulca/Aster-desktop/actions/runs/37847175795), attempt 1. Source-policy/frontend PASS; Windows active and installer pending at 21:50:16 UTC. It is not merge eligible yet. The scope is jsdom 30.1.2 and its necessary data-urls 8/whatwg-url 17.2 edges.
+
+PR #37 remains open/pending and must receive its own fresh actual-base/head/tree review and all four gates after PR #36. A bot refresh, registry review or earlier green job is not sufficient. The intended CLI 2.12.1/platform delta is not carried into PR #30 before individual qualified normal integration. The final v0.2.3 candidate must carry only actually gated cumulative dependencies, preserve its own version and runtime scope, and rerun all five jobs plus 15 codec/six resource cases on the exact resulting source.
+
+The source-map-js 1.2.2 advisory remediation, moderate-threshold audit and existing fixed gates remain intact. Completed dependency runs have 69 frontend PASS and 156 Windows library PASS/two ignored. The auxiliary one-PASS/157-filtered case is specifically `private_store::tests::isolated_native_child_lease_is_denied`, not native Credential Manager execution; both native credential cases are ignored/NOT RUN in these dependency runs. PR30 P5/P6's different explicit disposable credential-followup steps actually executed their two exact cases; those results do not transfer to P9/P10 or the owner's host. Broad-lock `RUSTSEC-2024-0370` / proc-macro-error 1.0.4 and `RUSTSEC-2024-0429` / glib 0.18.5 remain disclosed allowed warnings, not remediation or zero-warning evidence. The separate 51/51 primary registry metadata review is complete, not tarball/runtime/license-redistribution approval.
+
+### Historical issues, frozen ledger and final Gmail work
+
+The read-only inventory at 21:01:21 UTC found zero open standalone issues, not a final inventory after later merges. [Issue #11](https://github.com/comzulca/Aster-desktop/issues/11) is CLOSED/completed for bounded owner-reported v0.1.0 engineering category acceptance, source `1782d3375db47466f89be6bd3cd3c6affbfa95b7`, run `37040168700`, artifact `11243338033`; no precise owner test clock was supplied. [Issue #12](https://github.com/comzulca/Aster-desktop/issues/12) is CLOSED/not_planned in that original scope, with uncovered obligations transferred, not completed security proof or new-source acceptance. No issue mutation is needed just to present an empty list.
+
+The [retained P7/P8 control ledger](../aster-builder/contract.json) remains byte-for-byte historical: P7 `ddb932ddd70fb141b17e07819ca9c0bd44f92956`, P7 runtime FAIL and P8 pre-implementation NOT RUN. It is not a current P9/P10 or final cumulative execution ledger. Current outcomes belong to this dated reconciliation and exact-source receipts; structural ledger validity is not enforcement, native acceptance or release approval. The [documentation index](../V0.2.3-DOCUMENTATION-INDEX.md) now identifies that boundary and the new P10 contract without altering frozen ledger bytes.
+
+Fresh primary unread Gmail search at 21:50–21:51 UTC found five reviewed unresolved PR30 P5–P9 failure notices, with no pagination token. They remain UNREAD because actual native/worker qualification is unresolved. Four superseded earlier failure notices had only UNREAD removed. Earlier totals of 17 primary and 24 broader matches are retained dated inventories, not final current totals. Final primary/broad/unread searches and exact resolution-based read-state decisions remain pending; this documentation task performs no mail mutation and exposes no message content or security token.
+
+Owner-installed v0.2.2 flicker/startup and local Code Integrity FAIL remain. All 42 compound cases, physical power-loss, installed/native/manual/live-provider/account/terms/financial/acceptance and signing/production obligations remain independently unexecuted or otherwise source-bound as originally recorded. No real credential, history, financial reservation, retired NVIDIA provider, capability flag or security/account setting is changed by this checkpoint. Contributor projectRead/proposals/applyNewFile/applyExistingFile stay false. Hosted code/tests or historical closed issues cannot satisfy those independent obligations.
+
+Final completion still requires individual PR36/37 qualification, final cumulative PR30 source/documentation review and all mandatory exact-source jobs and executable receipts, fresh main/issues/Gmail inventory, and read-state changes only for reviewed actually handled mail. Later dated evidence must update this checkpoint honestly without rewriting the frozen before-code or historical records.
+<!-- P10 RECONCILIATION END -->
+
 ## P9 staged-source review and main34 integration — 2026-10-08 20:51:45 UTC
 
 This is a reviewed diagnostic source candidate, not completed native qualification. P9's governing contract was approved before implementation at 20:24:17 UTC. Reversing all 44 cfg(all(test, windows)) regions reproduces P8 attachment_processing.rs byte-exactly; the original async expressions, COM/RAII lifetime order, assertions and production worker controls are unchanged. Thirty-six ordered operation hooks and finite static strings cover the admitted 83-marker success trace. Rustfmt check PASS; local native execution is NOT RUN.

@@ -2,6 +2,18 @@ All agent-internal instructions, agent-to-agent exchanges, AGENTS.md files, tool
 
 # Aster-desktop repository instructions
 
+<!-- P10 BEFORE-CODE BEGIN -->
+## 8 October P10 scoped WinRT factories - before implementation
+
+Read the [P10 before-code factory contract](docs/qa/PDF-SCOPED-FACTORIES-20261008.md) before implementation. This local governance proposal does not implement or authorize a release.
+
+The latest published P9 source is head `3be1d7365e23b7f2f6c9820fa7c9bae249159b62`, tree `6d4c24794d6ff21714bf528c274a510f26c387e5`, tested merge `7fe50dbc24b7774e6681f5fb9227fe1f823c2dc0`, run `37843254867` attempt 1. Its complete Windows suite is FAIL (`0xc0000005`); its separate bounded synthetic PDF diagnostic is PASS. Neither result identifies a crash cause or proves a cure, worker qualification, packaging or owner acceptance.
+
+Before any P10 behavior change, read the linked phase 0-2 intent, threat and acceptance contract in full and review the exact pinned source/type/lifetime correspondence. The provisional scope is five private fixed uncached factory wrappers, only five production creator substitutions plus writer/reader fixture substitutions, one two-apartment regression, and the exact already-locked Windows-only `windows-future = { version = '=0.3.2', default-features = false }` manifest/root-lock edge. Do not edit CI, P9 markers/collector, lifecycle guards, worker authority or frozen records. Stop for full main-agent review before code.
+
+All new P10 runtime/package/compound results are NOT RUN. Historical P9 and earlier ledgers below remain source-bound records, not current-source PASS claims.
+<!-- P10 BEFORE-CODE END -->
+
 ## 8 October P9 pre-implementation bounded crash diagnostic
 
 Baseline is published P8 head e12238573d2a4a2ef0ef341b147919eafc62f868, tree 96245af612833f883e0dfaae2528d4a0239ab367, actual tested merge a12bed6f7551bdfc04012e1b7d2b1f343f87a202, run 37831962851 attempt 1. Windows job 113499637646 completed FAIL: 231 tests announced, 20 individual ok outcomes, then STATUS_ACCESS_VIOLATION / 0xc0000005 at 2026-10-08T19:42:44.3402152Z, with no aggregate summary, named failing assertion or crash attribution. Both new direct stream regressions reported ok; engineering-installer 113506283489 was SKIPPED. This is not a PDF cure or restricted-worker result.

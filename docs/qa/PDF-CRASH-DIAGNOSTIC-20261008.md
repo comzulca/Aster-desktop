@@ -1,5 +1,9 @@
 # P9 bounded synthetic-PDF crash diagnostic — before-implementation contract
 
+<!-- P10 CURRENT APPLICABILITY BEGIN -->
+> Current-source applicability — 8 October 2026, 21:51:41 UTC: the [dated reconciliation](OCT8-RECONCILIATION-20261008.md) owns this checkpoint. PR #38 and #31–#35 are normally merged after their four exact-source gates; #36/#37 remain pending. P9's complete Windows suite is FAIL; its isolated synthetic diagnostic PASS does not override it. The [P10 scoped-factory contract](PDF-SCOPED-FACTORIES-20261008.md) received before-code design approval at 21:47:59 UTC; source/documentation preparation is in progress, not a published or native/package PASS. Earlier “current” headings and statuses below are retained dated history, not the latest source result. The dependency auxiliary case is a private child lease-denial test, not Credential Manager proof. Owner v0.2.2 flicker/Code Integrity FAIL and all 42 compound cases NOT RUN remain; manual/live/signing/production acceptance is not inferred.
+<!-- P10 CURRENT APPLICABILITY END -->
+
 Status: fixed local pre-implementation intent awaiting the parent review before any code or workflow change. P9 is diagnostic-only, not a stream/parser correction. No P9 published head, run, design PASS, execution PASS or qualified package is claimed. The parent owns current navigation, OCT8 reconciliation and the control ledger.
 
 ## Exact baseline and observed outcome

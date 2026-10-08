@@ -65,6 +65,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tokio",
  "windows",
+ "windows-future",
  "windows-sys 0.61.2",
  "zeroize",
  "zune-jpeg",
