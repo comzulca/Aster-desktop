@@ -1,3 +1,7 @@
+<!-- OCT9 CPU AND GLIB OWNER DECISION BEGIN -->
+> Owner decision and current applicability — 2026-10-09 17:14:45 UTC: PR #30 is normally merged; its distinct actual-main package run remains FAIL after two CPU-probe failures, not a qualified main installer. The [separate CPU repair contract](CPU-CONTAINMENT-20261009.md) preserves the 10-second user-CPU and 15-second wall budgets and all mandatory gates; changed-source execution remains NOT RUN until fresh evidence. [GLib 0.18.5 remains OPEN and UNRESOLVED](GLIB-UPSTREAM-DEFERRAL-20261009.md), deferred to a complete compatible stable upstream chain; no backport, dependency remediation, dismissal or ignore is authorised. GTK4/Tauri 3 is a future owner-preferred architecture review, not an approved migration or promised fix. Earlier bodies below are retained dated source-bound history; no historical PASS transfers to changed source or owner/manual/live/signing/production acceptance.
+<!-- OCT9 CPU AND GLIB OWNER DECISION END -->
+
 # Proposed documented PDF memory-stream replacement — 8 October 2026
 
 Status: pre-implementation proposal. No changed-source Cargo, native worker or package result exists. This proposal does not establish the native root cause or grant an environment, token, Job, filesystem, credential or app-execution exception.

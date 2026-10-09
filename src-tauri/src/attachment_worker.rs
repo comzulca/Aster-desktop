@@ -20,6 +20,163 @@ const MAX_ERROR_BYTES: usize = 64 * 1024;
 pub const WORKER_MEMORY_BYTES: usize = 256 * 1024 * 1024;
 pub const WORKER_CPU_SECONDS: u64 = 10;
 pub const WORKER_WALL_SECONDS: u64 = 15;
+#[cfg(any(windows, test))]
+const WORKER_CPU_TICKS: i64 = (WORKER_CPU_SECONDS * 10_000_000) as i64;
+#[cfg(any(windows, test))]
+const CPU_WATCHDOG_EXIT: u32 = 0xA57E0001;
+
+/// Parent-authored, bounded causal evidence; never supplied by the child.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub enum CpuMechanism {
+    #[serde(rename = "none")]
+    None,
+    #[serde(rename = "native-job-cpu-limit")]
+    NativeJobCpuLimit,
+    #[serde(rename = "parent-user-cpu-watchdog")]
+    ParentUserCpuWatchdog,
+}
+
+#[derive(Clone, Copy, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CpuProof {
+    pub mechanism: CpuMechanism,
+    pub trigger_user_100ns: i64,
+    pub trigger_wall_millis: u64,
+    pub sampling_valid: bool,
+    pub live_child_observed: bool,
+    pub priority_rechecked: bool,
+    pub exact_job_dispatched: bool,
+    pub physical_expected_exit: bool,
+    pub cleanup_complete: bool,
+    pub terminal_denied: bool,
+    pub exact_marker: bool,
+    pub stats_valid: bool,
+    pub natural_exit: bool,
+    pub job_closed: bool,
+    pub worker_error: bool,
+    pub fallback_used: bool,
+}
+
+#[cfg(any(windows, test))]
+impl CpuProof {
+    fn passes(&self, boundary: bool, exit: Option<u32>, final_cpu: i64, native_count: u32) -> bool {
+        if !boundary
+            || !self.exact_marker
+            || !self.stats_valid
+            || !self.sampling_valid
+            || !self.cleanup_complete
+            || !self.terminal_denied
+            || !self.worker_error
+            || self.job_closed
+            || self.fallback_used
+            || final_cpu < WORKER_CPU_TICKS
+        {
+            return false;
+        }
+        match self.mechanism {
+            CpuMechanism::NativeJobCpuLimit => {
+                // Retain the original native branch, including its actual OS
+                // termination counter. Explicit Job termination cannot forge it.
+                self.natural_exit
+                    && exit.is_some_and(|code| code != 0)
+                    && native_count > 0
+                    && self.trigger_user_100ns == 0
+                    && self.trigger_wall_millis == 0
+                    && !self.live_child_observed
+                    && !self.priority_rechecked
+                    && !self.exact_job_dispatched
+                    && !self.physical_expected_exit
+            }
+            CpuMechanism::ParentUserCpuWatchdog => {
+                !self.natural_exit
+                    && self.live_child_observed
+                    && self.priority_rechecked
+                    && self.exact_job_dispatched
+                    && self.physical_expected_exit
+                    && self.trigger_user_100ns >= WORKER_CPU_TICKS
+                    && self.trigger_wall_millis < WORKER_WALL_SECONDS * 1000
+                    && final_cpu >= self.trigger_user_100ns
+                    && exit == Some(CPU_WATCHDOG_EXIT)
+            }
+            CpuMechanism::None => false,
+        }
+    }
+}
+
+#[cfg(any(windows, test))]
+fn user_cpu_ticks(low: u32, high: u32) -> Result<i64, ProcessingError> {
+    let combined = (u64::from(high) << 32) | u64::from(low);
+    i64::try_from(combined).map_err(|_| ProcessingError::Isolation)
+}
+
+#[cfg(any(windows, test))]
+#[derive(Default)]
+struct CpuSampling {
+    previous: Option<i64>,
+    failed: bool,
+}
+
+#[cfg(any(windows, test))]
+impl CpuSampling {
+    fn observe(&mut self, sample: Result<i64, ProcessingError>) -> Result<i64, ProcessingError> {
+        match sample {
+            Ok(value)
+                if !self.failed
+                    && value >= 0
+                    && self.previous.is_none_or(|previous| value >= previous) =>
+            {
+                self.previous = Some(value);
+                Ok(value)
+            }
+            _ => {
+                self.failed = true;
+                Err(ProcessingError::Isolation)
+            }
+        }
+    }
+    fn valid(&self) -> bool {
+        !self.failed && self.previous.is_some()
+    }
+}
+
+#[cfg(any(windows, test))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TerminalCause {
+    Running,
+    Cancel,
+    Wall,
+    Cpu,
+    Other,
+}
+
+#[cfg(any(windows, test))]
+impl TerminalCause {
+    fn settle(&mut self, cause: Self) {
+        if *self == Self::Running {
+            *self = cause;
+        }
+    }
+}
+
+#[cfg(any(windows, test))]
+fn cpu_decision(
+    sample: Result<i64, ProcessingError>,
+    cancelled: bool,
+    wall_millis: u64,
+) -> TerminalCause {
+    if cancelled {
+        TerminalCause::Cancel
+    } else if wall_millis >= WORKER_WALL_SECONDS * 1000 {
+        TerminalCause::Wall
+    } else {
+        match sample {
+            Err(_) => TerminalCause::Other,
+            Ok(ticks) if ticks < 0 => TerminalCause::Other,
+            Ok(ticks) if ticks >= WORKER_CPU_TICKS => TerminalCause::Cpu,
+            Ok(_) => TerminalCause::Running,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -69,6 +226,7 @@ pub struct ResourceProbeResult {
     pub peak_memory_bytes: usize,
     pub limit_terminations: u32,
     pub boundary_available: bool,
+    pub cpu_proof: Option<CpuProof>,
 }
 
 /// Closed fixture-only operation, never exported as renderer IPC or a model tool.
@@ -89,6 +247,7 @@ pub fn run_resource_probe(scenario: ResourceScenario) -> ResourceProbeResult {
             peak_memory_bytes: 0,
             limit_terminations: 0,
             boundary_available: false,
+            cpu_proof: None,
         }
     }
 }
@@ -364,7 +523,7 @@ mod native {
     use std::thread::JoinHandle;
     use std::time::{Duration, Instant};
     use windows_sys::Win32::Foundation::{
-        CloseHandle, GetLastError, SetHandleInformation, HANDLE, HANDLE_FLAG_INHERIT,
+        CloseHandle, GetLastError, SetHandleInformation, FILETIME, HANDLE, HANDLE_FLAG_INHERIT,
         INVALID_HANDLE_VALUE, WAIT_OBJECT_0, WAIT_TIMEOUT,
     };
     use windows_sys::Win32::Security::{
@@ -396,11 +555,11 @@ mod native {
     };
     use windows_sys::Win32::System::Threading::{
         CreateProcessAsUserW, CreateProcessW, DeleteProcThreadAttributeList, GetCurrentProcess,
-        GetExitCodeProcess, InitializeProcThreadAttributeList, OpenProcessToken, ResumeThread,
-        TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject, CREATE_NO_WINDOW,
-        CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT,
-        LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-        STARTF_USESTDHANDLES, STARTUPINFOEXW, STARTUPINFOW,
+        GetExitCodeProcess, GetProcessTimes, InitializeProcThreadAttributeList, OpenProcessToken,
+        ResumeThread, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
+        CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
+        EXTENDED_STARTUPINFO_PRESENT, LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION,
+        PROC_THREAD_ATTRIBUTE_HANDLE_LIST, STARTF_USESTDHANDLES, STARTUPINFOEXW, STARTUPINFOW,
     };
     use windows_sys::Win32::System::IO::{
         CancelSynchronousIo, CreateIoCompletionPort, GetQueuedCompletionStatus,
@@ -494,6 +653,34 @@ mod native {
         natural_exit: bool,
         job_closed: bool,
         memory_limit_notification: bool,
+        cpu_sampling_valid: bool,
+        cpu_dispatch: Option<(i64, u64)>,
+        cpu_live_observed: bool,
+        cpu_priority_rechecked: bool,
+        cpu_physical_exit: bool,
+        cleanup_complete: bool,
+        terminal_cause: TerminalCause,
+        fallback_used: bool,
+    }
+
+    fn process_user_cpu(process: HANDLE) -> Result<i64, ProcessingError> {
+        let mut creation: FILETIME = unsafe { zeroed() };
+        let mut exit: FILETIME = unsafe { zeroed() };
+        let mut kernel: FILETIME = unsafe { zeroed() };
+        let mut user: FILETIME = unsafe { zeroed() };
+        // This is the retained exact CreateProcess handle, not a PID lookup or
+        // a child-supplied sample. Cumulative user CPU includes all child threads;
+        // no startup baseline subtraction or kernel-time budget substitution.
+        if unsafe { GetProcessTimes(process, &mut creation, &mut exit, &mut kernel, &mut user) }
+            == 0
+        {
+            return Err(ProcessingError::Isolation);
+        }
+        user_cpu_ticks(user.dwLowDateTime, user.dwHighDateTime)
+    }
+
+    fn wall_millis(started: Instant) -> u64 {
+        u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
     }
 
     fn memory_notification_matches(
@@ -1375,9 +1562,34 @@ mod native {
                 .map_err(|_| ProcessingError::Isolation)?;
             io_cancel.threads.push(error_reader);
             let mut result = None;
-            if unsafe { ResumeThread(thread_handle.0) } != 1 {
-                result = Some(Err(ProcessingError::Isolation));
+            let mut terminal_cause = TerminalCause::Running;
+            let mut cpu_sampling = CpuSampling::default();
+            let initial_sample = cpu_sampling.observe(process_user_cpu(process_handle.0));
+            match cpu_decision(
+                initial_sample,
+                cancel.load(Ordering::SeqCst),
+                wall_millis(started),
+            ) {
+                TerminalCause::Running => {
+                    if unsafe { ResumeThread(thread_handle.0) } != 1 {
+                        terminal_cause.settle(TerminalCause::Other);
+                        result = Some(Err(ProcessingError::Isolation));
+                    }
+                }
+                cause => {
+                    terminal_cause.settle(cause);
+                    result = Some(Err(match cause {
+                        TerminalCause::Cancel => ProcessingError::Cancelled,
+                        TerminalCause::Wall => ProcessingError::Timeout,
+                        _ => ProcessingError::Isolation,
+                    }));
+                }
             }
+            let mut cpu_dispatch = None;
+            let mut cpu_live_observed = false;
+            let mut cpu_priority_rechecked = false;
+            let mut cpu_physical_exit = false;
+            let mut fallback_used = false;
             let mut writing = None;
             let mut reading = None;
             let mut stderr = None;
@@ -1386,12 +1598,110 @@ mod native {
             let mut stats_before_close = None;
             while result.is_none() {
                 if cancel.load(Ordering::SeqCst) {
+                    terminal_cause.settle(TerminalCause::Cancel);
                     result = Some(Err(ProcessingError::Cancelled));
                     break;
                 }
                 if started.elapsed() >= Duration::from_secs(WORKER_WALL_SECONDS) {
+                    terminal_cause.settle(TerminalCause::Wall);
                     result = Some(Err(ProcessingError::Timeout));
                     break;
+                }
+                let sample = cpu_sampling.observe(process_user_cpu(process_handle.0));
+                let decision =
+                    cpu_decision(sample, cancel.load(Ordering::SeqCst), wall_millis(started));
+                if decision != TerminalCause::Running {
+                    match decision {
+                        TerminalCause::Cpu => {
+                            let Ok(trigger_cpu) = sample else {
+                                terminal_cause.settle(TerminalCause::Other);
+                                result = Some(Err(ProcessingError::Isolation));
+                                break;
+                            };
+                            // A child already signalled cannot become evidence
+                            // of a parent kill. The unchanged strict native branch
+                            // can still qualify actual OS-native CPU termination.
+                            match unsafe { WaitForSingleObject(process_handle.0, 0) } {
+                                WAIT_TIMEOUT => {
+                                    let trigger_wall = wall_millis(started);
+                                    let priority = cpu_decision(
+                                        sample,
+                                        cancel.load(Ordering::SeqCst),
+                                        trigger_wall,
+                                    );
+                                    if priority != TerminalCause::Cpu {
+                                        terminal_cause.settle(priority);
+                                        result = Some(Err(if priority == TerminalCause::Cancel {
+                                            ProcessingError::Cancelled
+                                        } else {
+                                            ProcessingError::Timeout
+                                        }));
+                                        break;
+                                    }
+                                    // Final retained-handle live/priority check;
+                                    // no untrusted work occurs between it and the
+                                    // single fixed exact-Job dispatch below.
+                                    if unsafe { WaitForSingleObject(process_handle.0, 0) }
+                                        != WAIT_TIMEOUT
+                                    {
+                                        terminal_cause.settle(TerminalCause::Other);
+                                        result = Some(Err(ProcessingError::Worker));
+                                        break;
+                                    }
+                                    let trigger_wall = wall_millis(started);
+                                    let priority = cpu_decision(
+                                        sample,
+                                        cancel.load(Ordering::SeqCst),
+                                        trigger_wall,
+                                    );
+                                    if priority != TerminalCause::Cpu {
+                                        terminal_cause.settle(priority);
+                                        result = Some(Err(if priority == TerminalCause::Cancel {
+                                            ProcessingError::Cancelled
+                                        } else {
+                                            ProcessingError::Timeout
+                                        }));
+                                        break;
+                                    }
+                                    terminal_cause.settle(TerminalCause::Cpu);
+                                    cpu_live_observed = true;
+                                    cpu_priority_rechecked = true;
+                                    if !job_closed
+                                        && unsafe {
+                                            TerminateJobObject(job_handle, CPU_WATCHDOG_EXIT)
+                                        } != 0
+                                    {
+                                        cpu_dispatch = Some((trigger_cpu, trigger_wall));
+                                        result = Some(Err(ProcessingError::Worker));
+                                    } else {
+                                        fallback_used = true;
+                                        result = Some(Err(ProcessingError::Isolation));
+                                    }
+                                    break;
+                                }
+                                WAIT_OBJECT_0 => {
+                                    natural_exit = !job_closed;
+                                    terminal_cause.settle(TerminalCause::Other);
+                                    result = Some(Err(ProcessingError::Worker));
+                                    break;
+                                }
+                                _ => {
+                                    terminal_cause.settle(TerminalCause::Other);
+                                    result = Some(Err(ProcessingError::Isolation));
+                                    break;
+                                }
+                            }
+                        }
+                        cause => {
+                            terminal_cause.settle(cause);
+                            result = Some(Err(match cause {
+                                TerminalCause::Cancel => ProcessingError::Cancelled,
+                                TerminalCause::Wall => ProcessingError::Timeout,
+                                _ => ProcessingError::Isolation,
+                            }));
+                            break;
+                        }
+                    }
                 }
                 if ready.load(Ordering::SeqCst) {
                     if matches!(mode, Mode::Resource(ResourceScenario::Cancel)) {
@@ -1420,14 +1730,17 @@ mod native {
                     stderr = error_rx.try_recv().ok();
                 }
                 if let Some(Err(e)) = writing.as_ref() {
+                    terminal_cause.settle(TerminalCause::Other);
                     result = Some(Err(*e));
                     break;
                 }
                 if let Some(Err(e)) = reading.as_ref() {
+                    terminal_cause.settle(TerminalCause::Other);
                     result = Some(Err(*e));
                     break;
                 }
                 if let Some(Err(e)) = stderr.as_ref() {
+                    terminal_cause.settle(TerminalCause::Other);
                     result = Some(Err(*e));
                     break;
                 }
@@ -1437,10 +1750,12 @@ mod native {
                         natural_exit = !job_closed;
                         let mut exit_code = 1;
                         if unsafe { GetExitCodeProcess(process_handle.0, &mut exit_code) } == 0 {
+                            terminal_cause.settle(TerminalCause::Other);
                             result = Some(Err(ProcessingError::Worker));
                             break;
                         }
                         if exit_code != 0 {
+                            terminal_cause.settle(TerminalCause::Other);
                             result = Some(Err(worker_exit_error(
                                 kind,
                                 matches!(mode, Mode::Codec),
@@ -1449,12 +1764,33 @@ mod native {
                             break;
                         }
                         if writing.is_some() && reading.is_some() && stderr.is_some() {
-                            result = reading.take();
+                            // Exit zero and valid bytes are insufficient if the
+                            // exact child used the full CPU budget. Query again
+                            // on its retained handle before content admission.
+                            let sample = cpu_sampling.observe(process_user_cpu(process_handle.0));
+                            let decision = cpu_decision(
+                                sample,
+                                cancel.load(Ordering::SeqCst),
+                                wall_millis(started),
+                            );
+                            terminal_cause.settle(if decision == TerminalCause::Running {
+                                TerminalCause::Other
+                            } else {
+                                decision
+                            });
+                            result = match decision {
+                                TerminalCause::Running => reading.take(),
+                                TerminalCause::Cancel => Some(Err(ProcessingError::Cancelled)),
+                                TerminalCause::Wall => Some(Err(ProcessingError::Timeout)),
+                                TerminalCause::Cpu => Some(Err(ProcessingError::Worker)),
+                                _ => Some(Err(ProcessingError::Isolation)),
+                            };
                         } else {
                             std::thread::yield_now();
                         }
                     }
                     _ => {
+                        terminal_cause.settle(TerminalCause::Other);
                         result = Some(Err(ProcessingError::Worker));
                     }
                 }
@@ -1464,11 +1800,15 @@ mod native {
             // An uncompleted cleanup poisons future admission rather than hanging
             // the caller or accumulating another set of owned I/O threads.
             unsafe {
-                if !job_closed && TerminateJobObject(job_handle, 1) == 0 {
+                // A successful CPU dispatch is already the hard kill. A second
+                // generic kill must not overwrite its distinct causal exit.
+                if !job_closed && cpu_dispatch.is_none() && TerminateJobObject(job_handle, 1) == 0 {
+                    fallback_used = true;
                     result = Some(Err(ProcessingError::Isolation));
                     TerminateProcess(process_handle.0, 1);
                 }
                 if WaitForSingleObject(process_handle.0, 1000) != WAIT_OBJECT_0 {
+                    fallback_used = true;
                     result = Some(Err(ProcessingError::Isolation));
                     // A failed kill-on-close observation must not leave a parked
                     // fixture orphan. Teardown is not a passing mechanism result.
@@ -1476,6 +1816,20 @@ mod native {
                     if WaitForSingleObject(process_handle.0, 1000) != WAIT_OBJECT_0 {
                         WORKER_POISONED.store(true, Ordering::SeqCst);
                     }
+                }
+            }
+            if cpu_dispatch.is_some() && !fallback_used {
+                let mut cpu_exit = 0u32;
+                cpu_physical_exit = unsafe { WaitForSingleObject(process_handle.0, 0) }
+                    == WAIT_OBJECT_0
+                    && unsafe { GetExitCodeProcess(process_handle.0, &mut cpu_exit) } != 0
+                    && cpu_exit == CPU_WATCHDOG_EXIT;
+                if cpu_physical_exit {
+                    // Physical CPU exit is confirmed, not merely requested.
+                    // These guards still own cleanup, but no longer redispatch
+                    // generic termination during a subsequent I/O failure.
+                    lifetime.active = false;
+                    io_cancel.job_to_terminate = None;
                 }
             }
             io_cancel.finish()?;
@@ -1519,6 +1873,14 @@ mod native {
                 natural_exit,
                 job_closed,
                 memory_limit_notification,
+                cpu_sampling_valid: cpu_sampling.valid(),
+                cpu_dispatch,
+                cpu_live_observed,
+                cpu_priority_rechecked,
+                cpu_physical_exit,
+                cleanup_complete: io_cancel.settled && io_cancel.threads.is_empty(),
+                terminal_cause,
+                fallback_used,
             })
         }
     }
@@ -1543,6 +1905,7 @@ mod native {
                     peak_memory_bytes: 0,
                     limit_terminations: 0,
                     boundary_available: false,
+                    cpu_proof: None,
                 }
             }
         };
@@ -1558,16 +1921,54 @@ mod native {
             0
         };
         let no_extra_output = marker && execution.output.len() == 10;
+        let cpu_proof = if scenario == ResourceScenario::Cpu {
+            let mut proof = CpuProof {
+                mechanism: CpuMechanism::None,
+                trigger_user_100ns: 0,
+                trigger_wall_millis: 0,
+                sampling_valid: execution.cpu_sampling_valid,
+                live_child_observed: execution.cpu_live_observed,
+                priority_rechecked: execution.cpu_priority_rechecked,
+                exact_job_dispatched: execution.cpu_dispatch.is_some(),
+                physical_expected_exit: execution.cpu_physical_exit,
+                cleanup_complete: execution.cleanup_complete,
+                terminal_denied: execution.error.is_some(),
+                exact_marker: no_extra_output,
+                stats_valid: execution.stats_valid,
+                natural_exit: execution.natural_exit,
+                job_closed: execution.job_closed,
+                worker_error: execution.error == Some(ProcessingError::Worker),
+                fallback_used: execution.fallback_used,
+            };
+            if let Some((ticks, wall)) = execution.cpu_dispatch {
+                if execution.terminal_cause == TerminalCause::Cpu {
+                    proof.mechanism = CpuMechanism::ParentUserCpuWatchdog;
+                    proof.trigger_user_100ns = ticks;
+                    proof.trigger_wall_millis = wall;
+                }
+            } else if no_extra_output
+                && execution.natural_exit
+                && execution.error == Some(ProcessingError::Worker)
+                && execution.exit_code.is_some_and(|code| code != 0)
+                && execution.stats.cpu_user >= WORKER_CPU_TICKS
+                && execution.stats.terminations > 0
+            {
+                proof.mechanism = CpuMechanism::NativeJobCpuLimit;
+            }
+            Some(proof)
+        } else {
+            None
+        };
         let passed = boundary_available
             && match scenario {
-                ResourceScenario::Cpu => {
-                    no_extra_output
-                        && execution.natural_exit
-                        && execution.error == Some(ProcessingError::Worker)
-                        && execution.exit_code != Some(0)
-                        && execution.stats.cpu_user >= (WORKER_CPU_SECONDS * 10_000_000) as i64
-                        && execution.stats.terminations > 0
-                }
+                ResourceScenario::Cpu => cpu_proof.as_ref().is_some_and(|proof| {
+                    proof.passes(
+                        boundary_available,
+                        execution.exit_code,
+                        execution.stats.cpu_user,
+                        execution.stats.terminations,
+                    )
+                }),
                 ResourceScenario::Memory => {
                     finite_packet
                         && execution.memory_limit_notification
@@ -1624,6 +2025,7 @@ mod native {
             peak_memory_bytes: execution.stats.peak_memory,
             limit_terminations: execution.stats.terminations,
             boundary_available,
+            cpu_proof,
         }
     }
 
@@ -1850,6 +2252,247 @@ mod native {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn parent_cpu_proof() -> CpuProof {
+        CpuProof {
+            mechanism: CpuMechanism::ParentUserCpuWatchdog,
+            trigger_user_100ns: WORKER_CPU_TICKS,
+            trigger_wall_millis: 10_100,
+            sampling_valid: true,
+            live_child_observed: true,
+            priority_rechecked: true,
+            exact_job_dispatched: true,
+            physical_expected_exit: true,
+            cleanup_complete: true,
+            terminal_denied: true,
+            exact_marker: true,
+            stats_valid: true,
+            natural_exit: false,
+            job_closed: false,
+            worker_error: true,
+            fallback_used: false,
+        }
+    }
+    #[test]
+    fn cpu_filetime_and_sampling_reject_signed_overflow_decrease_and_failed_queries() {
+        assert_eq!(user_cpu_ticks(u32::MAX, 0).unwrap(), 4_294_967_295);
+        assert_eq!(user_cpu_ticks(0, 1).unwrap(), 4_294_967_296);
+        assert_eq!(user_cpu_ticks(u32::MAX, 0x7fff_ffff).unwrap(), i64::MAX);
+        assert_eq!(
+            user_cpu_ticks(0, 0x8000_0000),
+            Err(ProcessingError::Isolation)
+        );
+        assert_eq!(
+            user_cpu_ticks(u32::MAX, u32::MAX),
+            Err(ProcessingError::Isolation)
+        );
+        for invalid in [Ok(-1), Err(ProcessingError::Isolation), Ok(0)] {
+            let mut samples = CpuSampling::default();
+            assert!(!samples.valid());
+            assert_eq!(samples.observe(Ok(1)), Ok(1));
+            assert_eq!(samples.observe(Ok(1)), Ok(1));
+            assert_eq!(samples.observe(invalid), Err(ProcessingError::Isolation));
+            assert!(!samples.valid());
+            assert_eq!(samples.observe(Ok(2)), Err(ProcessingError::Isolation));
+        }
+    }
+    #[test]
+    fn cpu_threshold_priority_and_terminal_cause_are_closed_and_sticky() {
+        assert_eq!(
+            cpu_decision(Ok(WORKER_CPU_TICKS - 1), false, 14_999),
+            TerminalCause::Running
+        );
+        assert_eq!(
+            cpu_decision(Ok(WORKER_CPU_TICKS), false, 14_999),
+            TerminalCause::Cpu
+        );
+        assert_eq!(
+            cpu_decision(Ok(WORKER_CPU_TICKS), true, 14_999),
+            TerminalCause::Cancel
+        );
+        assert_eq!(
+            cpu_decision(Ok(WORKER_CPU_TICKS), false, 15_000),
+            TerminalCause::Wall
+        );
+        assert_eq!(
+            cpu_decision(Err(ProcessingError::Isolation), false, 1),
+            TerminalCause::Other
+        );
+        assert_eq!(cpu_decision(Ok(-1), false, 1), TerminalCause::Other);
+        for first in [
+            TerminalCause::Cpu,
+            TerminalCause::Wall,
+            TerminalCause::Cancel,
+            TerminalCause::Other,
+        ] {
+            let mut terminal = TerminalCause::Running;
+            terminal.settle(first);
+            for later in [
+                TerminalCause::Running,
+                TerminalCause::Cpu,
+                TerminalCause::Other,
+            ] {
+                terminal.settle(later);
+                assert_eq!(terminal, first);
+            }
+        }
+    }
+    #[test]
+    fn cpu_parent_proof_requires_every_causal_field_and_never_a_wall_or_cleanup_kill() {
+        let good = parent_cpu_proof();
+        assert!(good.passes(true, Some(CPU_WATCHDOG_EXIT), WORKER_CPU_TICKS, 0));
+        let reject = |proof: CpuProof| {
+            assert!(!proof.passes(true, Some(CPU_WATCHDOG_EXIT), WORKER_CPU_TICKS, 0))
+        };
+        reject(CpuProof {
+            mechanism: CpuMechanism::None,
+            ..good
+        });
+        reject(CpuProof {
+            trigger_user_100ns: WORKER_CPU_TICKS - 1,
+            ..good
+        });
+        reject(CpuProof {
+            trigger_user_100ns: WORKER_CPU_TICKS + 1,
+            ..good
+        });
+        reject(CpuProof {
+            trigger_wall_millis: 15_000,
+            ..good
+        });
+        reject(CpuProof {
+            sampling_valid: false,
+            ..good
+        });
+        reject(CpuProof {
+            live_child_observed: false,
+            ..good
+        });
+        reject(CpuProof {
+            priority_rechecked: false,
+            ..good
+        });
+        reject(CpuProof {
+            exact_job_dispatched: false,
+            ..good
+        });
+        reject(CpuProof {
+            physical_expected_exit: false,
+            ..good
+        });
+        reject(CpuProof {
+            cleanup_complete: false,
+            ..good
+        });
+        reject(CpuProof {
+            terminal_denied: false,
+            ..good
+        });
+        reject(CpuProof {
+            exact_marker: false,
+            ..good
+        });
+        reject(CpuProof {
+            stats_valid: false,
+            ..good
+        });
+        reject(CpuProof {
+            natural_exit: true,
+            ..good
+        });
+        reject(CpuProof {
+            job_closed: true,
+            ..good
+        });
+        reject(CpuProof {
+            worker_error: false,
+            ..good
+        });
+        reject(CpuProof {
+            fallback_used: true,
+            ..good
+        });
+        assert!(!good.passes(false, Some(CPU_WATCHDOG_EXIT), WORKER_CPU_TICKS, 0));
+        for exit in [None, Some(0), Some(1), Some(3)] {
+            assert!(!good.passes(true, exit, WORKER_CPU_TICKS, 0));
+        }
+        assert!(!good.passes(true, Some(CPU_WATCHDOG_EXIT), WORKER_CPU_TICKS - 1, 0));
+    }
+    #[test]
+    fn cpu_native_proof_retains_the_actual_native_counter_and_original_exit_requirements() {
+        let good = CpuProof {
+            mechanism: CpuMechanism::NativeJobCpuLimit,
+            trigger_user_100ns: 0,
+            trigger_wall_millis: 0,
+            live_child_observed: false,
+            priority_rechecked: false,
+            exact_job_dispatched: false,
+            physical_expected_exit: false,
+            natural_exit: true,
+            ..parent_cpu_proof()
+        };
+        assert!(good.passes(true, Some(1), WORKER_CPU_TICKS, 1));
+        assert!(!good.passes(true, Some(1), WORKER_CPU_TICKS, 0));
+        assert!(!good.passes(true, Some(0), WORKER_CPU_TICKS, 1));
+        assert!(!good.passes(true, None, WORKER_CPU_TICKS, 1));
+        assert!(!CpuProof {
+            natural_exit: false,
+            ..good
+        }
+        .passes(true, Some(1), WORKER_CPU_TICKS, 1));
+        assert!(!CpuProof {
+            worker_error: false,
+            ..good
+        }
+        .passes(true, Some(1), WORKER_CPU_TICKS, 1));
+        assert!(!CpuProof {
+            exact_job_dispatched: true,
+            ..good
+        }
+        .passes(true, Some(1), WORKER_CPU_TICKS, 1));
+    }
+    #[test]
+    fn cpu_receipt_serialises_only_the_fixed_causal_schema_and_real_native_counter() {
+        let result = ResourceProbeResult {
+            code: "cpu-kill",
+            status: "PASS",
+            reason: "observed-synthetic-resource-containment",
+            elapsed_millis: 10_150,
+            exit_code: Some(CPU_WATCHDOG_EXIT),
+            cpu_user_100ns: WORKER_CPU_TICKS,
+            peak_memory_bytes: 1_638_400,
+            limit_terminations: 0,
+            boundary_available: true,
+            cpu_proof: Some(parent_cpu_proof()),
+        };
+        let body = serde_json::to_value(result).unwrap();
+        assert_eq!(body["limitTerminations"], 0);
+        assert_eq!(body["cpuUser100ns"], WORKER_CPU_TICKS);
+        assert_eq!(body["exitCode"], CPU_WATCHDOG_EXIT);
+        assert_eq!(body.as_object().unwrap().len(), 10);
+        let proof = body["cpuProof"].as_object().unwrap();
+        let expected = [
+            "mechanism",
+            "triggerUser100ns",
+            "triggerWallMillis",
+            "samplingValid",
+            "liveChildObserved",
+            "priorityRechecked",
+            "exactJobDispatched",
+            "physicalExpectedExit",
+            "cleanupComplete",
+            "terminalDenied",
+            "exactMarker",
+            "statsValid",
+            "naturalExit",
+            "jobClosed",
+            "workerError",
+            "fallbackUsed",
+        ];
+        assert_eq!(proof.len(), expected.len());
+        assert!(proof.keys().all(|key| expected.contains(&key.as_str())));
+        assert_eq!(proof["mechanism"], "parent-user-cpu-watchdog");
+        assert_eq!(proof["triggerUser100ns"], WORKER_CPU_TICKS);
+    }
     #[test]
     fn native_failure_exit_codes_are_pdf_codec_only_and_fail_closed() {
         for stage in PdfFailureStage::ALL {

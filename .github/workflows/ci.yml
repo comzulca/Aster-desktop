@@ -41,6 +41,8 @@ jobs:
         run: |
           python3 -I scripts/ci/check_tauri_versions.py --self-test
           python3 -I scripts/ci/check_tauri_versions.py --root .
+      - name: Reject forged or incomplete CPU containment receipts
+        run: python3 -I scripts/ci/verify_cpu_receipt.py --self-test
 
   frontend:
     needs: source-policy
@@ -347,6 +349,10 @@ jobs:
           $diagnosticReport = ($diagnostic -join "`n") | ConvertFrom-Json
           if ($diagnosticReport.schemaVersion -ne 1 -or -not $diagnosticReport.allPassed -or $diagnosticReport.cases.Count -ne 15 -or $diagnosticReport.resourceKillChecks.Count -ne 6) { throw 'Unexpected native attachment fixture receipt.' }
           if (@($diagnosticReport.cases | Where-Object { $_.status -cne 'PASS' }).Count -ne 0 -or @($diagnosticReport.resourceKillChecks | Where-Object { $_.status -cne 'PASS' }).Count -ne 0) { throw 'Every codec and resource case requires an independently observed PASS.' }
+          python -I scripts/ci/verify_cpu_receipt.py --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I scripts/ci/verify_cpu_receipt.py --receipt reports/attachment-worker-fixture.json
+          if ($LASTEXITCODE -ne 0) { throw 'Independent causal CPU receipt validation failed; package promotion denied.' }
           git diff --exit-code -- pnpm-lock.yaml src-tauri/Cargo.lock
           if ($LASTEXITCODE -ne 0) { throw 'Locked dependency inputs changed during the build.' }
           git diff --exit-code
