@@ -19,6 +19,10 @@
     "allow-delete-conversation",
     "allow-send-message",
     "allow-cancel-message",
-    "allow-window-action"
+    "allow-window-action",
+    "allow-startup-shell-ready",
+    "allow-select-attachments",
+    "allow-remove-attachment",
+    "allow-review-processed-attachment"
   ]
 }

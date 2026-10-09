@@ -22,6 +22,7 @@ $cargo = Join-Path $RustBin 'cargo.exe'
 $gitBin = 'C:\Program Files\Git\cmd'
 $env:PATH = (Join-Path $RuntimeRoot 'node/bin') + ';' + (Join-Path $RuntimeRoot 'bin/fallback') + ';' + $RustBin + ';' + $gitBin + ';' + $env:PATH
 $env:CARGO_HOME = $CargoCache
+$env:RUSTC = Join-Path $RustBin 'rustc.exe'
 $env:CARGO_NET_OFFLINE = 'true'
 $env:CARGO_INCREMENTAL = '0'
 $env:ASTER_DISABLE_LIVE = '1'

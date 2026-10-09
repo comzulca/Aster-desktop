@@ -678,8 +678,13 @@ mod native {
 
         // This deliberately bypasses admission only to exercise malformed
         // stored blobs. It cannot name the real app credential or cross IPC.
-        fn write_malformed_fixture_blob(target_name: &str, blob: &mut [u8]) {
-            assert!(target_name.starts_with(&format!("{TARGET}/synthetic-ci-")));
+        fn write_malformed_fixture_blob(
+            target_name: &str,
+            blob: &mut [u8],
+        ) -> Result<(), CredentialError> {
+            if !synthetic_ci_target(target_name) {
+                return Err(CredentialError::Rejected);
+            }
             assert!(blob.len() <= 5 * 512);
             let target = wide(target_name);
             let user = wide("synthetic-fixture");
@@ -699,7 +704,175 @@ mod native {
             };
             // SAFETY: only a disposable synthetic target; all buffers remain
             // live for the call. No key is printed or read from a real target.
-            assert_ne!(unsafe { CredWriteW(&entry, 0) }, 0);
+            if unsafe { CredWriteW(&entry, 0) } == 0 {
+                return Err(CredentialError::System);
+            }
+            Ok(())
+        }
+
+        // Closed to this test-only namespace; no production target, argument,
+        // environment override or native dialogue can enter these helpers.
+        fn synthetic_ci_target(target: &str) -> bool {
+            let prefix = format!("{TARGET}/synthetic-ci-");
+            let Some(suffix) = target.strip_prefix(&prefix) else {
+                return false;
+            };
+            let suffix = suffix.strip_prefix("malformed-").unwrap_or(suffix);
+            let Some((pid, nanos)) = suffix.split_once('-') else {
+                return false;
+            };
+            !pid.is_empty()
+                && pid.len() <= 10
+                && pid.bytes().all(|byte| byte.is_ascii_digit())
+                && pid.parse::<u32>().is_ok()
+                && !nanos.is_empty()
+                && nanos.len() <= 39
+                && nanos.bytes().all(|byte| byte.is_ascii_digit())
+                && nanos.parse::<u128>().is_ok()
+        }
+
+        fn raw_fixture_present(target_name: &str) -> Result<bool, CredentialError> {
+            if !synthetic_ci_target(target_name) {
+                return Err(CredentialError::Rejected);
+            }
+            let target = wide(target_name);
+            let mut pointer: *mut CREDENTIALW = ptr::null_mut();
+            // SAFETY: only a bounded generated CI fixture target, with a live
+            // NUL-terminated buffer. No blob is decoded/copied/logged.
+            if unsafe { CredReadW(target.as_ptr(), CRED_TYPE_GENERIC, 0, &mut pointer) } == 0 {
+                return if unsafe { GetLastError() } == ERROR_NOT_FOUND {
+                    Ok(false)
+                } else {
+                    Err(CredentialError::System)
+                };
+            }
+            if pointer.is_null() {
+                return Err(CredentialError::System);
+            }
+            let _allocation = FixtureAllocation(pointer);
+            Ok(true) // Malformed existing entries are still present.
+        }
+
+        fn require_fixture_absent(
+            present: Result<bool, CredentialError>,
+        ) -> Result<(), CredentialError> {
+            match present? {
+                false => Ok(()),
+                true => Err(CredentialError::Rejected),
+            }
+        }
+
+        struct SyntheticCleanup<D: FnMut(&str) -> Result<bool, CredentialError>> {
+            target: String,
+            armed: bool,
+            delete: D,
+        }
+
+        impl<D: FnMut(&str) -> Result<bool, CredentialError>> SyntheticCleanup<D> {
+            fn new(target: String, delete: D) -> Result<Self, CredentialError> {
+                if !synthetic_ci_target(&target) {
+                    return Err(CredentialError::Rejected);
+                }
+                Ok(Self {
+                    target,
+                    armed: false,
+                    delete,
+                })
+            }
+
+            fn arm_after_write(
+                &mut self,
+                written: Result<(), CredentialError>,
+            ) -> Result<(), CredentialError> {
+                written?;
+                self.armed = true;
+                Ok(())
+            }
+
+            fn disarm_after_absence(
+                &mut self,
+                present: Result<bool, CredentialError>,
+            ) -> Result<(), CredentialError> {
+                require_fixture_absent(present)?;
+                self.armed = false;
+                Ok(())
+            }
+        }
+
+        impl<D: FnMut(&str) -> Result<bool, CredentialError>> Drop for SyntheticCleanup<D> {
+            fn drop(&mut self) {
+                // Best effort on unwinding only, and only after our write.
+                // Never claim guaranteed cleanup after abort/forced termination
+                // or atomic ownership against a malicious same-user racer.
+                if self.armed {
+                    let _ = (self.delete)(&self.target);
+                }
+            }
+        }
+
+        #[test]
+        fn synthetic_cleanup_denies_foreign_targets_and_preexisting_entries_without_os_calls() {
+            use std::cell::Cell;
+            let deletions = Cell::new(0);
+            let target = format!("{TARGET}/synthetic-ci-1-2");
+            assert!(synthetic_ci_target(&target));
+            assert!(synthetic_ci_target(&format!(
+                "{TARGET}/synthetic-ci-malformed-1-2"
+            )));
+            for foreign in [
+                TARGET.to_owned(),
+                format!("{TARGET}/synthetic-ci-1-2/foreign"),
+                format!("{TARGET}/synthetic-ci-other-1-2"),
+                format!("{TARGET}/synthetic-ci-1-"),
+            ] {
+                assert!(!synthetic_ci_target(&foreign));
+                assert!(SyntheticCleanup::new(foreign, |_| {
+                    deletions.set(deletions.get() + 1);
+                    Ok(true)
+                })
+                .is_err());
+            }
+            for presence in [Ok(true), Err(CredentialError::System)] {
+                let _cleanup = SyntheticCleanup::new(target.clone(), |_| {
+                    deletions.set(deletions.get() + 1);
+                    Ok(true)
+                })
+                .unwrap();
+                assert!(require_fixture_absent(presence).is_err());
+            }
+            assert_eq!(deletions.get(), 0);
+            assert_eq!(require_fixture_absent(Ok(false)), Ok(()));
+        }
+
+        #[test]
+        fn synthetic_cleanup_requires_successful_write_and_verified_absence_without_os_calls() {
+            use std::cell::Cell;
+            let deletions = Cell::new(0);
+            let target = format!("{TARGET}/synthetic-ci-1-2");
+            for (written, absence, expected) in [
+                (Err(CredentialError::System), None, 0),
+                (Ok(()), None, 1),
+                (Ok(()), Some(Ok(false)), 0),
+                (Ok(()), Some(Ok(true)), 1),
+                (Ok(()), Some(Err(CredentialError::System)), 1),
+            ] {
+                deletions.set(0);
+                {
+                    let mut cleanup = SyntheticCleanup::new(target.clone(), |_| {
+                        deletions.set(deletions.get() + 1);
+                        Ok(true)
+                    })
+                    .unwrap();
+                    assert_eq!(cleanup.arm_after_write(written), written);
+                    if let Some(present) = absence {
+                        assert_eq!(
+                            cleanup.disarm_after_absence(present),
+                            require_fixture_absent(present)
+                        );
+                    }
+                }
+                assert_eq!(deletions.get(), expected);
+            }
         }
 
         #[test]
@@ -719,15 +892,11 @@ mod native {
                 .expect("system time available")
                 .as_nanos();
             let target = format!("{TARGET}/synthetic-ci-{}-{unique}", std::process::id());
-            struct Cleanup(String);
-            impl Drop for Cleanup {
-                fn drop(&mut self) {
-                    let _ = delete_at(&self.0);
-                }
-            }
-            let _cleanup = Cleanup(target.clone());
-            assert!(!configured_at(&target).unwrap());
-            write_at(&target, "LLM|0|synthetic-fixture-key-123").unwrap();
+            let mut cleanup = SyntheticCleanup::new(target.clone(), delete_at).unwrap();
+            require_fixture_absent(raw_fixture_present(&target)).unwrap();
+            cleanup
+                .arm_after_write(write_at(&target, "LLM|0|synthetic-fixture-key-123"))
+                .unwrap();
             assert!(configured_at(&target).unwrap());
             assert_eq!(
                 read_at(&target).unwrap().as_str(),
@@ -742,7 +911,9 @@ mod native {
                 "LLM|0|synthetic-ascii-key-123"
             );
             assert!(delete_at(&target).unwrap());
-            assert!(!configured_at(&target).unwrap());
+            cleanup
+                .disarm_after_absence(raw_fixture_present(&target))
+                .unwrap();
         }
 
         #[test]
@@ -756,14 +927,8 @@ mod native {
                 "{TARGET}/synthetic-ci-malformed-{}-{unique}",
                 std::process::id()
             );
-            struct Cleanup(String);
-            impl Drop for Cleanup {
-                fn drop(&mut self) {
-                    let _ = delete_at(&self.0);
-                }
-            }
-            let _cleanup = Cleanup(target.clone());
-            assert!(!configured_at(&target).unwrap());
+            let mut cleanup = SyntheticCleanup::new(target.clone(), delete_at).unwrap();
+            require_fixture_absent(raw_fixture_present(&target)).unwrap();
             let mut terminated: Vec<u8> = b"synthetic-key".iter().flat_map(|b| [*b, 0]).collect();
             terminated.extend_from_slice(&[0, 0]);
             for blob in [
@@ -773,11 +938,16 @@ mod native {
                 vec![b'x'; 514],
             ] {
                 let mut blob = Zeroizing::new(blob);
-                write_malformed_fixture_blob(&target, &mut blob);
+                cleanup
+                    .arm_after_write(write_malformed_fixture_blob(&target, &mut blob))
+                    .unwrap();
                 assert!(!configured_at(&target).unwrap());
                 assert_eq!(read_at(&target).err(), Some(CredentialError::Rejected));
             }
             assert!(delete_at(&target).unwrap());
+            cleanup
+                .disarm_after_absence(raw_fixture_present(&target))
+                .unwrap();
         }
     }
 }

@@ -7,7 +7,7 @@ describe('closed Meta/persistence IPC envelope (T-055)', () => {
   it('uses one input DTO with no authorisation or renderer transcript', async () => {
     (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');
-    const input = { conversationId: 'c', requestId: 'req_1', modelId: DEFAULT_MODEL, message: 'Synthetic example', dataClass: 'synthetic' as const, reasoningEffort: 'medium' as const };
+    const input = { conversationId: 'c', requestId: 'req_1', modelId: DEFAULT_MODEL, message: 'Synthetic example', dataClass: 'synthetic' as const, reasoningEffort: 'medium' as const, attachmentIds: [] };
     await nativeBridge.sendMessage(input); expect(invoke).toHaveBeenLastCalledWith('send_message', { input });
     await nativeBridge.loadConversation({ conversationId: 'c' }); expect(invoke).toHaveBeenLastCalledWith('load_conversation', { input: { conversationId: 'c' } });
     await nativeBridge.deleteConversation({ conversationId: 'c' }); expect(invoke).toHaveBeenLastCalledWith('delete_conversation', { input: { conversationId: 'c' } });
@@ -42,5 +42,25 @@ describe('closed Meta/persistence IPC envelope (T-055)', () => {
     expect(listen).toHaveBeenLastCalledWith('aster://close-request', expect.any(Function)); expect(typeof unsubscribe).toBe('function');
     (vi.mocked(listen).mock.calls.at(-1)![1] as (event: unknown) => void)({ payload: undefined }); expect(callback).toHaveBeenCalledOnce();
     expect(JSON.stringify(vi.mocked(invoke).mock.calls)).not.toMatch(/target|label|path|commandLine|apiKey|grant|spend|credential/);
+  });
+  it('uses closed attachment intent and versioned one-shot shell scheduling commands, never paths or original bytes (T-075/T-077/T-080)', async () => {
+    (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');
+    await nativeBridge.selectAttachments!({ conversationId: 'a'.repeat(32) });
+    expect(invoke).toHaveBeenLastCalledWith('select_attachments', { input: { conversationId: 'a'.repeat(32) } });
+    await nativeBridge.removeAttachment!({ conversationId: 'a'.repeat(32), attachmentId: 'b'.repeat(32) });
+    expect(invoke).toHaveBeenLastCalledWith('remove_attachment', { input: { conversationId: 'a'.repeat(32), attachmentId: 'b'.repeat(32) } });
+    await nativeBridge.viewProcessedAttachment!({ conversationId: 'a'.repeat(32), requestId: 'c'.repeat(32), attachmentId: 'b'.repeat(32) });
+    expect(invoke).toHaveBeenLastCalledWith('review_processed_attachment', { input: { conversationId: 'a'.repeat(32), requestId: 'c'.repeat(32), attachmentId: 'b'.repeat(32) } });
+    await nativeBridge.shellReady!({ protocolVersion: 1 });
+    expect(invoke).toHaveBeenLastCalledWith('startup_shell_ready', { input: { protocolVersion: 1 } });
+    expect(JSON.stringify(vi.mocked(invoke).mock.calls)).not.toMatch(/path|url|base64|approved|ownerHwnd|fileBytes|action/);
+  });
+  it('does not imitate file selection or readiness when there is no native host', async () => {
+    const { nativeBridge } = await import('./bridge');
+    await expect(nativeBridge.selectAttachments!({ conversationId: 'a'.repeat(32) })).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.removeAttachment!({ conversationId: 'a'.repeat(32), attachmentId: 'b'.repeat(32) })).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.viewProcessedAttachment!({ conversationId: 'a'.repeat(32), requestId: 'c'.repeat(32), attachmentId: 'b'.repeat(32) })).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.shellReady!({ protocolVersion: 1 })).rejects.toThrow('host_unavailable');
   });
 });

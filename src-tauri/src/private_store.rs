@@ -9,6 +9,7 @@ pub(crate) enum Domain {
     History,
     Budget,
     Terms,
+    ProcessedMedia,
 }
 
 impl Domain {
@@ -17,6 +18,7 @@ impl Domain {
             Self::History => "history-v1",
             Self::Budget => "budget-v1",
             Self::Terms => "terms-v1",
+            Self::ProcessedMedia => "processed-media-v1",
         }
     }
 
@@ -25,6 +27,7 @@ impl Domain {
             Self::History => (4 * 1024 * 1024, 64 * 1024 * 1024, 8192),
             Self::Budget => (64 * 1024, 32 * 1024 * 1024, 32768),
             Self::Terms => (16 * 1024, 1024 * 1024, 512),
+            Self::ProcessedMedia => (6 * 1024 * 1024, 128 * 1024 * 1024, 512),
         }
     }
 }

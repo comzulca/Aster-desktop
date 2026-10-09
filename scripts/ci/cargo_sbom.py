@@ -46,7 +46,10 @@ def make_reports(metadata: dict) -> tuple[dict, dict]:
             "bom-ref": stable_ref(package_id),
             "name": pkg["name"],
             "version": pkg["version"],
-            "properties": [{"name": "cargo:declared-license", "value": declared_license}],
+            "properties": [
+                {"name": "cargo:declared-license", "value": declared_license},
+                {"name": "cargo:source-type", "value": source_type},
+            ],
         }
         if declared_license != "UNKNOWN":
             # Cargo permits the legacy slash separator as an alternative to OR.

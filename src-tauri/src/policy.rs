@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use tokio::sync::watch;
 
-pub const POLICY_VERSION: u32 = 3;
+pub const POLICY_VERSION: u32 = 4;
 pub const DEFAULT_MODEL: &str = "muse-spark-1.3-contributor";
 pub const MAX_MESSAGE_BYTES: usize = 32 * 1024;
 pub const MAX_CONTEXT_BYTES: usize = 512 * 1024;

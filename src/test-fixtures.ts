@@ -1,14 +1,21 @@
 import { vi } from 'vitest';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { DEFAULT_MODEL, type AppStatus, type Bridge, type Conversation, type StreamEvent } from './types';
 
 export const baseline: AppStatus = {
-  protocolVersion: 3, policyVersion: 3, configured: true, credentialAvailable: true,
+  protocolVersion: 4, policyVersion: 4, configured: true, credentialAvailable: true,
   defaultModel: DEFAULT_MODEL, models: [{ id: DEFAULT_MODEL, label: 'Muse Spark 1.3 · Contributor' }],
   activeRequest: false, projectSelected: false, projectLabel: null,
-  capabilities: { projectRead: false, proposals: false, applyNewFile: false, applyExistingFile: false },
+  capabilities: { projectRead: false, proposals: false, applyNewFile: false, applyExistingFile: false, attachmentImport: false },
   availability: 'ready', contributor: { termsRevision: '2026-10-02', accepted: true, eligible: true }, historyAvailable: true,
   budget: { accountId: 'a'.repeat(32), pending: [], configured: true, period: '2026-10', limitNanoGbp: '89000000000', spentNanoGbp: '0', reservedNanoGbp: '0', remainingNanoGbp: '89000000000', warning: false, requiresReconciliation: false, configurationExpiresAt: 1790964000 },
 };
+export async function selectClassification(value: 'synthetic' | 'public_eligible') {
+  await userEvent.click(screen.getByRole('button', { name: 'Reasoning effort' }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Classify content' }));
+  await userEvent.click(screen.getByRole('menuitemradio', { name: value === 'synthetic' ? 'Synthetic' : 'Eligible public' }));
+}
 export function saved(id: string, title: string, updatedAt = 1): Conversation {
   return { id, title, updatedAt, entries: [{ id: `${id}_u`, role: 'user', content: title, requestId: `${id}_r`, state: 'completed' }, { id: `${id}_a`, role: 'assistant', content: `Reply for ${id}`, requestId: `${id}_r`, state: 'completed' }] };
 }

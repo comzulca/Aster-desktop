@@ -1,4 +1,25 @@
+<!-- OCT9 FINAL FOLLOW-UP BEGIN -->
+> Operational follow-up — 2026-10-09 14:18:44 UTC: the [completed-source reconciliation](OCT9-RECONCILIATION-20261009.md#completed-p11-and-final-documentation-follow-up) records the newer tested-source facts and owner decision. For the observed status of later documentation-only CI, normal integration, actual main-push and Gmail handling, consult the [PR #30 closing receipt](https://github.com/comzulca/Aster-desktop/pull/30#issuecomment-6082465272), [live PR #30](https://github.com/comzulca/Aster-desktop/pull/30) and [Actions](https://github.com/comzulca/Aster-desktop/actions). Earlier cutoffs below remain dated history; green results never transfer to a changed source. The glib alert remains OPEN for separate work; manual/live/signing/production acceptance is not inferred.
+<!-- OCT9 FINAL FOLLOW-UP END -->
+
+<!-- OCT9 CURRENT APPLICABILITY BEGIN -->
+> Current-source applicability — 9 October 2026, 13:02:58 UTC: the [dated reconciliation](OCT9-RECONCILIATION-20261009.md) owns the newer exact-source outcomes and their limits. Earlier “current”, “pending” and NOT RUN statements below remain source-bound history where superseded there; original bodies and before-code approvals are preserved. P10 hosted success does not qualify a changed cumulative source. Final-source CI/package gates require re-execution; owner flicker FAIL, all 42 compound cases NOT RUN and independent manual/live/signing/production obligations remain.
+<!-- OCT9 CURRENT APPLICABILITY END -->
+
 # OWNER-STARTUP-V022-0001 — v0.2.2 flickering report and v0.2.3 follow-up
+
+<!-- P10 CURRENT APPLICABILITY BEGIN -->
+> Current-source applicability — 8 October 2026, 21:51:41 UTC: the [dated reconciliation](OCT8-RECONCILIATION-20261008.md) owns this checkpoint. PR #38 and #31–#35 are normally merged after their four exact-source gates; #36/#37 remain pending. P9's complete Windows suite is FAIL; its isolated synthetic diagnostic PASS does not override it. The [P10 scoped-factory contract](PDF-SCOPED-FACTORIES-20261008.md) received before-code design approval at 21:47:59 UTC; source/documentation preparation is in progress, not a published or native/package PASS. Earlier “current” headings and statuses below are retained dated history, not the latest source result. The dependency auxiliary case is a private child lease-denial test, not Credential Manager proof. Owner v0.2.2 flicker/Code Integrity FAIL and all 42 compound cases NOT RUN remain; manual/live/signing/production acceptance is not inferred.
+<!-- P10 CURRENT APPLICABILITY END -->
+
+> Current-source applicability — 8 October 2026, P9 preparation: the [dated reconciliation](OCT8-RECONCILIATION-20261008.md) supersedes current-status claims below. PR #38 and #31–#34 are normally merged after four source-bound gates; PR #35–#37 and PR #30 are not complete. P8's native Windows access violation remains FAIL, its installer SKIPPED. The [P9 contract](PDF-CRASH-DIAGNOSTIC-20261008.md) admits only test-only diagnosis after the unchanged complete suite fails; 112 counted pure checks and static review are not native qualification or an installer PASS. The dependency auxiliary test is an isolation lease test, not native credential execution. Original dated results, owner v0.2.2 flicker/Code Integrity FAIL, credential custody and manual/live/production obligations remain unchanged.
+
+## Current evidence navigation — 8 October 2026
+
+The [8 October reconciliation record](../qa/OCT8-RECONCILIATION-20261008.md) owns the actual latest source, dependency, design, CI/package and remaining acceptance status. The original dated checkpoints below retain their own source and outcomes. Earlier “current”, “pending”, authority or no-publication wording is historical where superseded there; no previous PASS transfers to changed source. Source design, hosted synthetic qualification and owner installed/native/live/production acceptance remain independent. Preserve the owner-reported startup FAIL and every earlier execution failure.
+
+
+Historical predecessor evidence copied from remote main `23524097156f652e7f0fcfb3a8af49cfcf8f6bc7`. The record below describes the separate v0.2.2 amendment, not current v0.2.3 authority or results. Current v0.2.3 mitigation, owner-selected bounded initial presentation and fresh acceptance are defined in SPEC-0005/ADR-0018/LOCAL-V023-0001. No delay is claimed to prove completed native paint or cure the defect.
 
 Recorded on 4 October 2026, Europe/London (BST), at 2026-10-04T09:03:08Z. Status: **FAIL (owner-reported installed v0.2.2 flickering)**. This is a manual owner observation, not an agent-executed test or a universal Windows acceptance verdict.
 

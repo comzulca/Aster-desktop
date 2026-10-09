@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { nativeBridge } from './bridge';
-import { formatGbp, parseGbp, MAX_CONVERSATION_BYTES, MAX_MESSAGE_BYTES, MODEL_LABEL, REASONING_EFFORTS, utf8Bytes, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
-import { DEFAULT_MODEL, type AppStatus, type Bridge, type BudgetIntent, type Conversation, type ConversationEntry, type ConversationSummary, type DataClass, type ReasoningEffort, type WindowAction } from './types';
+import { formatGbp, parseGbp, MAX_CONVERSATION_BYTES, MAX_MESSAGE_BYTES, MODEL_LABEL, REASONING_EFFORTS, utf8Bytes, validAttachmentSummaries, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
+import { DEFAULT_MODEL, type AppStatus, type AttachmentSummary, type Bridge, type BudgetIntent, type Conversation, type ConversationEntry, type ConversationSummary, type DataClass, type ReasoningEffort, type WindowAction } from './types';
 import wordmark from './assets/aster-wordmark.png';
 import readyArtwork from './assets/aster-ready.png';
 import { DraftMemory, editSelection, findMatches, helpTitles, menuGroups, shortcutAction, type HelpPage, type LocalAction, type MenuName } from './local-ui';
@@ -15,7 +15,7 @@ const availabilityText: Record<AppStatus['availability'], string> = {
   needs_credential: 'Set up Meta in Settings before sending.',
   needs_budget: 'Configure the spending policy in Settings before sending.',
   attention_required: 'Attention required. Check Settings; sending is unavailable.',
-  ready: 'Ready for separately reviewed text requests.',
+  ready: 'Ready for separately reviewed requests.',
   busy: 'A request is in progress.',
   unsupported: 'The native Windows host is unavailable.',
 };
@@ -54,7 +54,7 @@ const errorText: Record<string, string> = {
   reasoning_denied: 'Choose Minimal, Low, Medium, High or Extra high reasoning. Other levels are not admitted.',
   request_replayed: 'This request identifier has already been used. Aster will not replay it.',
   contributor_terms_required: 'Review the current Contributor terms and account eligibility in Settings before sending.',
-  data_class_denied: 'Classify the content as synthetic or eligible public text. Other classifications are not admitted.',
+  data_class_denied: 'Classify the complete message and attachments as synthetic or eligible public content. Other classifications are not admitted.',
   data_admission_denied: 'The message or prior conversation failed Contributor data admission. Remove prohibited content or start a new eligible conversation; confirmation cannot override this denial.',
   budget_attention_required: 'The spending policy needs attention. Check Settings for expiry, pending charges, capacity or reconciliation; no financial record was reset.',
   disclosure_denied: 'The native disclosure review was declined. Nothing was sent.',
@@ -88,12 +88,23 @@ const errorText: Record<string, string> = {
   response_limit: 'The response exceeded a configured limit. It may be incomplete and is not reused as context; check any pending charge.',
   incomplete_answer: 'The response ended without valid completion. It is not reused as context; spending may require reconciliation.',
   provider_tools_denied: 'The provider attempted an unsupported tool operation. No tool was executed; the request was stopped without retry.',
+  attachments_unavailable: 'Attachment import is unavailable in this host. No file was read or sent.',
+  attachment_unavailable: 'Attachment processing is unavailable. Temporary attachment identifiers were discarded; nothing was sent.',
+  attachment_capacity: 'The selected files or processed history exceed an Aster limit. No content was silently truncated; nothing was sent.',
+  attachment_convert_to_pdf: 'DOCX, XLSX and PPTX require safe external conversion to PDF. Convert the complete document with your own trusted tool, check every page, sheet, slide and print range, then attach the PDF. Aster does not run or require an Office converter.',
+  attachment_denied: 'The selected file was not admitted. Check its format, content and the attachment limits; nothing was sent.',
+  attachment_limit: 'The attachment exceeds an Aster limit. Use a smaller complete file; no content was silently truncated.',
+  attachment_expired: 'The temporary attachment has expired or was removed. Select the file again before sending.',
+  attachment_conflict: 'The selected file changed or could not be read safely. No file was sent.',
+  attachment_invalid: 'The host returned invalid attachment metadata. Temporary attachment identifiers were discarded; nothing was sent.',
+  processed_attachment_denied: 'The processed attachment is unavailable or no longer belongs to this saved request. Nothing was sent and no original file was reconstructed.',
+  office_conversion_required: 'DOCX, XLSX and PPTX are not imported directly. Convert the complete document to PDF with your own trusted tool, check every page or sheet, then attach the PDF. Aster does not run an Office converter.',
 };
 function safeError(error: unknown, fallback: string): string {
   const code = typeof error === 'string' ? error : error instanceof Error ? error.message : '';
   return errorText[code] ?? fallback; // Never render provider bodies or arbitrary host error text.
 }
-function Icon({ name, size = 20 }: { name: 'new' | 'search' | 'settings' | 'send' | 'stop' | 'close' | 'menu' | 'trash'; size?: number }) {
+function Icon({ name, size = 20 }: { name: 'new' | 'search' | 'settings' | 'send' | 'stop' | 'close' | 'menu' | 'trash' | 'plus'; size?: number }) {
   const paths: Record<typeof name, ReactNode> = {
     new: <><path d="M13 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8"/><path d="m10 14 1-4L20 1l3 3-9 9-4 1"/></>,
     search: <><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></>,
@@ -103,11 +114,92 @@ function Icon({ name, size = 20 }: { name: 'new' | 'search' | 'settings' | 'send
     close: <path d="m5 5 14 14M19 5 5 19"/>,
     menu: <path d="M3 6h18M3 12h18M3 18h18"/>,
     trash: <><path d="M4 6h16M9 3h6M6 6l1 15h10l1-15M10 10v7M14 10v7"/></>,
+    plus: <path d="M12 4v16M4 12h16"/>,
   };
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
 function UnionJack() {
   return <svg aria-hidden="true" width="32" height="20" viewBox="0 0 60 36"><defs><clipPath id="flag-boundary"><rect width="60" height="36"/></clipPath></defs><g clipPath="url(#flag-boundary)"><rect width="60" height="36" fill="#012169"/><path d="m0 0 60 36m0-36L0 36" stroke="#fff" strokeWidth="8"/><path d="m0 0 60 36m0-36L0 36" stroke="#c8102e" strokeWidth="3"/><path d="M30 0v36M0 18h60" stroke="#fff" strokeWidth="12"/><path d="M30 0v36M0 18h60" stroke="#c8102e" strokeWidth="7"/></g></svg>;
+}
+
+const effortLabel = (effort: ReasoningEffort) => effort === 'xhigh' ? 'Extra high' : effort[0].toUpperCase() + effort.slice(1);
+const classLabel = (classification: DataClass | '') => classification === 'synthetic' ? 'Synthetic' : classification === 'public_eligible' ? 'Eligible public' : 'Not classified';
+
+// One presentation popup, two independent policy values. This never approves
+// a disclosure and never changes classification when an effort is selected.
+function EffortControl({ effort, classification, disabled, onEffort, onClassify }: {
+  effort: ReasoningEffort; classification: DataClass | ''; disabled: boolean;
+  onEffort(value: ReasoningEffort): void; onClassify(value: DataClass): void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [child, setChild] = useState(false);
+  const region = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const classify = useRef<HTMLButtonElement>(null);
+  const focusAfterRender = useRef<'first' | 'last' | 'selected' | 'child' | 'classify' | null>(null);
+  const identifier = useId();
+  function dismiss(returnFocus = false) {
+    setOpen(false); setChild(false); focusAfterRender.current = null;
+    if (returnFocus && !disabled) trigger.current?.focus();
+  }
+  function reveal(focus: 'first' | 'last' | 'selected' = 'selected') {
+    if (disabled) return;
+    focusAfterRender.current = focus; setOpen(true); setChild(false);
+  }
+  function revealChild() {
+    if (disabled) return;
+    focusAfterRender.current = 'child'; setChild(true);
+  }
+  useEffect(() => {
+    if (disabled) { setOpen(false); setChild(false); focusAfterRender.current = null; }
+  }, [disabled]);
+  useEffect(() => {
+    const pending = focusAfterRender.current; focusAfterRender.current = null;
+    if (!open || disabled || !pending) return;
+    if (pending === 'classify') { classify.current?.focus(); return; }
+    const items = [...(region.current?.querySelectorAll<HTMLButtonElement>(pending === 'child' ? '[data-class-item]' : '[data-effort-item]') ?? [])];
+    (pending === 'last' ? items.at(-1) : pending === 'selected' ? items.find(item => item.getAttribute('aria-checked') === 'true') ?? items[0] : items[0])?.focus();
+  }, [open, child, disabled]);
+  useEffect(() => {
+    if (!open) return;
+    function outside(event: MouseEvent) { if (!region.current?.contains(event.target as Node)) { setOpen(false); setChild(false); } }
+    window.addEventListener('mousedown', outside);
+    return () => window.removeEventListener('mousedown', outside);
+  }, [open]);
+  function keys(event: KeyboardEvent<HTMLElement>, inChild: boolean) {
+    if (disabled) { event.preventDefault(); dismiss(); return; }
+    if (event.key === 'Tab') { dismiss(); return; }
+    if (event.key === 'Escape') {
+      event.preventDefault(); event.stopPropagation();
+      if (inChild) { focusAfterRender.current = 'classify'; setChild(false); } else dismiss(true);
+      return;
+    }
+    if (inChild && event.key === 'ArrowLeft') { event.preventDefault(); event.stopPropagation(); focusAfterRender.current = 'classify'; setChild(false); return; }
+    if (!inChild && event.key === 'ArrowRight' && document.activeElement === classify.current) { event.preventDefault(); revealChild(); return; }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault(); event.stopPropagation();
+    const items = [...(region.current?.querySelectorAll<HTMLButtonElement>(inChild ? '[data-class-item]' : '[data-effort-item]') ?? [])];
+    const index = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus(); items[next]?.scrollIntoView?.({ block: 'nearest' });
+  }
+  return <div className="effort-control" ref={region}>
+    <button ref={trigger} className="effort-trigger" aria-label="Reasoning effort" aria-describedby={`${identifier}-classification`} aria-haspopup="menu" aria-expanded={open} aria-controls={`${identifier}-effort`} disabled={disabled}
+      onClick={() => open ? dismiss(true) : reveal()} onKeyDown={event => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); reveal(event.key === 'ArrowDown' ? 'first' : 'last'); }
+        else if (event.key === 'Escape' && open) { event.preventDefault(); dismiss(true); }
+      }}><span>{effortLabel(effort)}</span><span aria-hidden="true">⌄</span></button>
+    <span id={`${identifier}-classification`} className="visually-hidden" aria-label="Content classification" role="status">{classLabel(classification)}</span>
+    {open && <div className="effort-popup-shell"><div className="effort-popup" id={`${identifier}-effort`} role="menu" aria-label="Reasoning effort options" onKeyDown={event => keys(event, false)}>
+      {REASONING_EFFORTS.map(value => <button key={value} type="button" data-effort-item role="menuitemradio" aria-checked={effort === value} disabled={disabled} onClick={() => { if (!disabled) { onEffort(value); dismiss(true); } }}><span>{effortLabel(value)}</span></button>)}
+      <div className="menu-separator" role="separator"/>
+      <button ref={classify} data-effort-item type="button" role="menuitem" aria-label="Classify content" aria-haspopup="menu" aria-expanded={child} aria-controls={`${identifier}-classification-menu`} disabled={disabled} onClick={revealChild}><span>Classify content</span><span aria-hidden="true">›</span></button>
+    </div>
+      {child && <div className="classification-popup" id={`${identifier}-classification-menu`} role="menu" aria-label="Content classification options" onKeyDown={event => { event.stopPropagation(); keys(event, true); }}>
+        {(['synthetic', 'public_eligible'] as const).map(value => <button key={value} type="button" data-class-item role="menuitemradio" aria-checked={classification === value} disabled={disabled} onClick={() => { if (!disabled) { onClassify(value); dismiss(true); } }}><span>{classLabel(value)}</span></button>)}
+      </div>}
+    </div>}
+  </div>;
 }
 
 export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
@@ -119,6 +211,10 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const [draft, setDraft] = useState('');
   const [dataClass, setDataClass] = useState<DataClass | ''>('');
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('medium');
+  const [attachments, setAttachments] = useState<AttachmentSummary[]>([]);
+  const attachmentState = useRef<{ conversationId: string | null; items: AttachmentSummary[] }>({ conversationId: null, items: [] });
+  const shellRef = useRef<HTMLDivElement>(null);
+  const shellReadySent = useRef(false);
   const [activeRequest, setActiveRequest] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -173,7 +269,18 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     return true;
   }
 
+  function discardAttachments(revoke = true) {
+    const previous = attachmentState.current;
+    attachmentState.current = { conversationId: null, items: [] }; setAttachments([]);
+    // Revocation is best-effort cleanup only; a failure never restores IDs or
+    // turns those IDs into renderer filesystem/disclosure authority.
+    if (revoke && previous.conversationId && bridge.removeAttachment) {
+      for (const item of previous.items) void bridge.removeAttachment({ conversationId: previous.conversationId, attachmentId: item.id }).catch(() => {});
+    }
+  }
+
   function adopt(value: Conversation | null) {
+    if (conversationRef.current !== (value?.id ?? null)) discardAttachments();
     conversationRef.current = value?.id ?? null;
     setConversation(value); setEntries(value?.entries ?? []);
     const restored = drafts.current.read(value?.id ?? '$unsaved'); draftValue.current = restored;
@@ -198,6 +305,49 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
   function isLocked() { return busyRef.current || Boolean(activeRef.current) || Boolean(statusRef.current?.activeRequest); }
   function markBusy(value: boolean) { busyRef.current = value; setBusy(value); }
+
+  useEffect(() => {
+    if (!bridge.shellReady || shellReadySent.current) return;
+    let disposed = false; let firstFrame: number | null = null; let secondFrame: number | null = null;
+    const cleanups: (() => void)[] = [];
+    const images = [...(shellRef.current?.querySelectorAll<HTMLImageElement>('img') ?? [])];
+    let outstanding = images.length;
+    function schedule() {
+      if (disposed || outstanding || firstFrame !== null || shellReadySent.current) return;
+      firstFrame = window.requestAnimationFrame(() => {
+        firstFrame = null;
+        if (disposed) return;
+        secondFrame = window.requestAnimationFrame(() => {
+          secondFrame = null;
+          if (disposed || shellReadySent.current) return;
+          // This is a scheduling signal only; host timing/native fallback is
+          // independent, and neither frame demonstrates painted pixels.
+          shellReadySent.current = true;
+          void bridge.shellReady!({ protocolVersion: 1 }).then(receipt => {
+            if (!receipt || receipt.accepted !== true || typeof receipt.visible !== 'boolean' || Object.keys(receipt).sort().join('|') !== 'accepted|visible') throw new Error('startup_signal_unavailable');
+          }).catch(() => { if (!disposed) setNotice('The startup scheduling signal could not be confirmed. The native fallback remains independent; no request was sent.'); });
+        });
+      });
+    }
+    for (const image of images) {
+      if (image.complete) { outstanding--; continue; }
+      let settled = false;
+      function finish() {
+        if (settled || disposed) return; settled = true; outstanding--;
+        image.removeEventListener('load', finish); image.removeEventListener('error', finish); schedule();
+      }
+      image.addEventListener('load', finish); image.addEventListener('error', finish);
+      cleanups.push(() => { image.removeEventListener('load', finish); image.removeEventListener('error', finish); });
+      // Avoid missing a cached asset that settled while listeners were added.
+      if (image.complete) finish();
+    }
+    schedule();
+    return () => {
+      disposed = true; cleanups.forEach(cleanup => cleanup());
+      if (firstFrame !== null) window.cancelAnimationFrame(firstFrame);
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [bridge]);
 
   useEffect(() => {
     const query = window.matchMedia?.('(max-width: 750px)');
@@ -227,6 +377,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
           }
           terminal.current.add(event.requestId);
           eventTerminals.current.add(event.requestId);
+          discardAttachments(false);
           activeRef.current = null; setActiveRequest(null); setCancelling(false);
           setEntries(current => current.map(entry => entry.role === 'assistant' && entry.requestId === event.requestId ? { ...entry, state: event.status! } : entry));
           if (event.status !== 'completed' || event.errorCode) setNotice(errorText[event.errorCode ?? event.status!] ?? 'The response did not complete. Nothing was retried; spending may require reconciliation.');
@@ -244,7 +395,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
           if (list.length) { const saved = await readConversation(list[0].id); if (!disposed) adopt(saved); }
         }
       } catch (error) {
-        if (!disposed) { statusRef.current = null; setStatus(null); setHostState('unavailable'); setNotice(safeError(error, 'The native host or its saved-history contract is unavailable or incompatible. Privileged actions are disabled.')); }
+        if (!disposed) { discardAttachments(); statusRef.current = null; setStatus(null); setHostState('unavailable'); setNotice(safeError(error, 'The native host or its saved-history contract is unavailable or incompatible. Privileged actions are disabled.')); }
       }
       finally { if (!disposed) markBusy(false); }
     }
@@ -348,11 +499,69 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     catch (error) { setNotice(safeError(error, fallback)); }
     finally { markBusy(false); }
   }
+  async function addAttachments() {
+    if (isLocked() || dialogStateRef.current || !statusRef.current?.historyAvailable || !statusRef.current.capabilities.attachmentImport || !bridge.selectAttachments || !bridge.removeAttachment || !preserveDraft()) return;
+    markBusy(true); setMenu(null); setNotice(null);
+    try {
+      if (!conversationRef.current) {
+        const value: unknown = await bridge.createConversation();
+        if (!validConversation(value)) throw new Error('history_unavailable');
+        if (!drafts.current.write(value.id, draftValue.current)) throw new Error('history_limit');
+        drafts.current.forget('$unsaved'); adopt(value); await refreshList();
+      }
+      const conversationId = conversationRef.current!;
+      const replacing = attachmentState.current.items.length > 0;
+      // The host replaces the complete batch before opening its selector.
+      // Pending/cancelled replacement cannot leave old IDs shown as current.
+      discardAttachments(false); setDataClass('');
+      const selected: unknown = await bridge.selectAttachments({ conversationId });
+      if (!validAttachmentSummaries(selected) || conversationRef.current !== conversationId) throw new Error('attachment_invalid');
+      // The native receipt describes the complete current batch, not a
+      // renderer-created merge or a grant copied from a different chat.
+      attachmentState.current = { conversationId, items: selected };
+      setAttachments(selected); setDataClass('');
+      if (!selected.length && replacing) setNotice('No replacement attachments were selected. The previous temporary attachments were discarded; your draft is unchanged and nothing was sent.');
+    } catch (error) {
+      discardAttachments();
+      setNotice(safeError(error, 'The files could not be imported safely. Temporary attachment identifiers were discarded; your draft is unchanged and nothing was sent.'));
+    } finally { markBusy(false); if (!dialogStateRef.current) draftRef.current?.focus(); }
+  }
+  async function removeAttachment(id: string) {
+    const current = attachmentState.current;
+    if (isLocked() || dialogStateRef.current || !bridge.removeAttachment || current.conversationId !== conversationRef.current || !current.conversationId || !current.items.some(item => item.id === id)) return;
+    markBusy(true);
+    try {
+      const receipt = await bridge.removeAttachment({ conversationId: current.conversationId, attachmentId: id });
+      if (!receipt || typeof receipt.removed !== 'boolean' || Object.keys(receipt).join('|') !== 'removed') throw new Error('attachment_invalid');
+      if (!receipt.removed) throw new Error('attachment_expired');
+      if (attachmentState.current !== current || conversationRef.current !== current.conversationId) return;
+      const items = current.items.filter(item => item.id !== id);
+      attachmentState.current = { conversationId: current.conversationId, items }; setAttachments(items); setDataClass('');
+    } catch (error) { discardAttachments(); setNotice(safeError(error, 'The attachment removal could not be confirmed. Temporary identifiers were discarded; your draft and saved history are unchanged.')); }
+    finally { markBusy(false); if (!dialogStateRef.current) draftRef.current?.focus(); }
+  }
+  async function viewProcessedAttachment(entry: DisplayEntry, attachment: AttachmentSummary, opener: HTMLButtonElement) {
+    const conversationId = conversationRef.current;
+    if (!conversationId || isLocked() || dialogStateRef.current || !statusRef.current?.historyAvailable || !bridge.viewProcessedAttachment || entry.role !== 'user' || attachment.kind === 'text' || !entry.processedAttachments?.some(item => item.id === attachment.id)) return;
+    markBusy(true); setMenu(null);
+    try {
+      // Saved metadata asks for a local native view only. It is never copied
+      // into attachmentState, sent as current import IDs or used as approval.
+      const result = await bridge.viewProcessedAttachment({ conversationId, requestId: entry.requestId, attachmentId: attachment.id });
+      if (!result || typeof result.viewed !== 'boolean' || Object.keys(result).join('|') !== 'viewed') throw new Error('processed_attachment_denied');
+    } catch (error) { setNotice(safeError(error, 'The processed content could not be displayed locally. Nothing was sent and the original was not restored.')); }
+    finally {
+      markBusy(false);
+      requestAnimationFrame(() => { if (opener.isConnected && !opener.disabled && !dialogStateRef.current) opener.focus(); });
+    }
+  }
   async function send() {
     const currentStatus = statusRef.current;
     if (isLocked() || !currentStatus || currentStatus.availability !== 'ready' || !validMessage(draft) || !dataClass || !['synthetic', 'public_eligible'].includes(dataClass) || !REASONING_EFFORTS.includes(reasoningEffort)) return;
     const message = draft;
     const classification = dataClass;
+    const selectedAttachments = attachmentState.current;
+    const attachmentIds = attachmentState.current.conversationId === conversationRef.current ? attachmentState.current.items.map(item => item.id) : [];
     markBusy(true); setNotice(null);
     let id = conversationRef.current;
     let issuedRequestId: string | null = null;
@@ -368,10 +577,12 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       activeRef.current = requestId; setActiveRequest(requestId); terminal.current.delete(requestId);
       setEntries(current => [...current, { id: uuid(), role: 'user', content: message, requestId, state: 'completed' }, { id: uuid(), role: 'assistant', content: '', requestId, state: 'streaming' }]);
       changeDraft(''); drafts.current.forget(draftKey());
-      const response = await bridge.sendMessage({ conversationId: id, requestId, modelId: DEFAULT_MODEL, message, dataClass: classification, reasoningEffort });
+      const response = await bridge.sendMessage({ conversationId: id, requestId, modelId: DEFAULT_MODEL, message, dataClass: classification, reasoningEffort, attachmentIds });
       if (response.requestId !== requestId || response.accepted !== true) throw new Error('request_denied');
+      if (attachmentState.current === selectedAttachments) discardAttachments(false);
     } catch (error) {
       if (issuedRequestId && eventTerminals.current.has(issuedRequestId)) return; // The terminal event won this race.
+      discardAttachments();
       // A declined native review has no saved intent. Keep the exact unsent
       // draft, but never replace a newer draft after a terminal-winning race.
       if (conversationRef.current === id && (!issuedRequestId || activeRef.current === issuedRequestId)) {
@@ -498,7 +709,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   function requestQuit() {
     if (isLocked() || dialogStateRef.current || !bridge.windowAction) return;
     setMenu(null);
-    if (draftValue.current.length || drafts.current.hasDrafts) openDialog('quit', document.activeElement instanceof HTMLElement ? document.activeElement : document.body);
+    if (draftValue.current.length || drafts.current.hasDrafts || attachmentState.current.items.length) openDialog('quit', document.activeElement instanceof HTMLElement ? document.activeElement : document.body);
     else void windowAction('close');
   }
   quitRef.current = requestQuit;
@@ -559,13 +770,14 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     void nativeAction(() => bridge.reconcileBudget({ requestId, confirmedChargeNanoGbp }), 'The pending charge was not reconciled. Existing reservations remain unchanged.');
   }
 
-  const canSend = !locked && status?.availability === 'ready' && validMessage(draft) && ['synthetic', 'public_eligible'].includes(dataClass) && REASONING_EFFORTS.includes(reasoningEffort);
+  const canSend = !locked && status?.availability === 'ready' && validMessage(draft) && ['synthetic', 'public_eligible'].includes(dataClass) && REASONING_EFFORTS.includes(reasoningEffort) && (!attachments.length || Boolean(status.capabilities.attachmentImport && attachmentState.current.conversationId === conversation?.id));
   const filteredSummaries = summaries.filter(item => item.title.toLocaleLowerCase('en-GB').includes(search.toLocaleLowerCase('en-GB')));
   const bytes = utf8Bytes(draft);
   const availability = hostState === 'checking' ? 'Checking the native host…' : hostState === 'unavailable' ? 'Native host unavailable or incompatible.' : status ? availabilityText[status.availability] : 'Unavailable';
   const matchCount = find ? entries.reduce((sum, entry) => sum + findMatches(entry.content, find).count, 0) : 0;
   const navigationVisible = sidebarVisible && (!compact || sidebarOpen);
-  return <><div className={`app-shell ${sidebarVisible ? '' : 'sidebar-hidden'}`} style={{ zoom: zoom / 100, width: '100%', height: '100%', '--interface-scale': zoom / 100 } as CSSProperties} onFocusCapture={event => captureEdit(event.target)} onSelectCapture={event => captureEdit(event.target)} onChangeCapture={event => captureEdit(event.target)}>
+  const canImport = !locked && !dialog && Boolean(status?.historyAvailable && status.capabilities.attachmentImport && bridge.selectAttachments && bridge.removeAttachment);
+  return <><div ref={shellRef} className={`app-shell ${sidebarVisible ? '' : 'sidebar-hidden'}`} style={{ zoom: zoom / 100, width: '100%', height: '100%', '--interface-scale': zoom / 100 } as CSSProperties} onFocusCapture={event => captureEdit(event.target)} onSelectCapture={event => captureEdit(event.target)} onChangeCapture={event => captureEdit(event.target)}>
     <a href="#main" className="skip-link">Skip to content</a>
     <div className="captionbar" aria-label="Window title bar">
       <div className="caption-drag-region" onMouseDown={event => { if (event.button === 0 && event.detail === 1 && !dialogStateRef.current) void windowAction('start_dragging'); }} onDoubleClick={() => { if (!dialogStateRef.current) void windowAction('toggle_maximise'); }}><img className="caption-emblem" src={launcherIcon} alt=""/><span>Aster Desktop</span></div>
@@ -599,33 +811,50 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       {findOpen && <div className="find-bar"><label><span className="visually-hidden">Find in this conversation</span><input ref={findRef} data-edit-key="find" type="search" aria-label="Find in this conversation" maxLength={256} value={find} disabled={locked} onChange={event => setFind(event.target.value.slice(0,256))} onKeyDown={event => { if (event.key === 'Escape') { setFindOpen(false); setFind(''); draftRef.current?.focus(); } }}/></label><span role="status">{matchCount} {matchCount === 1 ? 'match' : 'matches'}</span><button className="icon-button" aria-label="Close find" onClick={() => { setFindOpen(false); setFind(''); draftRef.current?.focus(); }}><Icon name="close" size={16}/></button></div>}
       <div className="content-area">
         {!entries.length ? <section className="welcome" aria-labelledby="welcome-title"><div className="ready-orb" aria-hidden="true"><img className="ready-artwork" src={readyArtwork} alt=""/></div><h1 id="welcome-title">Ready when you are.</h1></section> : <section className="messages" aria-label="Conversation messages">
-          {entries.map(entry => <article key={entry.id} className={`message message-${entry.role}`}><div className="message-avatar" aria-hidden="true">{entry.role === 'assistant' ? 'A' : 'Y'}</div><div className="message-body"><div className="message-meta"><strong>{entry.role === 'user' ? 'You' : 'Aster'}</strong>{entry.role === 'assistant' && <span>{MODEL_LABEL}</span>}</div><div className="message-text">{highlighted(entry.content || (entry.state === 'streaming' ? 'Waiting for a response…' : ''))}</div>{entry.role === 'assistant' && <p className={entry.state === 'completed' || entry.state === 'streaming' ? 'visually-hidden' : 'inline-state'} role="status">{entry.state === 'streaming' ? 'Receiving response' : entry.state === 'completed' ? 'Response completed' : entry.state === 'interrupted' ? 'Interrupted before restart. This incomplete response is not reused as context.' : entry.state === 'refused' ? 'Response refused. Not reused as context.' : entry.state === 'truncated' ? 'Response truncated. Not reused as context.' : entry.state === 'cancelled' ? 'Response stopped. Displayed text may be incomplete; spending may remain unresolved.' : 'Response failed. Displayed text may be incomplete; spending may remain unresolved.'}</p>}</div></article>)}<div ref={endRef}/>
+          {entries.map(entry => <article key={entry.id} className={`message message-${entry.role}`}>
+            <div className="message-avatar" aria-hidden="true">{entry.role === 'assistant' ? 'A' : 'Y'}</div>
+            <div className="message-body">
+              <div className="message-meta"><strong>{entry.role === 'user' ? 'You' : 'Aster'}</strong>{entry.role === 'assistant' && <span>{MODEL_LABEL}</span>}</div>
+              <div className="message-text">{highlighted(entry.content || (entry.state === 'streaming' ? 'Waiting for a response…' : ''))}</div>
+              {entry.role === 'user' && Boolean(entry.processedAttachments?.length) && <section className="processed-attachments" aria-label="Saved processed attachments">
+                <ul>{entry.processedAttachments!.map(item => <li key={item.id}>
+                  <span><strong>{item.label}</strong><small>{item.kind === 'text' ? 'Processed text' : item.kind === 'image' ? 'Processed image' : `${item.pageCount} processed ${item.pageCount === 1 ? 'page' : 'pages'}`} · local history only</small></span>
+                  {item.kind === 'text' ? <span className="attachment-details">Processed text is included in the message above.</span> : <button type="button" className="secondary-action" disabled={locked || Boolean(dialog) || !bridge.viewProcessedAttachment} aria-label={`View processed pages for ${item.label}`} onClick={event => void viewProcessedAttachment(entry, item, event.currentTarget)}>View processed pages</button>}
+                </li>)}</ul>
+                <p>Original files and disclosure permissions are not retained. {entry.processedAttachments!.some(item => item.kind === 'pdf') ? 'Reattach the original PDF for another complete native reading. ' : ''}{entry.processedAttachments!.some(item => item.kind !== 'text') ? 'Opening this local view sends nothing to Meta.' : 'Processed text is already included in the message; no original is restored.'}</p>
+              </section>}
+              {entry.role === 'assistant' && <p className={entry.state === 'completed' || entry.state === 'streaming' ? 'visually-hidden' : 'inline-state'} role="status">{entry.state === 'streaming' ? 'Receiving response' : entry.state === 'completed' ? 'Response completed' : entry.state === 'interrupted' ? 'Interrupted before restart. This incomplete response is not reused as context.' : entry.state === 'refused' ? 'Response refused. Not reused as context.' : entry.state === 'truncated' ? 'Response truncated. Not reused as context.' : entry.state === 'cancelled' ? 'Response stopped. Displayed text may be incomplete; spending may remain unresolved.' : 'Response failed. Displayed text may be incomplete; spending may remain unresolved.'}</p>}
+            </div>
+          </article>)}<div ref={endRef}/>
         </section>}
       </div>
       <div className="composer-zone">
         {notice && <div className="notice" role="status"><span>{notice}</span><button className="icon-button" aria-label="Dismiss notice" onClick={() => setNotice(null)}><Icon name="close" size={16}/></button></div>}
         <div className="composer"><label className="visually-hidden" htmlFor="message-input">Message for Aster</label><textarea ref={draftRef} id="message-input" placeholder="Ask Aster" value={draft} onChange={event => changeDraft(event.target.value)} disabled={locked || Boolean(dialog)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} rows={2} aria-describedby="composer-guidance message-limit"/>
-          <div className="composer-controls"><span className="fixed-model">{MODEL_LABEL}</span><div className="composer-options"><label><span className="visually-hidden">Reasoning effort</span><select aria-label="Reasoning effort" value={reasoningEffort} onChange={event => setReasoningEffort(event.target.value as ReasoningEffort)} disabled={locked}>{REASONING_EFFORTS.map(value => <option key={value} value={value}>{value === 'xhigh' ? 'Extra high' : value[0].toUpperCase() + value.slice(1)}</option>)}</select></label><label><span className="visually-hidden">Content classification</span><select aria-label="Content classification" value={dataClass} onChange={event => setDataClass(event.target.value as DataClass | '')} disabled={locked}><option value="">Classify content</option><option value="synthetic">Synthetic</option><option value="public_eligible">Eligible public</option></select></label></div>{activeRequest || status?.activeRequest ? <button className="send-button" aria-label="Stop response" title="Stop does not erase unresolved charges" onClick={() => void cancel()} disabled={!activeRequest || cancelling}><Icon name="stop"/></button> : <button className="send-button" aria-label="Send message" onClick={() => void send()} disabled={!canSend}><Icon name="send"/></button>}</div>
+          {Boolean(attachments.length) && <ul className="attachment-list" aria-label="Temporary attachments">{attachments.map(item => <li key={item.id}><span className="attachment-label">{item.label}</span><span className="attachment-details">{item.kind === 'pdf' ? `${item.pageCount} ${item.pageCount === 1 ? 'page' : 'pages'}` : item.kind === 'image' ? 'Image' : 'Text'} · {item.processedBytes.toLocaleString('en-GB')} bytes</span><button className="icon-button" aria-label={`Remove attachment ${item.label}`} disabled={locked || Boolean(dialog)} onClick={() => void removeAttachment(item.id)}><Icon name="close" size={14}/></button></li>)}</ul>}
+          <div className="composer-controls"><button className="attachment-button" aria-label="Add attachments" disabled={!canImport} title={status?.capabilities.attachmentImport ? 'Choose a complete replacement batch of eligible public or synthetic files in Windows. Cancelling discards previous temporary attachments. Convert DOCX, XLSX or PPTX to a complete PDF externally first.' : 'Attachment import is unavailable in this host.'} onClick={() => void addAttachments()}><Icon name="plus" size={22}/></button><span className="fixed-model">{MODEL_LABEL}</span><div className="composer-options"><EffortControl effort={reasoningEffort} classification={dataClass} disabled={locked || Boolean(dialog)} onEffort={setReasoningEffort} onClassify={setDataClass}/></div>{activeRequest || status?.activeRequest ? <button className="send-button" aria-label="Stop response" title="Stop does not erase unresolved charges" onClick={() => void cancel()} disabled={!activeRequest || cancelling}><Icon name="stop"/></button> : <button className="send-button" aria-label="Send message" onClick={() => void send()} disabled={!canSend || Boolean(dialog)}><Icon name="send"/></button>}</div>
         </div>
         <p id="message-limit" className={`message-limit ${bytes > MAX_MESSAGE_BYTES ? 'over-limit' : ''}`}>{bytes.toLocaleString('en-GB')} / {MAX_MESSAGE_BYTES.toLocaleString('en-GB')} UTF-8 bytes{bytes > MAX_MESSAGE_BYTES ? ' — message too long' : ''}</p>
-        <p id="composer-guidance" className="composer-hint">Enter sends · Shift+Enter adds a line · Only eligible public or synthetic text. Meta may use inputs and responses for training.</p>
+        <p id="composer-guidance" className="composer-hint">Enter sends · Shift+Enter adds a line · Classify the complete message and attachments. Only eligible public or synthetic content; Meta may use inputs and responses for training.</p>
         <p className="availability" role="status">{availability}</p>
       </div>
     </main>
     {dialog && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setDialog(null); }}><section ref={dialogRef} className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onKeyDown={dialogKeys}><header className="settings-header"><h2 id="dialog-title">{dialog === 'settings' ? 'Settings and privacy' : dialog === 'quit' ? 'Unsent drafts' : helpTitles[helpPage]}</h2><button className="icon-button" aria-label="Close dialogue" onClick={() => setDialog(null)}><Icon name="close"/></button></header>
-      {dialog === 'quit' ? <div className="help-copy"><p>Quitting will discard unsent drafts held in this process. Saved conversations, credentials and spending records will not be removed or reset.</p><div className="settings-actions"><button className="secondary-action" data-default-cancel onClick={() => setDialog(null)}>Keep working</button><button className="primary-action" disabled={locked || !bridge.windowAction} onClick={() => { dialogStateRef.current = null; setDialog(null); void windowAction('close'); }}>Discard drafts and quit</button></div></div> : dialog === 'help' ? <div className="help-copy">
-        {helpPage === 'documentation' && <><p>Aster uses one model: {MODEL_LABEL}. Responses are generated externally, not on this laptop.</p><p>Use only synthetic examples or public material whose rights and eligibility are established. Personal, confidential, sensitive and unknown content is prohibited. A public source can still contain personal information. Each full outgoing conversation needs fresh native disclosure review.</p><p>Ctrl+N creates a conversation; Ctrl+K searches saved conversation titles. Enter sends and Shift+Enter adds a line. Stop ends the visible request, not a possible charge. Failed, stopped, refused, truncated and interrupted responses are not automatically reused as context.</p><p>Saved history is encrypted for this Windows account. Other processes under the same account remain a risk. Removing a conversation hides it from history; encrypted recovery records remain and disk capacity is not reclaimed. Credentials, spending and file-recovery records are not removed.</p><p>No project attachments, file writes, voice, browser, shell, web or model tools are enabled. The £89 monthly admission ceiling is not a provider billing balance and does not cover activity outside Aster.</p><p>Unsent drafts stay in memory while switching chats. They are not saved between restarts. Quit reviews their loss with Keep working selected by default.</p><p>Find counts literal case-insensitive matches in the visible conversation. At most the first 512 matches in each message are highlighted; no protected-store or network search occurs.</p></>}
+      {dialog === 'quit' ? <div className="help-copy"><p>Quitting will discard unsent drafts and temporary attachments held in this process. Saved conversations, credentials and spending records will not be removed or reset.</p><div className="settings-actions"><button className="secondary-action" data-default-cancel onClick={() => setDialog(null)}>Keep working</button><button className="primary-action" disabled={locked || !bridge.windowAction} onClick={() => { dialogStateRef.current = null; setDialog(null); void windowAction('close'); }}>Discard drafts and quit</button></div></div> : dialog === 'help' ? <div className="help-copy">
+        {helpPage === 'documentation' && <p>Choosing files with + replaces the complete temporary attachment batch before the native selector opens. Cancelling that selector discards previous temporary attachments; your text draft is retained. Processed text is already included in the saved user message. View processed pages is a local native viewer for image/PDF derivatives, not an original-file reader or disclosure approval.</p>}
+        {helpPage === 'documentation' && <p>The combined native PDF-original and normalised-image bytes sent inline must fit 16 MiB before base64 encoding; the complete serialised reviewed request must fit 24 MiB. These additional mixed-egress limits can refuse a batch that fits the separate source and processed-image limits; nothing is silently truncated. Encrypted processed history is limited to 16 MiB cumulative processed content per conversation, including inert text and PNG pages, without automatic eviction or quota reset.</p>}
+        {helpPage === 'documentation' && <><p>Aster uses one model: {MODEL_LABEL}. Responses are generated externally, not on this laptop.</p><p>Use only synthetic examples or public material whose rights and eligibility are established. Personal, confidential, sensitive and unknown content is prohibited. A public source can still contain personal information. Each full outgoing conversation needs fresh native disclosure review.</p><p>Ctrl+N creates a conversation; Ctrl+K searches saved conversation titles. Enter sends and Shift+Enter adds a line. Stop ends the visible request, not a possible charge. Failed, stopped, refused, truncated and interrupted responses are not automatically reused as context.</p><p>Saved history is encrypted for this Windows account. Other processes under the same account remain a risk. Removing a conversation hides it from history; encrypted recovery records remain and disk capacity is not reclaimed. Credentials, spending and file-recovery records are not removed.</p><p>Use + for a native Windows file selection only when the host admits attachment import. Direct formats are TXT, MD, JSON, XML, YAML, CSV, TSV, PNG, JPG, JPEG, static GIF and PDF; no more than four temporary attachments are admitted. Adding a file does not send it, approve it or grant project access.</p><p>Each original is limited to 8 MiB and the current batch to 16 MiB. PDFs are limited to 20 pages per batch; every admitted page is processed for local preview at 150 DPI. Images are limited to 4,096 pixels per dimension and 4,194,304 decoded pixels; GIF must have one frame. A file's processed image output must fit 4 MiB. The complete prompt and text attachment context must fit the 32,768-byte message limit.</p><p>DOCX, XLSX and PPTX are not imported directly. Convert the complete document to PDF externally with your own trusted tool, such as your own LibreOffice installation, and check every page, sheet, print range and visual before attaching it. Aster does not invoke or require an Office converter. Unsupported, excessive or unsafe files are refused rather than silently truncated.</p><p>A PDF is sent natively to Meta from its immutable temporary copy, only after the complete native disclosure review. Processed page-images are a local preview/history representation, not a replacement for that native PDF request. The full original can contain metadata and hidden content that the page preview does not show; confirm eligibility of the complete source, not just its visible pages.</p><p>Originals are temporary and are not restored after restart. Removing an attachment or switching chats discards its temporary identifier. Encrypted history retains only processed content, all processed PDF pages and responses. View processed pages opens a local native view without a Meta request. These pages are not automatically resent, and no original, file-read permission or disclosure approval is reconstructed. Reattach the original PDF for another complete native reading.</p><p>No project reads, file writes, voice, browser, shell, web or model tools are enabled. The £89 monthly admission ceiling is not a provider billing balance and does not cover activity outside Aster.</p><p>Unsent text drafts stay in memory while switching chats. They are not saved between restarts. Quit reviews unsent draft and temporary attachment loss with Keep working selected by default.</p><p>Find counts literal case-insensitive matches in the visible conversation. At most the first 512 matches in each message are highlighted; no protected-store or network search occurs.</p></>}
         {helpPage === 'shortcuts' && <><p>Shortcuts apply to the active Aster field or local view. Busy actions and behind-dialogue shortcuts remain unavailable. Clipboard access can be refused by the WebView; no background clipboard reader is used.</p><p>Ctrl + mouse wheel zooms the local interface. Ctrl++ (including Ctrl+= or keypad plus), Ctrl+- and Ctrl+0 use the same 80–150% range. The current percentage appears for one second after each admitted zoom action.</p><dl className="shortcut-list">{Object.values(menuGroups).flat(2).filter(item => item.shortcut).map(item => <div key={item.action}><dt>{item.label}</dt><dd>{item.shortcut}</dd></div>)}<div><dt>Send / add a line</dt><dd>Enter / Shift+Enter</dd></div><div><dt>Menu navigation</dt><dd>Arrow keys, Home, End, Escape</dd></div></dl></>}
-        {helpPage === 'news' && <><p>v{packageInfo.version}: Ctrl + mouse wheel, main-key and keypad shortcuts share the bounded interface zoom. A top-right percentage appears for one second after the latest admitted zoom action.</p><p>Explicit dark startup surfaces reduce exposure to unpainted light backgrounds. The previously reported brief startup flash needs separate installed Windows verification. v0.2.1 branding, menus and sky-blue action buttons are retained. Provider, eligibility, privacy and spending controls are unchanged.</p></>}
+        {helpPage === 'news' && <><p>v{packageInfo.version}: + expresses a native-selected attachment-import intent; Classify content is a child submenu below Extra high. Reasoning and eligibility remain independent. DOCX, XLSX and PPTX require complete external PDF conversion, not an internal converter.</p><p>Native PDF bytes remain temporary. Encrypted history retains processed pages and responses; another complete native PDF reading requires reattachment. Local processed-page viewing makes no Meta request and restores no approval.</p><p>The dark window starts hidden and has a one-shot native reveal after a shell scheduling signal and at least six seconds. An independent ten-second reveal attempt does not wait for status, history or a missing signal, but requires an available UI loop and operating system. Native show or scoped-hook failure remains possible and is recorded in closed diagnostics; visibility and completed paint are not guaranteed. These mitigations do not prove that the owner-reported flashes are cured; installed Windows acceptance remains separate.</p><p>Ctrl + mouse wheel, main-key and keypad shortcuts retain bounded interface zoom and one-second percentage feedback. Branding, caption, send/stop geometry and sky-blue colours are unchanged.</p></>}
         {helpPage === 'troubleshooting' && <><p>If the host, history or spending needs attention, read the local notice and Settings. Do not reset protected records, remove unresolved charges or repeatedly retry a failed request.</p><p>Enter a key only in the native Windows dialogue. Do not paste keys into chat or diagnostic reports. A configured key does not prove a live connection.</p><p>If Windows or security software blocks the app, retain the exact alert and seek review. Do not disable protection or add exclusions. Opening help does not submit files, logs or a Meta request.</p><p>Use Keep working to cancel quitting. If clipboard access fails, ordinary editing remains local; no alternative global reader is attempted.</p></>}
-        {helpPage === 'status' && <><p>Native host: {hostState === 'ready' ? 'Available; protocol 3.' : 'Unavailable or not yet verified.'}</p><p>Live connection: unverified. No request or probe is made by this view.</p><p>Credential: {status?.configured ? 'Configured; bytes are not available here.' : 'Not configured or unavailable.'}</p><p>Saved history: {status?.historyAvailable ? 'Available for this Windows account.' : 'Unavailable or unverified.'}</p><p>Contributor eligibility: {status?.contributor.eligible ? 'Recorded locally; not a live entitlement check.' : 'Unconfirmed.'}</p><p>Spending policy: {status?.budget.configured ? 'Configured locally; not a provider billing balance.' : 'Not configured or unavailable.'} {status?.budget.requiresReconciliation ? 'Pending reconciliation blocks sending.' : 'No current reconciliation flag; no zero-charge claim is made.'}</p><p>Project, file, shell, browser, web and model tools: disabled.</p><p>Window controls: {bridge.windowAction ? 'Native bounded actions available; installed behaviour requires acceptance.' : 'Unavailable in this host.'}</p></>}
+        {helpPage === 'status' && <><p>Native host: {hostState === 'ready' ? 'Available; protocol 4.' : 'Unavailable or not yet verified.'}</p><p>Live connection: unverified. No request or probe is made by this view.</p><p>Credential: {status?.configured ? 'Configured; bytes are not available here.' : 'Not configured or unavailable.'}</p><p>Saved history: {status?.historyAvailable ? 'Available for this Windows account.' : 'Unavailable or unverified.'}</p><p>Contributor eligibility: {status?.contributor.eligible ? 'Recorded locally; not a live entitlement check.' : 'Unconfirmed.'}</p><p>Spending policy: {status?.budget.configured ? 'Configured locally; not a provider billing balance.' : 'Not configured or unavailable.'} {status?.budget.requiresReconciliation ? 'Pending reconciliation blocks sending.' : 'No current reconciliation flag; no zero-charge claim is made.'}</p><p>Native-selected attachment import: {status?.capabilities.attachmentImport && bridge.selectAttachments && bridge.removeAttachment ? 'Available; every disclosure still needs native review.' : 'Unavailable or unverified.'}</p><p>Project reads, file writes, shell, browser, web and model tools: disabled.</p><p>Window controls: {bridge.windowAction ? 'Native bounded actions available; installed behaviour requires acceptance.' : 'Unavailable in this host.'}</p></>}
         {helpPage === 'about' && <><p>Aster Desktop v{packageInfo.version}</p><p>Unsigned engineering build for Windows 11 x64. This is not a production or live-provider acceptance claim.</p><p>{MODEL_LABEL} is the sole admitted model. Responses are generated by Meta.</p><p>British English interface. History is protected for this Windows account; unsent drafts remain process memory only.</p></>}
       </div> : <>
         <section className="settings-section"><h3>Contributor terms and eligibility</h3><p>Terms revision: {status?.contributor.termsRevision ?? 'Unavailable'}. {status?.contributor.accepted ? 'Reviewed locally.' : 'Not yet reviewed.'} {status?.contributor.eligible ? 'Account eligibility recorded.' : 'Eligibility unconfirmed.'}</p><p>Contributor permits training on inputs and responses. Sensitive, personal and confidential content is prohibited; consent cannot make prohibited content admissible.</p><button className="primary-action" disabled={locked || !status} onClick={() => void nativeAction(() => bridge.acceptContributorTerms(), 'The Contributor terms or eligibility review was not accepted.')}>Review terms and eligibility in Windows</button></section>
         <section className="settings-section"><h3>Meta credential</h3><p>{status?.configured ? 'Configured for this Windows account. This is not proof of a live connection.' : 'Not configured. Enter the key only in the native Windows dialogue.'}</p><div className="settings-actions"><button className="primary-action" disabled={locked || !status?.credentialAvailable} onClick={() => void nativeAction(() => bridge.configureCredential(), 'The credential could not be configured. Check the native Windows dialogue.')}>{status?.configured ? 'Change key in Windows' : 'Set up key in Windows'}</button><button className="secondary-action" disabled={locked || !status?.configured} onClick={() => void nativeAction(() => bridge.removeCredential(), 'The credential was not removed. Check the native confirmation.')}>Remove key…</button></div></section>
         <section className="settings-section"><h3>Monthly spending policy</h3><dl className="budget-summary"><dt>Period (Edinburgh / London)</dt><dd>{status?.budget.period ?? 'Not configured'}</dd><dt>Admission ceiling</dt><dd>£89.00</dd><dt>Recorded spending</dt><dd>{status ? formatGbp(status.budget.spentNanoGbp) : 'Unavailable'}</dd><dt>Pending reservations</dt><dd>{status ? formatGbp(status.budget.reservedNanoGbp) : 'Unavailable'}</dd><dt>Remaining admission amount</dt><dd>{status ? formatGbp(status.budget.remainingNanoGbp) : 'Unavailable'}</dd></dl>{status?.budget.warning && <p className="inline-state">The 90% spending warning has been reached.</p>}{status?.budget.requiresReconciliation && <p className="inline-state">Reconciliation required. Sending remains blocked; restarting or removing conversations does not free reservations.</p>}<p>Enter conservative values explicitly. One part per million represents 0.000001 GBP per USD; 100 basis points represents 1%. There is no automatic FX estimate or reset.</p><div className="financial-fields">{([['rate','GBP per USD (integer parts per million)'],['margin','Safety margin (basis points)'],['tax','Tax (basis points)'],['payment','Payment charges (basis points)']] as const).map(([field,label]) => <label key={field}>{label}<input inputMode="numeric" value={budgetFields[field]} onChange={event => setBudgetFields(current => ({ ...current, [field]: event.target.value }))} disabled={locked}/></label>)}<label>Valid until (local Windows time; maximum 31 days)<input type="datetime-local" value={budgetFields.validUntil} onChange={event => setBudgetFields(current => ({ ...current, validUntil: event.target.value }))} disabled={locked}/></label></div><button className="secondary-action" disabled={locked || !status} onClick={submitBudget}>Review financial configuration in Windows</button></section>
         {Boolean(status?.budget.pending.length) && <section className="settings-section"><h3>Pending request charges</h3><p>Use your Meta statement or dashboard to confirm each charge. This is owner-confirmed reconciliation, not API-measured usage. Each proposal needs a separate native confirmation; no balance reset is available.</p>{status?.budget.pending.map(item => <div className="pending-charge" key={item.requestId}><p>Request: {item.requestId}<br/>Period: {item.period} · Reserved: {formatGbp(item.reservationNanoGbp)} · {item.dispatched ? 'Dispatch may have occurred' : 'Not marked dispatched'}</p><label>Statement-confirmed charge in GBP for {item.requestId}<input inputMode="decimal" value={reconciliationCharges[item.requestId] ?? ''} onChange={event => setReconciliationCharges(current => ({ ...current, [item.requestId]: event.target.value }))} disabled={locked}/></label><button className="secondary-action" disabled={locked} onClick={() => reconcile(item.requestId)}>Review this charge in Windows</button></div>)}</section>}
-        <section className="settings-section"><h3>Saved conversations</h3><p>Host-owned, encrypted history persists across restarts. Loading it restores display text, never approvals, active requests or financial authority. No import or export is enabled.</p><button className="secondary-action" disabled={locked || !conversation} onClick={() => void removeConversation()}><Icon name="trash" size={15}/> Remove this conversation from history…</button><p>Removal needs native confirmation. Encrypted recovery records remain and disk capacity is not reclaimed. Spending, credentials and file-recovery records are unchanged.</p></section>
+        <section className="settings-section"><h3>Saved conversations</h3><p>Host-owned, encrypted history persists across restarts. Loading it restores processed display content and responses, never original files, approvals, active requests or financial authority. Historical page views are local only; reattach a PDF for another complete native reading. No history import or export is enabled.</p><button className="secondary-action" disabled={locked || !conversation} onClick={() => void removeConversation()}><Icon name="trash" size={15}/> Remove this conversation from history…</button><p>Removal needs native confirmation. Encrypted recovery records remain and disk capacity is not reclaimed. Spending, credentials and file-recovery records are unchanged.</p></section>
       </>}
     </section></div>}
   </div><div className="zoom-feedback" role="status" aria-label="Zoom level" aria-live="polite" aria-atomic="true" hidden={!zoomFeedback} style={{ '--interface-scale': zoom / 100 } as CSSProperties}>{zoomFeedback ? `${zoom}%` : ''}</div></>;

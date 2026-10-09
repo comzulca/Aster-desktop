@@ -1,6 +1,6 @@
 [package]
 name = "aster-desktop"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 rust-version = "1.97.0"
 build = "build.rs"
@@ -13,6 +13,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
 futures-util = "0.3"
+gif = { version = "=0.14.2", default-features = false, features = ["std"] }
+base64 = "=0.22.1"
+image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg", "gif"] }
+png = { version = "=0.18.1", default-features = false }
 reqwest = { version = "0.13", default-features = false, features = ["stream", "rustls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -21,9 +25,15 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tokio = { version = "1", features = ["sync", "time", "macros", "rt"] }
 zeroize = "1"
+zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security_Credentials", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "=0.62.2", features = ["Data_Pdf", "Foundation", "Graphics_Imaging", "Storage_Streams", "Win32_Foundation", "Win32_System_Com", "Win32_System_WinRT", "Win32_UI_Shell"] }
+windows-future = { version = "=0.3.2", default-features = false }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Security_Credentials", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_IO", "Win32_System_JobObjects", "Win32_System_Memory", "Win32_System_Pipes", "Win32_System_SystemInformation", "Win32_System_SystemServices", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+
+[patch.crates-io]
+zune-jpeg = { path = "vendor/zune-jpeg-0.5.15" }

@@ -2,14 +2,14 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
-import { baseline, fakeBridge, saved } from './test-fixtures';
+import { baseline, fakeBridge, saved, selectClassification } from './test-fixtures';
 import { DEFAULT_MODEL, type Conversation } from './types';
 
 afterEach(() => cleanup());
-async function ready() { await screen.findByText('Ready for separately reviewed text requests.'); }
+async function ready() { await screen.findByText('Ready for separately reviewed requests.'); }
 async function prepare(text = 'A wholly synthetic example') {
   fireEvent.change(screen.getByRole('textbox', { name: 'Message for Aster' }), { target: { value: text } });
-  await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Content classification' }), 'synthetic');
+  await selectClassification('synthetic');
   await waitFor(() => expect((screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement).disabled).toBe(false));
 }
 describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
@@ -20,11 +20,12 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     expect(screen.getByRole('img', { name: 'English (United Kingdom)' })).toBeTruthy();
     for (const name of ['File','Edit','View','Help']) expect(screen.getByRole('button', { name })).toBeTruthy();
     expect(screen.queryByRole('combobox', { name: 'Model' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Attach|Project|proposal/i })).toBeNull();
+    expect((screen.getByRole('button', { name: 'Add attachments' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: /Project|proposal/i })).toBeNull();
     expect(document.querySelector('.conversation-heading')).toBeNull(); expect(document.querySelector('.starter-actions')).toBeNull();
     expect(document.querySelector('.titlebar')?.textContent).not.toMatch(/Aster|v0\.|Windows|session/);
     expect(screen.queryByText(/Nemotron|Glimmer|NVIDIA/)).toBeNull();
-    expect(screen.getAllByRole('combobox')).toHaveLength(2);
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0);
   });
   it('requires an explicit classification and sends only the closed fixed-model intent', async () => {
     const fake = fakeBridge(); render(<App bridge={fake.bridge}/>); await ready();
@@ -34,7 +35,8 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     const input = vi.mocked(fake.bridge.sendMessage).mock.calls[0][0];
     expect(input.message).toBe('  Exact synthetic text  '); expect(input.modelId).toBe(DEFAULT_MODEL); expect(input.dataClass).toBe('synthetic'); expect(input.reasoningEffort).toBe('medium');
     expect(input.requestId).toMatch(/^[a-f0-9]{32}$/);
-    expect(Object.keys(input).sort()).toEqual(['conversationId','dataClass','message','modelId','reasoningEffort','requestId']);
+    expect(input.attachmentIds).toEqual([]);
+    expect(Object.keys(input).sort()).toEqual(['attachmentIds','conversationId','dataClass','message','modelId','reasoningEffort','requestId']);
     expect(fake.bridge.createConversation).toHaveBeenCalledOnce();
   });
   it('hydrates ordered saved history, navigates and restores it across renderer restarts without network', async () => {
@@ -111,7 +113,7 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     await screen.findByText('The native disclosure review was declined. Nothing was sent.');
     await waitFor(() => expect((screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement).disabled).toBe(false));
     expect((screen.getByRole('textbox', { name: 'Message for Aster' }) as HTMLTextAreaElement).value).toBe(message);
-    expect((screen.getByRole('combobox', { name: 'Content classification' }) as HTMLSelectElement).value).toBe('synthetic');
+    expect(screen.getByLabelText('Content classification').textContent).toBe('Synthetic');
     expect([...fake.records.values()][0].entries).toEqual([]);
     expect(document.querySelector('.message-text')).toBeNull();
     expect(fake.bridge.sendMessage).toHaveBeenCalledOnce();
@@ -134,14 +136,14 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     await waitFor(() => expect((screen.getByRole('button', { name: 'New conversation' }) as HTMLButtonElement).disabled).toBe(false));
     const newerDraft = '  A different draft after completion  ';
     await prepare(newerDraft);
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Content classification' }), 'public_eligible');
+    await selectClassification('public_eligible');
     await act(async () => {
       if (receipt === 'accepted') resolveSend!({ requestId: input.requestId, accepted: true });
       else rejectSend!(new Error('Private provider body'));
       await Promise.resolve();
     });
     expect((screen.getByRole('textbox', { name: 'Message for Aster' }) as HTMLTextAreaElement).value).toBe(newerDraft);
-    expect((screen.getByRole('combobox', { name: 'Content classification' }) as HTMLSelectElement).value).toBe('public_eligible');
+    expect(screen.getByLabelText('Content classification').textContent).toBe('Eligible public');
     expect(screen.getByText('Response completed')).toBeTruthy();
     expect(screen.queryByText(/Private provider|request was not accepted|Response failed/)).toBeNull();
     expect(fake.bridge.sendMessage).toHaveBeenCalledOnce();
@@ -200,6 +202,8 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     await user.keyboard('{Escape}'); expect(document.activeElement).toBe(opener);
     await user.click(screen.getByRole('button', { name: 'Help' })); await user.click(screen.getByRole('menuitem', { name: 'Documentation' }));
     expect(screen.getByRole('dialog', { name: 'Documentation' })).toBeTruthy(); expect(screen.getByText(/encrypted recovery records remain/)).toBeTruthy();
+    expect(screen.getByText(/combined native PDF-original and normalised-image bytes sent inline must fit 16 MiB before base64 encoding; the complete serialised reviewed request must fit 24 MiB/)).toBeTruthy();
+    expect(screen.getByText(/16 MiB cumulative processed content per conversation, including inert text and PNG pages/)).toBeTruthy();
   });
   it('removes only the selected history record through the native-confirmed bridge', async () => {
     const fake = fakeBridge(baseline, [saved('first', 'Remove me', 2), saved('second', 'Keep me', 1)]); render(<App bridge={fake.bridge}/>); await screen.findByText('Reply for first');

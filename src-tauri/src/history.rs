@@ -2,7 +2,9 @@
 //! never grants disclosure, financial authority, approvals or active requests.
 //! Removing visible history is a tombstone; encrypted recovery records remain.
 
+use crate::attachments::{validate_metadata, AttachmentKind, AttachmentMetadata};
 use crate::private_store::{new_id, Domain, PrivateStore, StoreError};
+use crate::processed_history::{validate_binding, ProcessedBinding};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -36,6 +38,8 @@ pub(crate) struct Entry {
     pub content: String,
     pub request_id: String,
     pub state: EntryState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub processed_attachments: Option<Vec<AttachmentMetadata>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -70,6 +74,8 @@ struct Turn {
     assistant_entry: Option<String>,
     data_class: String,
     eligible: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    processed_bindings: Vec<ProcessedBinding>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -98,6 +104,40 @@ struct Record {
     sequence: u64,
     previous_sha256: String,
     event: Event,
+}
+
+fn decode_record(bytes: &[u8]) -> Result<Record, StoreError> {
+    // Typed serde rejects duplicates and unknown fields. Preserve v1's absent
+    // attachment-field contract, including an explicitly injected null field.
+    let record: Record = serde_json::from_slice(bytes).map_err(|_| StoreError::Corrupt)?;
+    if let Event::Snapshot { conversation } = &record.event {
+        if conversation.version != record.version {
+            return Err(StoreError::Corrupt);
+        }
+        if record.version == 1 {
+            let value: serde_json::Value =
+                serde_json::from_slice(bytes).map_err(|_| StoreError::Corrupt)?;
+            let entries = value["event"]["conversation"]["display"]["entries"]
+                .as_array()
+                .ok_or(StoreError::Corrupt)?;
+            if entries
+                .iter()
+                .any(|entry| entry.get("processedAttachments").is_some())
+            {
+                return Err(StoreError::Corrupt);
+            }
+            let turns = value["event"]["conversation"]["turns"]
+                .as_array()
+                .ok_or(StoreError::Corrupt)?;
+            if turns
+                .iter()
+                .any(|turn| turn.get("processedBindings").is_some())
+            {
+                return Err(StoreError::Corrupt);
+            }
+        }
+    }
+    Ok(record)
 }
 
 fn digest(bytes: &[u8]) -> String {
@@ -148,7 +188,7 @@ fn text_bytes(conversation: &Conversation) -> Result<usize, StoreError> {
 
 fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
     let display = &conversation.display;
-    if conversation.version != 1
+    if !matches!(conversation.version, 1 | 2)
         || conversation.provider != PROVIDER
         || conversation.model != MODEL
         || !valid_id(&display.id)
@@ -163,6 +203,8 @@ fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
         return Err(StoreError::Corrupt);
     }
     let mut entry_ids = HashSet::new();
+    let mut attachment_ids = HashSet::new();
+    let mut processed_total = 0usize;
     for entry in &display.entries {
         if !valid_id(&entry.id)
             || !valid_id(&entry.request_id)
@@ -171,6 +213,32 @@ fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
             || !entry_ids.insert(entry.id.as_str())
         {
             return Err(StoreError::Corrupt);
+        }
+        if let Some(attachments) = &entry.processed_attachments {
+            if conversation.version != 2
+                || entry.role != "user"
+                || attachments.is_empty()
+                || attachments.len() > 4
+            {
+                return Err(StoreError::Corrupt);
+            }
+            let mut ids = HashSet::new();
+            let mut pdf_pages = 0usize;
+            for attachment in attachments {
+                validate_metadata(attachment).map_err(|_| StoreError::Corrupt)?;
+                if !ids.insert(&attachment.id) || !attachment_ids.insert(&attachment.id) {
+                    return Err(StoreError::Corrupt);
+                }
+                processed_total = processed_total
+                    .checked_add(attachment.processed_bytes)
+                    .ok_or(StoreError::Capacity)?;
+                if attachment.kind == AttachmentKind::Pdf {
+                    pdf_pages += attachment.page_count;
+                }
+            }
+            if pdf_pages > 20 || processed_total > 16 * 1024 * 1024 {
+                return Err(StoreError::Corrupt);
+            }
         }
     }
     let mut request_ids = HashSet::new();
@@ -196,6 +264,18 @@ fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
             || user.content.len() > 32 * 1024
         {
             return Err(StoreError::Corrupt);
+        }
+        let references = user.processed_attachments.as_deref().unwrap_or(&[]);
+        if references.len() != turn.processed_bindings.len()
+            || (conversation.version == 1 && !turn.processed_bindings.is_empty())
+        {
+            return Err(StoreError::Corrupt);
+        }
+        for (metadata, binding) in references.iter().zip(&turn.processed_bindings) {
+            validate_binding(binding)?;
+            if *metadata != binding.metadata {
+                return Err(StoreError::Corrupt);
+            }
         }
         match &turn.assistant_entry {
             Some(id) => {
@@ -268,7 +348,7 @@ impl History {
     fn restore(store: PrivateStore) -> Result<Self, StoreError> {
         let mut records = Vec::new();
         for (_, bytes) in store.records()? {
-            let record: Record = serde_json::from_slice(&bytes).map_err(|_| StoreError::Corrupt)?;
+            let record = decode_record(&bytes)?;
             records.push((record, bytes));
         }
         records.sort_by_key(|(record, _)| record.sequence);
@@ -281,7 +361,7 @@ impl History {
             fault: false,
         };
         for (record, bytes) in records {
-            if record.version != 1
+            if !matches!(record.version, 1 | 2)
                 || record.sequence
                     != history
                         .sequence
@@ -366,7 +446,7 @@ impl History {
         }
         let mut records = Vec::new();
         for (_, bytes) in self.store.records()? {
-            let record: Record = serde_json::from_slice(&bytes).map_err(|_| StoreError::Corrupt)?;
+            let record = decode_record(&bytes)?;
             records.push((record, bytes));
         }
         if u64::try_from(records.len()).map_err(|_| StoreError::Capacity)? != self.sequence {
@@ -375,7 +455,7 @@ impl History {
         records.sort_by_key(|(record, _)| record.sequence);
         let mut previous = String::new();
         for (offset, (record, bytes)) in records.into_iter().enumerate() {
-            if record.version != 1
+            if !matches!(record.version, 1 | 2)
                 || record.sequence != u64::try_from(offset + 1).map_err(|_| StoreError::Capacity)?
                 || record.previous_sha256 != previous
             {
@@ -389,7 +469,10 @@ impl History {
         Ok(())
     }
 
-    fn persist(&mut self, event: Event) -> Result<(), StoreError> {
+    fn persist(&mut self, mut event: Event) -> Result<(), StoreError> {
+        if let Event::Snapshot { conversation } = &mut event {
+            conversation.version = 2;
+        }
         self.ensure_current()?;
         match &event {
             Event::Snapshot { conversation } => {
@@ -419,7 +502,7 @@ impl History {
             }
         }
         let record = Record {
-            version: 1,
+            version: 2,
             sequence: self.sequence.checked_add(1).ok_or(StoreError::Capacity)?,
             previous_sha256: self.previous_sha256.clone(),
             event,
@@ -479,7 +562,7 @@ impl History {
         };
         self.persist(Event::Snapshot {
             conversation: StoredConversation {
-                version: 1,
+                version: 2,
                 provider: PROVIDER.to_owned(),
                 model: MODEL.to_owned(),
                 display: display.clone(),
@@ -508,6 +591,7 @@ impl History {
             .ok_or(StoreError::Corrupt)
     }
 
+    #[cfg(test)]
     pub(crate) fn begin_request(
         &mut self,
         id: &str,
@@ -515,6 +599,19 @@ impl History {
         prompt: &str,
         data_class: &str,
         now: u64,
+    ) -> Result<Conversation, StoreError> {
+        self.begin_request_with_attachments(id, request_id, prompt, data_class, now, Vec::new())
+    }
+
+    #[allow(clippy::too_many_arguments)] // Bind reviewed processed references to the exact turn.
+    pub(crate) fn begin_request_with_attachments(
+        &mut self,
+        id: &str,
+        request_id: &str,
+        prompt: &str,
+        data_class: &str,
+        now: u64,
+        processed_bindings: Vec<ProcessedBinding>,
     ) -> Result<Conversation, StoreError> {
         if !valid_id(request_id)
             || !eligible_class(data_class)
@@ -560,6 +657,16 @@ impl History {
             content: prompt.to_owned(),
             request_id: request_id.to_owned(),
             state: EntryState::Completed,
+            processed_attachments: if processed_bindings.is_empty() {
+                None
+            } else {
+                Some(
+                    processed_bindings
+                        .iter()
+                        .map(|b| b.metadata.clone())
+                        .collect(),
+                )
+            },
         });
         conversation.turns.push(Turn {
             request_id: request_id.to_owned(),
@@ -567,6 +674,7 @@ impl History {
             assistant_entry: None,
             data_class: data_class.to_owned(),
             eligible: false,
+            processed_bindings,
         });
         conversation.pending_request = Some(request_id.to_owned());
         conversation.display.updated_at = conversation.display.updated_at.max(now);
@@ -617,6 +725,7 @@ impl History {
             content: answer.to_owned(),
             request_id: request_id.to_owned(),
             state,
+            processed_attachments: None,
         });
         conversation.pending_request = None;
         conversation.display.updated_at = conversation.display.updated_at.max(now);
@@ -652,6 +761,41 @@ impl History {
         Ok(pairs)
     }
 
+    /// Fixed host-owned local viewer uses the exact visible user entry. An
+    /// orphan derived record or renderer-supplied metadata is never sufficient.
+    pub(crate) fn processed_reference(
+        &self,
+        id: &str,
+        request_id: &str,
+        attachment_id: &str,
+    ) -> Result<(ProcessedBinding, String), StoreError> {
+        self.ensure_current()?;
+        let conversation = self.conversations.get(id).ok_or(StoreError::Denied)?;
+        validate(conversation)?;
+        let turn = conversation
+            .turns
+            .iter()
+            .find(|t| t.request_id == request_id)
+            .ok_or(StoreError::Denied)?;
+        let entry = conversation
+            .display
+            .entries
+            .iter()
+            .find(|e| e.id == turn.user_entry && e.role == "user" && e.request_id == request_id)
+            .ok_or(StoreError::Corrupt)?;
+        let metadata = entry
+            .processed_attachments
+            .as_ref()
+            .and_then(|a| a.iter().find(|a| a.id == attachment_id))
+            .ok_or(StoreError::Denied)?;
+        let binding = turn
+            .processed_bindings
+            .iter()
+            .find(|b| b.metadata == *metadata)
+            .ok_or(StoreError::Corrupt)?;
+        Ok((binding.clone(), turn.data_class.clone()))
+    }
+
     pub(crate) fn invalidate_continuation(&mut self, now: u64) -> Result<(), StoreError> {
         self.persist(Event::Invalidate { updated_at: now })
     }
@@ -682,6 +826,111 @@ impl History {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn processed_metadata() -> ProcessedBinding {
+        ProcessedBinding {
+            metadata: AttachmentMetadata {
+                id: "1".repeat(32),
+                kind: AttachmentKind::Pdf,
+                label: "synthetic.pdf".into(),
+                source_bytes: 128,
+                processed_bytes: 128,
+                page_count: 1,
+            },
+            source_sha256: "1".repeat(64),
+            processed_sha256: "2".repeat(64),
+        }
+    }
+
+    #[test]
+    fn legacy_history_stays_readable_and_new_snapshots_are_version_two() {
+        let mut history = History::memory();
+        let id = history.create(1).unwrap().id;
+        let mut legacy: serde_json::Value =
+            serde_json::from_slice(&history.store.records().unwrap()[0].1).unwrap();
+        legacy["version"] = serde_json::json!(1);
+        legacy["event"]["conversation"]["version"] = serde_json::json!(1);
+        let original = serde_json::to_vec(&legacy).unwrap();
+        let mut store = PrivateStore::memory(Domain::History);
+        store.append(&new_id().unwrap(), &original).unwrap();
+        let mut restored = History::restore(store).unwrap();
+        assert_eq!(restored.load(&id).unwrap().entries.len(), 0);
+        restored
+            .begin_request(&id, "fresh", "Synthetic prompt", "synthetic", 2)
+            .unwrap();
+        let records = restored.store.records().unwrap();
+        assert_eq!(records[0].1, original);
+        let latest: serde_json::Value = serde_json::from_slice(&records[1].1).unwrap();
+        assert_eq!(latest["version"], 2);
+        assert_eq!(latest["event"]["conversation"]["version"], 2);
+    }
+
+    #[test]
+    fn processed_reference_requires_exact_visible_turn_and_never_retains_original() {
+        let mut history = History::memory();
+        let id = history.create(1).unwrap().id;
+        let meta = processed_metadata();
+        history
+            .begin_request_with_attachments(
+                &id,
+                "request",
+                "Synthetic native PDF; reattach for another native reading.",
+                "synthetic",
+                2,
+                vec![meta.clone()],
+            )
+            .unwrap();
+        assert_eq!(
+            history
+                .processed_reference(&id, "request", &meta.metadata.id)
+                .unwrap()
+                .0,
+            meta
+        );
+        assert!(history
+            .processed_reference(&id, "other", &meta.metadata.id)
+            .is_err());
+        assert!(history
+            .processed_reference("other", "request", &meta.metadata.id)
+            .is_err());
+        history
+            .finish_request(
+                &id,
+                "request",
+                "Synthetic answer",
+                EntryState::Completed,
+                true,
+                3,
+            )
+            .unwrap();
+        let records = history.store.records().unwrap();
+        let json = std::str::from_utf8(&records.last().unwrap().1).unwrap();
+        assert!(!json.contains("originalPdf"));
+        assert!(!json.contains("pngBase64"));
+        assert!(!json.contains("sourcePath"));
+        history.remove_after_native_confirmation(&id, 4).unwrap();
+        assert!(history
+            .processed_reference(&id, "request", &meta.metadata.id)
+            .is_err());
+    }
+
+    #[test]
+    fn duplicate_or_assistant_processed_references_deny() {
+        let mut history = History::memory();
+        let id = history.create(1).unwrap().id;
+        let meta = processed_metadata();
+        assert!(history
+            .begin_request_with_attachments(
+                &id,
+                "request",
+                "Synthetic prompt",
+                "synthetic",
+                2,
+                vec![meta.clone(), meta]
+            )
+            .is_err());
+        assert!(history.load(&id).unwrap().entries.is_empty());
+    }
 
     fn assert_fault_blocks_cached_history(history: &mut History, id: &str) {
         assert_eq!(history.list().unwrap_err(), StoreError::Corrupt);
