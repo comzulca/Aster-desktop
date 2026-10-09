@@ -368,6 +368,7 @@ fn run_cases(
                 peak_memory_bytes: 0,
                 limit_terminations: 0,
                 boundary_available: false,
+                cpu_proof: None,
             });
         }
     }
