@@ -1,5 +1,15 @@
 # CPU containment repair — 9 October 2026
 
+## Completed implementation and actual-main evidence — 9 October 2026
+
+[PR #39](https://github.com/comzulca/Aster-desktop/pull/39) is merged. Actual main `54c64e404b3147170bd5d1a320e11536e9e5406e`, tree `bb6fddb393d2bd9c10c6428d0f93252eb2c00d54`, [push run 37974140580](https://github.com/comzulca/Aster-desktop/actions/runs/37974140580) attempt 1 completed all five mandatory jobs successfully; installer job `113979766891` completed at 19:18:24 UTC. The complete Windows suite reports 235 PASS/zero FAIL/two ignored; both authorised disposable native credential cases separately PASS. Source-policy executes 184 negative CPU receipt controls. The release executable independently reports all 15 codec/six resource cases PASS at 19:18:02.1736772 UTC.
+
+The actual CPU receipt uses `parent-user-cpu-watchdog`: trigger user CPU 100000000 ticks, trigger wall 10046 ms, physical elapsed 10048 ms and the exact CPU exit 2776498177, with successful causal sampling, live-child/priority/exact-Job dispatch, physical exit, cleanup and terminal denial. Native termination count stays honestly zero; this is not a native-counter PASS or hard-real-time guarantee. Budgets remain 10 seconds user CPU/15 seconds wall. Historical main run `37950896361` attempts 1 and 2 stay FAIL; neither PR success nor this new source changes their outcomes.
+
+The [final engineering receipt](FINAL-ENGINEERING-V023-20261009.md) binds the actual-main installer, passive local verification and delivery alias. This is unsigned engineering qualification only; `qualificationComplete=false`, all 42 compound cases NOT RUN and owner/manual/live/signing/production obligations remain separate. The before-code contract and 17:35 preparation receipt below are preserved history, not current execution status.
+
+## Retained before-code and preparation contract
+
 Status: before-code contract accepted for implementation after independent review on 2026-10-09; proposed separate PR; changed-source execution NOT RUN.
 
 ## Phase 0 — exact baseline and authority

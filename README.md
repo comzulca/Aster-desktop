@@ -1,3 +1,7 @@
+<!-- OCT9 FINAL ENGINEERING DELIVERY BEGIN -->
+> Final engineering evidence — 9 October 2026, 19:39:30 UTC: actual main `54c64e404b3147170bd5d1a320e11536e9e5406e`, [run 37974140580](https://github.com/comzulca/Aster-desktop/actions/runs/37974140580), attempt 1, passed all five mandatory jobs and the actual 15-codec/six-resource probes. The [final receipt](docs/qa/FINAL-ENGINEERING-V023-20261009.md) records passive local verification and the byte-identical unsigned `Aster_0.2.3_x64-setup.exe` delivery alias. Earlier dated failures/proposals below remain historical; `qualificationComplete=false`, all 42 compound cases NOT RUN, unresolved GLib and separate owner-installed/manual/live/signing/production obligations are preserved. This documentation follow-up does not change or rebuild the verified executable.
+<!-- OCT9 FINAL ENGINEERING DELIVERY END -->
+
 <!-- OCT9 CPU AND GLIB OWNER DECISION BEGIN -->
 > Owner decision and current applicability — 2026-10-09 17:14:45 UTC: PR #30 is normally merged; its distinct actual-main package run remains FAIL after two CPU-probe failures, not a qualified main installer. The [separate CPU repair contract](docs/qa/CPU-CONTAINMENT-20261009.md) preserves the 10-second user-CPU and 15-second wall budgets and all mandatory gates; changed-source execution remains NOT RUN until fresh evidence. [GLib 0.18.5 remains OPEN and UNRESOLVED](docs/qa/GLIB-UPSTREAM-DEFERRAL-20261009.md), deferred to a complete compatible stable upstream chain; no backport, dependency remediation, dismissal or ignore is authorised. GTK4/Tauri 3 is a future owner-preferred architecture review, not an approved migration or promised fix. Earlier bodies below are retained dated source-bound history; no historical PASS transfers to changed source or owner/manual/live/signing/production acceptance.
 <!-- OCT9 CPU AND GLIB OWNER DECISION END -->
@@ -11,6 +15,10 @@
 <!-- OCT9 CURRENT APPLICABILITY END -->
 
 # Aster Desktop v0.2.3
+
+## Verified engineering build — 9 October 2026
+
+The requested `Aster_0.2.3_x64-setup.exe` is now available as a byte-identical alias of the actual-main installer: 23085677 bytes, SHA-256 `16b3f1bc5eec35d1df7392ca1bf44c0b149f22cd767c01ee4e9b04a7fccf6ac4`, `NotSigned`. The [final receipt](docs/qa/FINAL-ENGINEERING-V023-20261009.md) binds source54c64e4/run37974140580/attempt1, all five CI jobs and actual15/six probes, local verification, preserved earlier failures and unresolved obligations. This is engineering delivery for owner testing, not production acceptance. Tables and “current” descriptions in dated sections below remain historical snapshots; use the final receipt and [documentation index](docs/V0.2.3-DOCUMENTATION-INDEX.md) for present applicability.
 
 <!-- P10 CURRENT APPLICABILITY BEGIN -->
 > Current-source applicability — 8 October 2026, 21:51:41 UTC: the [dated reconciliation](docs/qa/OCT8-RECONCILIATION-20261008.md) owns this checkpoint. PR #38 and #31–#35 are normally merged after their four exact-source gates; #36/#37 remain pending. P9's complete Windows suite is FAIL; its isolated synthetic diagnostic PASS does not override it. The [P10 scoped-factory contract](docs/qa/PDF-SCOPED-FACTORIES-20261008.md) received before-code design approval at 21:47:59 UTC; source/documentation preparation is in progress, not a published or native/package PASS. Earlier “current” headings and statuses below are retained dated history, not the latest source result. The dependency auxiliary case is a private child lease-denial test, not Credential Manager proof. Owner v0.2.2 flicker/Code Integrity FAIL and all 42 compound cases NOT RUN remain; manual/live/signing/production acceptance is not inferred.
