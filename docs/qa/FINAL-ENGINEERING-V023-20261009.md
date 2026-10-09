@@ -107,4 +107,3 @@ Engineering source/package gates for the exact source above are complete. They d
 - Signing, production qualification or redistribution. Old ESET clearance is not a certificate for these new bytes.
 
 v0.2.1 remains locally tested/discarded for bugs; no v0.2.1 branch/release/installer/discarded commit series is published. The owner authorised a documentation-only PR and conditional integration after **all its own checks** pass on 9 October. Publication/integration results are observed separately in that PR, not invented retrospectively in this tested-source receipt. No production release is created.
-
