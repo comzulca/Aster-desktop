@@ -1,3 +1,7 @@
+<!-- OCT9 CURRENT APPLICABILITY BEGIN -->
+> Current-source applicability — 9 October 2026, 13:02:58 UTC: the [dated reconciliation](OCT9-RECONCILIATION-20261009.md) owns the newer exact-source outcomes and their limits. Earlier “current”, “pending” and NOT RUN statements below remain source-bound history where superseded there; original bodies and before-code approvals are preserved. P10 hosted success does not qualify a changed cumulative source. Final-source CI/package gates require re-execution; owner flicker FAIL, all 42 compound cases NOT RUN and independent manual/live/signing/production obligations remain.
+<!-- OCT9 CURRENT APPLICABILITY END -->
+
 # META-CATALOGUE-0001 — bounded authenticated catalogue observation
 
 <!-- P10 CURRENT APPLICABILITY BEGIN -->
