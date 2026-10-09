@@ -1,3 +1,7 @@
+<!-- OCT9 FINAL FOLLOW-UP BEGIN -->
+> Operational follow-up — 2026-10-09 14:18:44 UTC: the [completed-source reconciliation](docs/qa/OCT9-RECONCILIATION-20261009.md#completed-p11-and-final-documentation-follow-up) records the newer tested-source facts and owner decision. For the observed status of later documentation-only CI, normal integration, actual main-push and Gmail handling, consult the [PR #30 closing receipt](https://github.com/comzulca/Aster-desktop/pull/30#issuecomment-6082465272), [live PR #30](https://github.com/comzulca/Aster-desktop/pull/30) and [Actions](https://github.com/comzulca/Aster-desktop/actions). Earlier cutoffs below remain dated history; green results never transfer to a changed source. The glib alert remains OPEN for separate work; manual/live/signing/production acceptance is not inferred.
+<!-- OCT9 FINAL FOLLOW-UP END -->
+
 <!-- OCT9 CURRENT APPLICABILITY BEGIN -->
 > Current-source applicability — 9 October 2026, 13:02:58 UTC: the [dated reconciliation](docs/qa/OCT9-RECONCILIATION-20261009.md) owns the newer exact-source outcomes and their limits. Earlier “current”, “pending” and NOT RUN statements below remain source-bound history where superseded there; original bodies and before-code approvals are preserved. P10 hosted success does not qualify a changed cumulative source. Final-source CI/package gates require re-execution; owner flicker FAIL, all 42 compound cases NOT RUN and independent manual/live/signing/production obligations remain.
 <!-- OCT9 CURRENT APPLICABILITY END -->

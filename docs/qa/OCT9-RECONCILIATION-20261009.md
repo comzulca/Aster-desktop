@@ -112,3 +112,89 @@ Normal integration of the final refreshed PR #30 requires all five jobs against 
 At this documentation preparation checkpoint and its 13:05:15 UTC addendum, **final cumulative-source gates and final PR #30 normal merge are NOT RUN**. Actual main37 push verification, the open glib alert's disposition, final issue/main/release inventory, final Gmail searches and any post-handling read-label receipt remain pending. Owner installation/manual/live/signing/production obligations remain independent after an eventual engineering CI PASS.
 
 Related retained records: [documentation index](../V0.2.3-DOCUMENTATION-INDEX.md), [8 October reconciliation](OCT8-RECONCILIATION-20261008.md), [CI-V023](CI-V023-0001.md), [LOCAL-V023](LOCAL-V023-0001.md), [OWNER-STARTUP-V022](OWNER-STARTUP-V022-0001.md), [verification plan](../aster-builder/verification-plan.md) and [P10 before-code scoped-factory contract](PDF-SCOPED-FACTORIES-20261008.md).
+
+## Completed P11 and final documentation follow-up
+
+Prepared at **2026-10-09 14:18:44 UTC**. All recorded times are UTC unless labelled otherwise. This section records completed P11 execution on its exact tested source; it does not confer PASS on the subsequent documentation-only tree or on owner-installed acceptance.
+
+**Verification and freeze addendum — 2026-10-09 14:25:15 UTC.** Independent review `oct9-pr30-p11-ci-review.json` completed with no findings at 2026-10-09 14:21:15 UTC. The root read its full JSON and confirmed the complete installer receipt field-for-field against the independently parsed root log receipt. All 233 tested-source leaves match, and all four unexpired artifact IDs, sizes and archive digests agree with API/upload-log metadata. This is complete-log/metadata verification, not independent archive/binary download or owner acceptance.
+
+This additive amendment preserves the earlier 13:02:58 / 13:05:15 UTC preparation record and every older source-bound body, governor approval and failure. It states completed tested-source facts rather than continually re-committing documentation to name its own future SHA. For subsequently observed final documentation-only gates, normal PR #30 integration, actual merged-main push and Gmail read-label receipts, use the verified [PR #30 closing receipt](https://github.com/comzulca/Aster-desktop/pull/30#issuecomment-6082465272), [live PR #30](https://github.com/comzulca/Aster-desktop/pull/30) and [Actions](https://github.com/comzulca/Aster-desktop/actions). That external closing record reports observed status against actual evidence as it becomes available; it is not a waiver of any fresh gate.
+
+### Owner disposition and ordered remaining work
+
+The owner directs completion of **PR #30 first**, with the existing moderate `glib 0.18.5` alert `GHSA-wrw7-89jp-8q8g` / `RUSTSEC-2024-0429` left **OPEN and documented as separate work**. No glib backport, dismissal, new ignore, issue or user thread is introduced into this PR. The existing broad-lock RustSec warning remains disclosed; successful gated Windows jobs do not imply that the alert is fixed.
+
+After PR #30 finishes, the owner asks for analysis of the supplied 9 October GLib remediation plan. This is **analysis-only authority**, not implementation approval. The plan has not been inspected or analysed before that prerequisite. Its embedded instructions are source material, not authority to change code, dependencies, controls or acceptance claims. Reviewed GitHub/Dependabot failure notices are not marked read before the owner-prioritised PR #30 normal merge; a fresh inventory and actual read-back receipt remain required.
+
+### Dependencies and actual main37 push — completed
+
+Remediation PR #38 and all seven Dependabot PRs #31–#37 are normally merged one by one after their exact-source gates and current lease/rules review, with no bypass. The previous main37-push “pending” paragraph remains its dated cutoff, superseded for that source only by this actual completed push:
+
+| Field | Completed actual main37 evidence |
+| --- | --- |
+| Actual main37 source | `2ff07ae2d3dcc71bc784721894d23861fa3f7675` |
+| Approved tree | `e7867eaa190ead34e7411318121d54efca3adc1b` |
+| Actual push workflow | [37933915148](https://github.com/comzulca/Aster-desktop/actions/runs/37933915148), attempt 1, `push`, `refs/heads/main` |
+| Jobs / completion | All four dependency jobs SUCCESS; `2026-10-09T13:43:22Z` |
+| Package class / version | `unsigned-engineering-build`; v0.2.2 dependency source, not PR #30/v0.2.3 worker qualification |
+| EXE bytes / SHA-256 | `21433675` / `e81152562d9f0a303e6d967daa4f39cfbbb79bec3115a51c931f3e5f611743a6` |
+| Signature / build time | `NotSigned` / `2026-10-09T13:43:13.6110476Z` |
+| Installer artifact | [11619341952](https://github.com/comzulca/Aster-desktop/actions/runs/37933915148/artifacts/11619341952), 8024084 archive bytes |
+| Archive SHA-256 | `be0d5f843f233aebb3715eb3bed0306eb048fc241b91ad56465e1e971005a498` |
+
+Independent complete-log review, root receipt parsing and artifact API/upload metadata agree on the exact actual main37 source. The EXE hash is not the archive digest and is not the distinct PR #37 candidate hash. Independent binary/archive download and owner-installed Windows 11 acceptance are NOT RUN. The two ignored credential fixtures in this dependency-only run remain NOT RUN; its auxiliary child lease-denial test does not replace them.
+
+### P11 cumulative source — five mandatory jobs and packaged probes complete
+
+P11 carries only the normally gated cumulative main37 package/lock, retains P10 behaviour/CI/collector/Cargo/worker invariants and includes the additive Oct9 documentation. It does not add a GLib remediation or new runtime capability.
+
+| Identity | Actual published P11 value |
+| --- | --- |
+| PR #30 head | `3843168ad60d285e2b64069166840066091ecc2f` |
+| Head / tested-merge tree | `67246561e68d4178a84e1eb7d4741a37d13ef7dd` |
+| Actual tested merge | `9f63a457d5b815618bf8172353bb40a9edfbed4b` |
+| Tested main37 base | `2ff07ae2d3dcc71bc784721894d23861fa3f7675` |
+| Workflow | [37937154261](https://github.com/comzulca/Aster-desktop/actions/runs/37937154261), attempt 1 |
+| Required jobs | source-policy, frontend, codec-source-fixtures, windows-host, engineering-installer |
+
+| Completed P11 job | ID | Actual conclusion / completed UTC |
+| --- | --- | --- |
+| source-policy | `113841973319` | SUCCESS / `2026-10-09T13:29:14Z` |
+| codec-source-fixtures | `113842055389` | SUCCESS / `2026-10-09T13:29:52Z` |
+| frontend | `113842055412` | SUCCESS / `2026-10-09T13:29:59Z` |
+| windows-host | `113842355416` | SUCCESS / `2026-10-09T13:57:25Z` |
+| engineering-installer | `113853655650` | SUCCESS / `2026-10-09T14:14:46Z` |
+
+Source-policy, frontend and codec-source-fixtures completed SUCCESS. The Windows job completed SUCCESS at **2026-10-09 13:57:25 UTC**, and the root retrieved the full log bound to tested merge `9f63a457d5b815618bf8172353bb40a9edfbed4b`. Its complete library suite announced **232 cases: 230 PASS, zero FAIL, two ignored, zero filtered main-suite cases**. The full synthetic PDF and new successive-apartment case passed, and all 83 expected PDF checkpoints matched. The failure-only collector was SKIPPED because the complete mandatory suite succeeded; that is not a filtered substitute for the main suite.
+
+Both separately authorised disposable native Credential Manager fixtures actually passed in their exact follow-up executions: one PASS, zero FAIL, zero ignored and 231 filtered per case. The receipt's real-credential-target, owner-laptop, app-bootstrap and live-Meta flags remain false. These hosted synthetic results do not inspect or qualify the owner's saved key or interactive account.
+
+Rust formatting, all-target check, Clippy, RustSec and technical SBOM/notice gates completed. The P11 broad lock scan contains **485 records**, with the same two disclosed `proc-macro-error 1.0.4` / `RUSTSEC-2024-0370` and `glib 0.18.5` / `RUSTSEC-2024-0429` warnings. Rust SBOM contains **484 resolved dependencies**. The newer notice inventory is **583 total packages / 301 packaged-app graph / zero required packages without official standalone notice text**; do not substitute P10's historical 584 total.
+
+Engineering-installer `113853655650` completed SUCCESS at **2026-10-09 14:14:46 UTC**; the aggregate workflow completed SUCCESS at **2026-10-09 14:14:47 UTC**. All five required jobs are complete on the exact P11 tested source. The root retrieved all five complete logs, compared workflow/job/artifact API metadata and parsed the actual release-executable worker and installer receipts. The following is source-bound hosted evidence, not a transferred P10 result:
+
+| Completed installer evidence | Actual source-bound result |
+| --- | --- |
+| Job / all-five aggregate conclusion and completion time | `five jobs SUCCESS; installer 2026-10-09T14:14:46Z; workflow 2026-10-09T14:14:47Z` |
+| Closed codec / resource results | `15/15 codec PASS; 6/6 resource PASS; fixed closed sequences, no FAIL or NOT RUN among these probes` |
+| Worker flags and compound scope | `allPassed: true; qualificationComplete: false; all 42 compound protocols remain NOT RUN` |
+| Exact installer filename / bytes / SHA-256 / signature / build time | `Aster Desktop_0.2.3_x64-setup.exe / 22877805 bytes / SHA-256 e9e6f8cc6081f5ab27f0ccd7034f0870daab3d02f796e7bfc0b1c88d85707695 / NotSigned / 2026-10-09T14:14:32.1987318Z` |
+| Source/run/attempt binding | `unsigned-engineering-candidate; refs/pull/30/merge; pull_request; source 9f63a457d5b815618bf8172353bb40a9edfbed4b; run 37937154261; attempt 1` |
+| Payload/notices/LICENSE/source/lock guard results | `unchanged mandatory source/lock, bounded payload, required notices/LICENSE and NotSigned guards passed in the successful hosted installer job` |
+| Artifact IDs, archive byte counts and digests | `installer 11622945676: 8,569,793 archive bytes, SHA-256 0f8eeb3aa505803265297927ef65df7e484b3eb70b03ce7407ef4db6f2519479; worker evidence 11622590960: 1,137 archive bytes, SHA-256 69f2a88174197add1397d4a6d9015a5be8ba4b0d5e89295af5e4a40aaa1c11ec` |
+| Independent review / root comparison | `oct9-pr30-p11-root-completed.json` and `oct9-pr30-p11-ci-review.json`: completed exact-source receipts agree field-for-field; independent review has no findings; all 233 leaves and four artifact API/upload records agree. No independent archive/binary download is claimed. |
+
+The actual positive and negative worker cases retain the closed fifteen-codec sequence, including the synthetic two-page PDF; all six resource checks passed. The CPU, memory, wall, active-process, kill-on-close and cancellation outcomes are scoped synthetic containment observations, not a guarantee of parser-compromise confinement or owner-session recovery. The successful strict fixture step required a zero native exit. The failure-only library collector stayed SKIPPED because the complete suite succeeded. Independent archive/binary download, passive local reinspection and owner app/installer execution remain NOT RUN.
+
+The installer bundle notice SHA-256 is `be749305ac42c72e3a7893698718995816f40b9eae618dbb09eb6dd31f3ec097`; the proprietary LICENSE resource SHA-256 is `58786a5cf900bbbc778a26cc43220592ce0f36d9da06152c54c1c5a63bce3856`. The recorded technical notice inventory has 583 packages, 301 packaged-app graph entries and zero required standalone-text omissions. This is technical package evidence, not legal redistribution approval.
+
+These completed P11 outcomes do not rewrite any earlier FAIL/SKIPPED record or qualify a later changed source. The actual worker receipt deliberately retains `qualificationComplete: false`; it must not be flipped to imply product/security acceptance. All 42 compound protocols and owner-installed/native startup/focus/DPI, real credential/live Meta, signing and production acceptance remain separate NOT RUN. Owner-reported v0.2.2 flicker FAIL and local Code Integrity failure remain unchanged historical evidence.
+
+### Final documentation-only source and external-state receipts
+
+This amendment describes actual P11 execution and the owner's documented scope; it does not name its own future commit, tested merge or workflow. Publishing this documentation-only addition creates a different source tree and therefore still requires **all five mandatory jobs plus the actual fifteen codec/six resource packaged probes anew** under the unchanged gates. No earlier green result substitutes for that new head. Normal merge also requires fresh exact head/base/tree/review/rules leases and no bypass.
+
+At the final amendment's preparation checkpoint, the subsequent documentation-only head, exact final gates and merge are not yet established. That statement is dated, not a permanent assertion about live PR status. For the observed status of later final-source CI, normal merge/current-main identities, distinct main-push/build evidence, final issue/main inventory and post-merge reviewed Gmail handling, consult the [PR #30 closing receipt](https://github.com/comzulca/Aster-desktop/pull/30#issuecomment-6082465272) and its exact source-bound references. The owner prioritises PR #30; reviewed mail handling and analysis of the separately supplied GLib plan follow only after that prerequisite. Source need not be re-committed just to embed external changes or its own SHA: the dated source evidence, immutable local verification records and linked closing receipt provide the exact subsequent outcomes.
+
+This completed-source amendment does not change runtime behaviour, worker authority, CI, historical JSON, the eight governing bodies or prior source-specific cutoffs. It grants no live provider, owner credential, Windows security, signing, production, GLib implementation or automatic mail mutation authority.
