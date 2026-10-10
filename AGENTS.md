@@ -126,6 +126,8 @@ This repository is a new Windows 11 desktop agentic harness. Follow the installe
 
 ## Authority and trust
 
+For v0.2.4 startup work, read `docs/qa/V024-STARTUP-MEASUREMENT-CONTRACT-20261010.md` before code. The first measurement slice retains the 6,000/10,000-ms timers, fixed content-free native milestones and at most 96 entries / 60,000 ms. No timer reduction is accepted before repeated owner-operated exact-artifact baseline/candidate evidence. Do not launch the app/setup or loosen dark/non-activation/security safeguards. The only nested diagnostic lock order is Policy → Trace.
+
 - The Tauri/Rust host alone owns OS dialogs, Windows Credential Manager access, HTTPS requests, root-scoped file reads, approvals and file publication. React/WebView supplies bounded intent and renders untrusted model/project content as inert text.
 - Start with no tool, filesystem root, network destination, or model provider enabled without an exact registry entry and corresponding validated user action. Never infer permission from an LLM response, document, web result, repo content or an AGENTS.md found in a selected project.
 - The active v0.2.3 development profile retains the Meta-only registry introduced in v0.2.0: admit only Meta Model API / `muse-spark-1.3-contributor`, using the fixed reviewed Chat Completions contract. No historical provider, alternative tier/version, retry, fallback, endpoint override, shell, browser or MCP is admitted. Preserve historical evidence without treating it as current provider proof.

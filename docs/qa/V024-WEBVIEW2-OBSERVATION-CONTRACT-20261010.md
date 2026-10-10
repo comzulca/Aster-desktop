@@ -1,5 +1,7 @@
 # v0.2.4 bounded native WebView2 observation — 10 October 2026
 
+Later before-code supersession: the [startup measurement contract](V024-STARTUP-MEASUREMENT-CONTRACT-20261010.md) extends only the closed native observation vocabulary and replaces the earlier one-slot reservation with up to nine fixed critical slots inside the same 96-event/60,000-ms budget. The earlier one-slot contract below is preserved as dated history. Schema fields, renderer intent/categories, recording cutoff, observer/custody boundaries and 6,000/10,000-ms presentation behaviour remain unchanged. Missing/dropped observations and native visibility are still not complete paint or cure evidence.
+
 Before-code refinement of NFR-010 / TM-032 / AC-076 / T-086 and [the causal investigation](FLICKER-V024-20261009.md). This is diagnostic source, not a remedy or installed PASS. The owner will install/run the diagnostic themselves; no agent application/setup launch, paid call, credential/history operation, security/GPU change or longer initial wait is authorised.
 
 ## Closed native owner

@@ -1,8 +1,10 @@
 # THREAT-MODEL-0006 — v0.2.4 boundaries
 
-Revision 5, 10 October 2026, adding the resolved 4-GiB transcript preference and reserved native visibility-origin observation after revision 4's private capacity/native-worker lease refinements, revision 3's pending full-window migration boundary, revision 2's controlled integration and the original 9 October register. Controls must be demonstrated in changed-source tests, not inferred from this document or from source implementation. Read [SPEC-0006](../specs/SPEC-0006.md) and [ADR-0021](../adr/ADR-0021.md) before behaviour changes.
+Revision 6, 10 October 2026, adding the capture-only startup observation refinement and repeated-reduction protocol after revision 5's resolved 4-GiB transcript preference and reserved native visibility-origin observation, revision 4's private capacity/native-worker lease refinements, revision 3's pending full-window migration boundary, revision 2's controlled integration and the original 9 October register. Controls must be demonstrated in changed-source tests, not inferred from this document or from source implementation. Read [SPEC-0006](../specs/SPEC-0006.md) and [ADR-0021](../adr/ADR-0021.md) before behaviour changes.
 
 ## Data flow and custody
+
+TM-032's [before-code startup timing refinement](../qa/V024-STARTUP-MEASUREMENT-CONTRACT-20261010.md) is capture-only: fixed native categories, one trace clock, Policy → Trace lock order, bounded per-kind reservations within 96 events / 60,000 ms, no renderer-forged milestones or diagnostic I/O. Preserve the 6,000/10,000-ms timers, dark backgrounds and one-shot guarded UI-thread show. Missing/saturated data, cleanup failure and a queued closure that never runs cannot become painted-frame/cure acceptance. Repeated exact-installed owner evidence gates every future reduction; source/headless PASS is insufficient.
 
 Native key entry → Meta Credential Manager target → fixed host verifier → non-secret generation-bound status → composer admission.
 

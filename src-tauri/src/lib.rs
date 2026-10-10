@@ -1762,7 +1762,8 @@ pub fn run() {
         })
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let gate = startup::StartupGate::new();
+            let gate =
+                startup::StartupGate::new(app.state::<render_trace::RenderTrace>().inner().clone());
             let window = app
                 .get_webview_window(MAIN_WINDOW)
                 .ok_or("startup_window_unavailable")?;

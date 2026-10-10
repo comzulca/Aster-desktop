@@ -24,6 +24,37 @@ describe('bounded rendering observation, not a painted-pixel or cure claim (T-08
     for (const phase of phases) expect(validRenderTrace({ ...receipt, events: [{ elapsedMs: 0, source: 'renderer', phase }] })).toBe(false);
     for (const phase of ['compositor_ready', 'painted', 'navigation_uri', 'zoom:1.0']) expect(validRenderTrace({ ...receipt, events: [{ elapsedMs: 0, source: 'native', phase }] })).toBe(false);
   });
+  it('admits the ten fixed native startup milestones without expanding renderer authority or visibility proof', () => {
+    const phases: NativeTracePhase[] = ['startup_gate_created', 'startup_shell_accepted', 'startup_reveal_ready', 'startup_reveal_deadline', 'startup_show_started',
+      'startup_show_visible', 'startup_show_denied', 'startup_show_visible_cleanup_failed', 'startup_show_denied_cleanup_failed', 'startup_dispatch_denied'];
+    // Vocabulary fixture only, not a proposed runtime sequence: ready/deadline
+    // decisions and returned results depend on the separately tested host policy.
+    const receipt: RenderTraceSnapshot = { ...snapshot, visibleAtMs: null, elapsedMs: phases.length,
+      events: phases.map((phase, index) => ({ elapsedMs: index, source: 'native', phase })) };
+    expect(phases).toHaveLength(10);
+    expect(validRenderTrace(receipt)).toBe(true);
+    for (const phase of phases) {
+      expect(validRenderTrace({ ...receipt, events: [{ elapsedMs: 0, source: 'renderer', phase }] })).toBe(false);
+      expect(validRenderTrace({ ...receipt, visibleAtMs: 0, events: [{ elapsedMs: 0, source: 'native', phase }] })).toBe(false);
+    }
+    const visible: RenderTraceSnapshot = { ...receipt, visibleAtMs: 10, events: [...receipt.events, { elapsedMs: 10, source: 'native', phase: 'parent_visible' }] };
+    expect(validRenderTrace(visible)).toBe(true);
+    expect(validRenderTrace(snapshot)).toBe(true);
+  });
+  it('keeps startup measurement content-free and rejects painted-frame claims, timing knobs and private metadata', () => {
+    const receipt: RenderTraceSnapshot = { ...snapshot, visibleAtMs: null,
+      events: [{ elapsedMs: 0, source: 'native', phase: 'startup_gate_created' }, { elapsedMs: 1, source: 'native', phase: 'startup_shell_accepted' }] };
+    for (const phase of ['startup_painted', 'startup_compositor_ready', 'startup_delay:4000', 'startup_ready_url', 'startup_key_valid']) {
+      expect(validRenderTrace({ ...receipt, events: [{ elapsedMs: 0, source: 'native', phase }] })).toBe(false);
+    }
+    for (const field of ['url', 'path', 'content', 'identity', 'error', 'keyState', 'delay', 'approved', 'painted']) {
+      expect(validRenderTrace({ ...receipt, [field]: 'PRIVATE_DIAGNOSTIC_CANARY' })).toBe(false);
+      expect(validRenderTrace({ ...receipt, events: [{ ...receipt.events[0], [field]: 'PRIVATE_DIAGNOSTIC_CANARY' }] })).toBe(false);
+    }
+    expect(validRenderTrace({ ...receipt, schemaVersion: 2 })).toBe(false);
+    expect(validRenderTrace({ ...receipt, events: [{ elapsedMs: 60_001, source: 'native', phase: 'startup_show_visible' }] })).toBe(false);
+    expect(validRenderTrace({ ...receipt, events: [...receipt.events, { elapsedMs: 0, source: 'native', phase: 'startup_show_started' }] })).toBe(false);
+  });
   it('reads an exact inert observation only after an explicit click and never sends or exports it', async () => {
     const fake = fakeBridge(); fake.bridge.getRenderTrace = vi.fn(async () => structuredClone(snapshot));
     render(<RenderingDiagnostics bridge={fake.bridge}/>);

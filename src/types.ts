@@ -121,7 +121,9 @@ export interface GitHubFile { path: string; branch: string; blobSha: string; con
 export type RendererTracePhase = 'mounted' | 'assets_ready' | 'hydration_started' | 'hydration_finished' | 'visible' | 'hidden';
 export type NativeTracePhase = 'host_created' | 'parent_created' | 'page_started' | 'page_finished' | 'parent_visible' | 'visibility_denied' | 'resized' | 'scale_changed' | 'focused' | 'unfocused' | 'destroyed'
   | 'observer_attached' | 'observer_unavailable' | 'observer_detached' | 'navigation_started' | 'content_loading' | 'dom_content_loaded' | 'navigation_completed' | 'navigation_failed' | 'process_failed'
-  | 'controller_visible' | 'controller_hidden' | 'controller_unavailable' | 'background_dark' | 'background_other' | 'background_unavailable' | 'zoom_default' | 'zoom_changed' | 'zoom_unavailable';
+  | 'controller_visible' | 'controller_hidden' | 'controller_unavailable' | 'background_dark' | 'background_other' | 'background_unavailable' | 'zoom_default' | 'zoom_changed' | 'zoom_unavailable'
+  | 'startup_gate_created' | 'startup_shell_accepted' | 'startup_reveal_ready' | 'startup_reveal_deadline' | 'startup_show_started'
+  | 'startup_show_visible' | 'startup_show_denied' | 'startup_show_visible_cleanup_failed' | 'startup_show_denied_cleanup_failed' | 'startup_dispatch_denied';
 export type RenderTraceEvent = { elapsedMs: number; source: 'renderer'; phase: RendererTracePhase } | { elapsedMs: number; source: 'native'; phase: NativeTracePhase };
 export interface RenderTraceSnapshot {
   schemaVersion: 1;

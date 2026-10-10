@@ -10,6 +10,10 @@ use tauri::{State, WebviewWindow};
 
 const MAX_EVENTS: usize = 96;
 const MAX_MS: u64 = 60_000;
+const RESERVED_CRITICAL_EVENTS: usize = 9;
+// Gate, first shell admission, reveal decisions, UI starts, returned outcomes
+// (including dispatch denial), and the first native visibility respectively.
+const CRITICAL_CAPACITIES: [u8; 6] = [1, 1, 2, 2, 2, 1];
 
 #[derive(Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -43,6 +47,33 @@ pub(crate) enum NativePhase {
     ZoomDefault,
     ZoomChanged,
     ZoomUnavailable,
+    StartupGateCreated,
+    StartupShellAccepted,
+    StartupRevealReady,
+    StartupRevealDeadline,
+    StartupShowStarted,
+    StartupShowVisible,
+    StartupShowDenied,
+    StartupShowVisibleCleanupFailed,
+    StartupShowDeniedCleanupFailed,
+    StartupDispatchDenied,
+}
+impl NativePhase {
+    fn reservation(self) -> Option<usize> {
+        match self {
+            Self::StartupGateCreated => Some(0),
+            Self::StartupShellAccepted => Some(1),
+            Self::StartupRevealReady | Self::StartupRevealDeadline => Some(2),
+            Self::StartupShowStarted => Some(3),
+            Self::StartupShowVisible
+            | Self::StartupShowDenied
+            | Self::StartupShowVisibleCleanupFailed
+            | Self::StartupShowDeniedCleanupFailed
+            | Self::StartupDispatchDenied => Some(4),
+            Self::ParentVisible => Some(5),
+            _ => None,
+        }
+    }
 }
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -72,6 +103,7 @@ struct Trace {
     dropped: u32,
     visible_at_ms: Option<u64>,
     detail_available: bool,
+    critical_used: [u8; 6],
 }
 struct Inner {
     started: Instant,
@@ -108,6 +140,7 @@ impl RenderTrace {
                     dropped: 0,
                     visible_at_ms: None,
                     detail_available: false,
+                    critical_used: [0; 6],
                 }),
             }),
         };
@@ -124,18 +157,33 @@ impl RenderTrace {
     fn record(&self, phase: Phase) {
         if let Ok(mut trace) = self.inner.trace.lock() {
             let tick = self.elapsed();
+            let reservation = match phase {
+                Phase::Native(native) => native.reservation(),
+                Phase::Renderer(_) => None,
+            };
             let first_native_visible = matches!(phase, Phase::Native(NativePhase::ParentVisible))
                 && trace.visible_at_ms.is_none();
-            // Keep the first native origin and its event together even when
-            // pre-visibility chatter fills the ordinary observation budget.
-            let limit = if trace.visible_at_ms.is_none() && !first_native_visible {
-                MAX_EVENTS - 1
-            } else {
+            // Retain every unused reservation, even after visibility. Ordinary
+            // chatter never consumes it; no retained observation is evicted.
+            let remaining_reserved = RESERVED_CRITICAL_EVENTS
+                - trace
+                    .critical_used
+                    .iter()
+                    .map(|used| usize::from(*used))
+                    .sum::<usize>();
+            let limit = if reservation.is_some() {
                 MAX_EVENTS
+            } else {
+                MAX_EVENTS - remaining_reserved
             };
-            if tick > MAX_MS || trace.events.len() >= limit {
+            let surplus_critical = reservation
+                .is_some_and(|kind| trace.critical_used[kind] >= CRITICAL_CAPACITIES[kind]);
+            if tick > MAX_MS || trace.events.len() >= limit || surplus_critical {
                 trace.dropped = trace.dropped.saturating_add(1);
                 return;
+            }
+            if let Some(kind) = reservation {
+                trace.critical_used[kind] += 1;
             }
             if first_native_visible {
                 trace.visible_at_ms = Some(tick);
@@ -175,6 +223,10 @@ impl RenderTrace {
             events: trace.events.clone(),
             webview2_detail_events_available: trace.detail_available,
         })
+    }
+    #[cfg(test)]
+    pub(crate) fn snapshot_for_fixture(&self) -> Snapshot {
+        self.snapshot().unwrap()
     }
 }
 
@@ -221,7 +273,7 @@ mod tests {
             trace.record(Phase::Renderer(RendererPhase::Visible));
         }
         let snapshot = trace.snapshot().unwrap();
-        assert_eq!(snapshot.events.len(), MAX_EVENTS - 1);
+        assert_eq!(snapshot.events.len(), MAX_EVENTS - RESERVED_CRITICAL_EVENTS);
         assert_eq!(snapshot.visible_at_ms, None);
         assert!(snapshot.dropped > 0);
         let value = serde_json::to_value(snapshot).unwrap();
@@ -235,9 +287,24 @@ mod tests {
             trace.record(Phase::Renderer(RendererPhase::Visible));
         }
         let before = trace.snapshot().unwrap();
-        assert_eq!(before.events.len(), MAX_EVENTS - 1);
+        assert_eq!(before.events.len(), MAX_EVENTS - RESERVED_CRITICAL_EVENTS);
         assert_eq!(before.visible_at_ms, None);
-        assert_eq!(before.dropped, 106);
+        assert_eq!(before.dropped, 114);
+
+        // Consume the eight separately reserved startup observations before
+        // exercising the original last-slot visibility assertions below.
+        for phase in [
+            NativePhase::StartupGateCreated,
+            NativePhase::StartupShellAccepted,
+            NativePhase::StartupRevealReady,
+            NativePhase::StartupShowStarted,
+            NativePhase::StartupShowDenied,
+            NativePhase::StartupRevealDeadline,
+            NativePhase::StartupShowStarted,
+            NativePhase::StartupShowVisible,
+        ] {
+            trace.native(phase);
+        }
 
         trace.native(NativePhase::ParentVisible);
         let visible = trace.snapshot().unwrap();
@@ -298,6 +365,7 @@ mod tests {
                     dropped: 0,
                     visible_at_ms: None,
                     detail_available: false,
+                    critical_used: [0; 6],
                 }),
             }),
         };
@@ -311,5 +379,207 @@ mod tests {
         assert!(!snapshot.webview2_detail_events_available);
         assert_eq!(snapshot.elapsed_ms, MAX_MS);
         assert!(expired.remaining().is_zero());
+    }
+
+    #[test]
+    fn startup_vocabulary_is_fixed_native_only_and_renderer_cannot_forge_it() {
+        for (phase, expected) in [
+            (NativePhase::StartupGateCreated, "startup_gate_created"),
+            (NativePhase::StartupShellAccepted, "startup_shell_accepted"),
+            (NativePhase::StartupRevealReady, "startup_reveal_ready"),
+            (
+                NativePhase::StartupRevealDeadline,
+                "startup_reveal_deadline",
+            ),
+            (NativePhase::StartupShowStarted, "startup_show_started"),
+            (NativePhase::StartupShowVisible, "startup_show_visible"),
+            (NativePhase::StartupShowDenied, "startup_show_denied"),
+            (
+                NativePhase::StartupShowVisibleCleanupFailed,
+                "startup_show_visible_cleanup_failed",
+            ),
+            (
+                NativePhase::StartupShowDeniedCleanupFailed,
+                "startup_show_denied_cleanup_failed",
+            ),
+            (
+                NativePhase::StartupDispatchDenied,
+                "startup_dispatch_denied",
+            ),
+        ] {
+            assert_eq!(serde_json::to_value(phase).unwrap(), expected);
+            for forged in [
+                serde_json::json!({"protocolVersion":1,"phase":expected}),
+                serde_json::json!({"protocolVersion":1,"source":"native","phase":expected}),
+            ] {
+                assert!(serde_json::from_value::<RendererIntent>(forged).is_err());
+            }
+        }
+        assert_eq!(
+            CRITICAL_CAPACITIES
+                .iter()
+                .map(|count| usize::from(*count))
+                .sum::<usize>(),
+            RESERVED_CRITICAL_EVENTS
+        );
+    }
+
+    #[test]
+    fn all_critical_slots_survive_chatter_without_evicting_retained_events() {
+        let trace = RenderTrace::new();
+        for _ in 0..100 {
+            trace.native(NativePhase::ControllerVisible);
+            trace.record(Phase::Renderer(RendererPhase::Visible));
+        }
+        let before = trace.snapshot().unwrap();
+        assert_eq!(before.events.len(), 87);
+        let retained_before = serde_json::to_value(&before.events).unwrap();
+        for phase in [
+            NativePhase::StartupGateCreated,
+            NativePhase::StartupShellAccepted,
+            NativePhase::StartupRevealReady,
+            NativePhase::StartupShowStarted,
+            NativePhase::StartupShowDeniedCleanupFailed,
+            NativePhase::StartupRevealDeadline,
+            NativePhase::StartupShowStarted,
+            NativePhase::StartupShowVisibleCleanupFailed,
+            NativePhase::ParentVisible,
+        ] {
+            trace.native(phase);
+        }
+        let after = trace.snapshot().unwrap();
+        assert_eq!(after.events.len(), MAX_EVENTS);
+        assert_eq!(after.dropped, before.dropped);
+        assert_eq!(
+            serde_json::to_value(&after.events[..before.events.len()]).unwrap(),
+            retained_before
+        );
+        assert_eq!(
+            trace.inner.trace.lock().unwrap().critical_used,
+            CRITICAL_CAPACITIES
+        );
+        assert_eq!(
+            after.visible_at_ms,
+            Some(after.events.last().unwrap().elapsed_ms)
+        );
+        assert!(after
+            .events
+            .windows(2)
+            .all(|pair| pair[0].elapsed_ms <= pair[1].elapsed_ms));
+    }
+
+    #[test]
+    fn unused_startup_slots_remain_reserved_after_first_native_visibility() {
+        let trace = RenderTrace::new();
+        trace.native(NativePhase::ParentVisible);
+        let origin = trace.snapshot().unwrap().visible_at_ms;
+        for _ in 0..200 {
+            trace.record(Phase::Renderer(RendererPhase::Visible));
+        }
+        let full_ordinary = trace.snapshot().unwrap();
+        assert_eq!(full_ordinary.events.len(), 88);
+        assert_eq!(full_ordinary.dropped, 114);
+        assert_eq!(
+            trace.inner.trace.lock().unwrap().critical_used,
+            [0, 0, 0, 0, 0, 1]
+        );
+        trace.native(NativePhase::ParentVisible);
+        trace.native(NativePhase::StartupGateCreated);
+        trace.record(Phase::Renderer(RendererPhase::Visible));
+        let after = trace.snapshot().unwrap();
+        assert_eq!(after.events.len(), 89);
+        assert_eq!(after.dropped, full_ordinary.dropped + 2);
+        assert_eq!(after.visible_at_ms, origin);
+    }
+
+    #[test]
+    fn surplus_critical_kinds_drop_even_with_free_ordinary_capacity() {
+        let trace = RenderTrace::new();
+        for phase in [
+            NativePhase::StartupGateCreated,
+            NativePhase::StartupGateCreated,
+            NativePhase::StartupShellAccepted,
+            NativePhase::StartupShellAccepted,
+            NativePhase::StartupRevealReady,
+            NativePhase::StartupRevealDeadline,
+            NativePhase::StartupRevealReady,
+            NativePhase::StartupShowStarted,
+            NativePhase::StartupShowStarted,
+            NativePhase::StartupShowStarted,
+            NativePhase::StartupShowDenied,
+            NativePhase::StartupDispatchDenied,
+            NativePhase::StartupShowVisible,
+            NativePhase::StartupShowVisibleCleanupFailed,
+            NativePhase::StartupShowDeniedCleanupFailed,
+            NativePhase::ParentVisible,
+            NativePhase::ParentVisible,
+        ] {
+            trace.native(phase);
+        }
+        let snapshot = trace.snapshot().unwrap();
+        assert_eq!(snapshot.events.len(), 1 + RESERVED_CRITICAL_EVENTS);
+        assert_eq!(snapshot.dropped, 8);
+        assert_eq!(
+            trace.inner.trace.lock().unwrap().critical_used,
+            CRITICAL_CAPACITIES
+        );
+        assert_eq!(
+            snapshot.visible_at_ms,
+            Some(snapshot.events.last().unwrap().elapsed_ms)
+        );
+    }
+
+    #[test]
+    fn expired_critical_calls_consume_no_reservation_or_visibility_origin() {
+        let trace = RenderTrace {
+            inner: Arc::new(Inner {
+                started: Instant::now()
+                    .checked_sub(Duration::from_millis(MAX_MS + 1))
+                    .unwrap(),
+                trace: Mutex::new(Trace {
+                    events: Vec::new(),
+                    dropped: 0,
+                    visible_at_ms: None,
+                    detail_available: false,
+                    critical_used: [0; 6],
+                }),
+            }),
+        };
+        for phase in [
+            NativePhase::StartupGateCreated,
+            NativePhase::StartupShellAccepted,
+            NativePhase::StartupRevealReady,
+            NativePhase::StartupRevealDeadline,
+            NativePhase::StartupShowStarted,
+            NativePhase::StartupShowVisible,
+            NativePhase::StartupShowDenied,
+            NativePhase::StartupShowVisibleCleanupFailed,
+            NativePhase::StartupShowDeniedCleanupFailed,
+            NativePhase::StartupDispatchDenied,
+            NativePhase::ParentVisible,
+        ] {
+            trace.native(phase);
+        }
+        let snapshot = trace.snapshot().unwrap();
+        assert!(snapshot.events.is_empty());
+        assert_eq!(snapshot.dropped, 11);
+        assert_eq!(snapshot.visible_at_ms, None);
+        assert_eq!(trace.inner.trace.lock().unwrap().critical_used, [0; 6]);
+        assert_eq!(snapshot.elapsed_ms, MAX_MS);
+    }
+
+    #[test]
+    fn dropped_accounting_saturates_without_releasing_or_evicting_reservations() {
+        let trace = RenderTrace::new();
+        trace.native(NativePhase::StartupGateCreated);
+        trace.inner.trace.lock().unwrap().dropped = u32::MAX;
+        trace.native(NativePhase::StartupGateCreated);
+        let snapshot = trace.snapshot().unwrap();
+        assert_eq!(snapshot.events.len(), 2);
+        assert_eq!(snapshot.dropped, u32::MAX);
+        assert_eq!(
+            trace.inner.trace.lock().unwrap().critical_used,
+            [1, 0, 0, 0, 0, 0]
+        );
     }
 }

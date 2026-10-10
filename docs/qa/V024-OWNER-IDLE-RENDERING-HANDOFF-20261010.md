@@ -1,5 +1,7 @@
 # v0.2.4 owner idle-start diagnostic instructions — 10 October 2026
 
+Latest follow-up: the owner has supplied one clean recording and agrees to **ten new measurement-baseline launches**, five ordinary Aster restarts and five first launches after separate Windows restarts. The [results](V024-STARTUP-MEASUREMENT-RESULTS-20261010.md) and [timing contract](V024-STARTUP-MEASUREMENT-CONTRACT-20261010.md) explain why the older JSON cannot measure host preparation/dispatch intervals. The new milestone build must be separately qualified before handoff; it is not the immutable earlier diagnostic below or a shorter/final build. Record the whole window, start before appearance, retain at least 15 seconds after it and read the complete JSON promptly. Identify exact setup hash/source and launch conditions; do not assume cache warmth/coldness. Do not clear data or change GPU/security settings. Every 4,000/2,000-ms candidate remains NOT RUN; no new agent-run app/setup authority follows.
+
 Status: **instructions prepared; diagnostic handoff NOT READY** until the [artifact contract](V024-DIAGNOSTIC-ARTIFACT-CONTRACT-20261010.md) is independently satisfied and a separate receipt supplies the actual PR/head/base/merge/tree, run/attempt, artifact identity, local file size/hash and `VERIFIED_DIAGNOSTIC_NOT_INSTALLED`. These instructions are not an installer result, permission for an agent launch or proof of a cure. A PR diagnostic must not be named or described as the completed final/main `Aster_0.2.4_x64-setup.exe`.
 
 ## Owner-operated observation
