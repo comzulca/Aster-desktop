@@ -218,7 +218,7 @@ pub(crate) async fn begin_github_connection(
     host: State<'_, Host>,
 ) -> Result<GithubStatus, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     let (epoch, cancellation) = {
         let mut state = lock(&host)?;
@@ -240,7 +240,7 @@ pub(crate) async fn begin_github_connection(
         "destinations":["https://github.com/login/device/code","https://github.com/login/oauth/access_token","https://api.github.com/user"],
         "effect":"Begin one device authorisation. Enter only the code initiated here at the fixed GitHub verification page. GitHub credentials stay in the native host and Windows Credential Manager. No data or Personalization is sent to Meta. Account selection requires another native review. Connecting permits no repository mutation or Contributor disclosure."
     }))?.with_request_cancellation(cancellation.clone());
-    if !review(&window, document).await? {
+    if !review(&window, document, &guard).await? {
         let mut state = lock(&host)?;
         state.check_epoch(epoch)?;
         state.cancel()?;
@@ -283,7 +283,7 @@ pub(crate) async fn poll_github_connection(
     host: State<'_, Host>,
 ) -> Result<GithubStatus, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     let (epoch, mut session, cancellation) = {
         let mut state = lock(&host)?;
@@ -376,7 +376,7 @@ pub(crate) async fn poll_github_connection(
                 "credentialTarget":crate::github_credential::TARGET,
                 "effect":"Save only this expiring device-flow token pair for the current Windows user. GitHub rights do not permit private/personal/confidential data to be sent to Meta. No repository or write grant is created. Local disconnect forgets Aster tokens but does not revoke GitHub authorisation remotely."
             }))?.with_request_cancellation(cancellation.clone());
-            if !review(&window, document).await? {
+            if !review(&window, document, &guard).await? {
                 let mut state = lock(&host)?;
                 state.check_epoch(epoch)?;
                 state.cancel()?;
@@ -433,7 +433,7 @@ pub(crate) async fn disconnect_github(
     host: State<'_, Host>,
 ) -> Result<GithubStatus, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     let (epoch, account, cancellation) = {
         let state = lock(&host)?;
@@ -445,7 +445,7 @@ pub(crate) async fn disconnect_github(
     };
     let document=operation(serde_json::json!({"operation":"Forget Aster's local GitHub connection","account":account,
         "target":crate::github_credential::TARGET,"effect":"Invalidate pending sessions and grants before deleting Aster's fixed current-user GitHub credential. This does not remotely revoke GitHub authorisation; manage it manually at https://github.com/settings/apps. Meta credentials, history and Personalization remain untouched."}))?.with_request_cancellation(cancellation);
-    if !review(&window, document).await? {
+    if !review(&window, document, &guard).await? {
         return Ok(lock(&host)?.status());
     }
     let mut state = lock(&host)?;
@@ -594,7 +594,7 @@ pub(crate) async fn select_github_repository(
     input: SelectRepositoryInput,
 ) -> Result<GithubStatus, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     if input.installation_id == 0 || input.repository_id == 0 {
         return Err("github_contract_rejected".into());
@@ -619,7 +619,7 @@ pub(crate) async fn select_github_repository(
     let document=operation(serde_json::json!({"operation":"Select this installed GitHub repository",
         "account":lock(&host)?.account,"repository":repository,"installationId":installation.id,
         "effect":"Select only this repository for bounded explicit reads and future separately reviewed changes. No mutation or private-content disclosure to Meta is authorised. Changing repository invalidates old proposals."}))?.with_request_cancellation(cancellation);
-    if !review(&window, document).await? {
+    if !review(&window, document, &guard).await? {
         return Ok(lock(&host)?.status());
     }
     // Re-read the token's installed scope after exact review, not generic public GET alone.

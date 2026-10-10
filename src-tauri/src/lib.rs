@@ -14,6 +14,8 @@ mod credential_fixture;
 mod credential_validation;
 mod customization;
 mod customization_generation;
+#[cfg(test)]
+mod full_window_admission; // Content-free capacity core only; no active compaction.
 mod github_api;
 pub mod github_connection;
 #[allow(dead_code)]
@@ -26,6 +28,7 @@ mod history;
 mod host_attachments_tests;
 #[cfg(windows)]
 mod journal_privacy;
+mod native_operation_lease;
 mod native_review;
 mod native_visual;
 #[cfg(windows)]
@@ -51,6 +54,7 @@ use credential::CredentialStore;
 use credential_validation::{CredentialValidation, ValidationState};
 use futures_util::FutureExt;
 use history::{Conversation, ConversationSummary, EntryState, History};
+use native_operation_lease::{NativeOperationGate, NativeOperationLease};
 use native_review::ReviewDocument;
 use policy::{
     FinishDisposition, Model, SessionState, TransportOutcome, DEFAULT_MODEL, POLICY_VERSION,
@@ -139,30 +143,15 @@ struct Host {
     sessions: Mutex<SessionState>,
     attachments: Mutex<AttachmentRegistry>,
     persistent: Mutex<Result<Persistence, StoreError>>,
-    native_dialog_open: AtomicBool,
+    native_dialog_open: NativeOperationGate,
     expiry_shutdown: AtomicBool,
     window_close: window_guard::CloseState,
 }
-struct NativeDialogGuard<'a>(&'a AtomicBool);
-impl Drop for NativeDialogGuard<'_> {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::Release);
-    }
-}
 impl Host {
-    fn enter_native_dialog(&self) -> Result<NativeDialogGuard<'_>, String> {
-        if self.window_close.is_closing() {
-            return Err("window_closing".into());
-        }
-        let guard = self
-            .native_dialog_open
-            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-            .map(|_| NativeDialogGuard(&self.native_dialog_open))
-            .map_err(|_| "native_dialog_busy".to_owned())?;
-        if self.window_close.is_closing() {
-            return Err("window_closing".into());
-        }
-        Ok(guard)
+    fn enter_native_dialog(&self) -> Result<NativeOperationLease, String> {
+        self.native_dialog_open
+            .acquire(|| self.window_close.is_closing())
+            .map_err(str::to_owned)
     }
     fn idle(&self) -> Result<(), String> {
         if self.window_close.is_closing() {
@@ -359,10 +348,12 @@ async fn import_customization(
     input: ImportCustomizationIntent,
 ) -> Result<customization::CatalogueSnapshot, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     owner(&window)?;
+    let worker_lease = guard.worker_lease();
     let bytes = tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
         let selected = app
             .dialog()
             .file()
@@ -408,9 +399,15 @@ fn owner(window: &WebviewWindow) -> Result<usize, String> {
 fn owner(_: &WebviewWindow) -> Result<usize, String> {
     Err("unsupported_platform".into())
 }
-async fn review(window: &WebviewWindow, document: ReviewDocument) -> Result<bool, String> {
+async fn review(
+    window: &WebviewWindow,
+    document: ReviewDocument,
+    guard: &NativeOperationLease,
+) -> Result<bool, String> {
     let hwnd = owner(window)?;
+    let worker_lease = guard.worker_lease();
     tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
         match native_review::confirm_owned(&document, hwnd).map_err(|error| match error {
             native_review::ReviewError::Cancelled => "cancelled".to_owned(),
             _ => "native_review_unavailable".to_owned(),
@@ -656,11 +653,13 @@ async fn configure_meta_credential(
     host: State<'_, Host>,
 ) -> Result<CredentialStatus, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     // No key is read or sent to the WebView; saved history and finances survive.
     let hwnd = owner(&window)?;
+    let worker_lease = guard.worker_lease();
     let configured = tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
         CredentialStore
             .enter_with_native_dialog_after(hwnd, || {
                 invalidate_identity(&app.state::<Host>())
@@ -672,7 +671,7 @@ async fn configure_meta_credential(
     .map_err(|_| "credential_unavailable")??;
     if configured {
         // Native review explicitly covers the fixed non-inference GET.
-        let _ = verify_credential_inner(&window, &host).await?;
+        let _ = verify_credential_inner(&window, &host, &guard).await?;
     }
     Ok(CredentialStatus { configured })
 }
@@ -708,6 +707,7 @@ fn require_valid_credential(host: &Host) -> Result<(), String> {
 async fn verify_credential_inner(
     window: &WebviewWindow,
     host: &Host,
+    guard: &NativeOperationLease,
 ) -> Result<ValidationReceipt, String> {
     if !host.credentials.configured().map_err(|e| e.code())? {
         return Ok(ValidationReceipt {
@@ -718,7 +718,7 @@ async fn verify_credential_inner(
         "operation":"Verify configured Meta API credential",
         "destination":provider::MODEL_VALIDATION_ENDPOINT,
         "effect":"One fixed model metadata GET. The native key is sent only to Meta. No conversation, attachment, Personalization or inference is sent. This proves authentication/model access only, not quota or billing. No automatic retry."
-    }))?).await? {
+    }))?, guard).await? {
         return Ok(ValidationReceipt { state: credential_state(host, true) });
     }
     let key = host.credentials.read().map_err(|e| e.code())?;
@@ -778,9 +778,9 @@ async fn verify_meta_credential(
     host: State<'_, Host>,
 ) -> Result<ValidationReceipt, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
-    verify_credential_inner(&window, &host).await
+    verify_credential_inner(&window, &host, &guard).await
 }
 #[tauri::command]
 async fn remove_meta_credential(
@@ -788,9 +788,9 @@ async fn remove_meta_credential(
     host: State<'_, Host>,
 ) -> Result<CredentialStatus, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
-    if !review(&window,operation(serde_json::json!({"operation":"Remove Meta API credential","target":"AsterDesktop/MetaModelAPI/v1","preserved":"Earlier provider credentials, protected conversation display history and financial reservations remain."}))?).await? {return Ok(CredentialStatus{configured:host.credentials.configured().map_err(|e|e.code())?});}
+    if !review(&window,operation(serde_json::json!({"operation":"Remove Meta API credential","target":"AsterDesktop/MetaModelAPI/v1","preserved":"Earlier provider credentials, protected conversation display history and financial reservations remain."}))?, &guard).await? {return Ok(CredentialStatus{configured:host.credentials.configured().map_err(|e|e.code())?});}
     // A full/unavailable proof or history store must never prevent the owner
     // deleting the native secret. Revocation still latches closed first.
     let revocation = invalidate_identity(&host);
@@ -804,7 +804,7 @@ async fn accept_contributor_terms(
     host: State<'_, Host>,
 ) -> Result<TermsReceipt, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     let document = operation(
         serde_json::json!({"operation":"Contributor owner attestation","termsRevision":contributor::TERMS_REVISION,
@@ -813,7 +813,7 @@ async fn accept_contributor_terms(
         "spending":"Cancelling, refusing or failing after dispatch does not establish zero cost. Missing usage requires statement-confirmed reconciliation. The £89 local limit does not cap other clients or guarantee Meta's invoice.",
         "terms":"https://dev.meta.ai/legal/terms-of-service","geography":"https://dev.meta.ai/legal/geographic-use-policy","expiry":"2026-11-02T00:00:00Z"}),
     )?;
-    if !review(&window, document).await? {
+    if !review(&window, document, &guard).await? {
         return Ok(TermsReceipt { accepted: false });
     }
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
@@ -830,7 +830,7 @@ async fn configure_budget(
     input: Configuration,
 ) -> Result<BudgetReceipt, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     let time = now()?;
     let (status, period_review) = {
@@ -845,7 +845,7 @@ async fn configure_budget(
         serde_json::json!({"operation":"Confirm bounded financial configuration and London calendar period","configuration":input,"currentLedger":status,"previousPeriodAndClock":period_review,
         "period":budget::period(time).map_err(code)?,"statement":"I have checked the actual date and London calendar month. This explicitly activates the displayed period; changing the account alias does not reset charges. Earlier uncertain reservations remain. The declared GBP/USD rate, positive margin, tax and payment costs conservatively bound my invoice until the stated expiry. No exchange rate or tax exemption is verified by Aster.","limitNanoGbp":budget::LIMIT.to_string(),"noReset":true}),
     )?;
-    if !review(&window, document).await? {
+    if !review(&window, document, &guard).await? {
         return Ok(BudgetReceipt { configured: false });
     }
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
@@ -874,7 +874,7 @@ async fn reconcile_budget(
     input: ReconcileIntent,
 ) -> Result<ReconcileReceipt, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     if !admission::opaque_id(&input.request_id)
         || input.confirmed_charge_nano_gbp.is_empty()
@@ -910,7 +910,7 @@ async fn reconcile_budget(
     let document = operation(
         serde_json::json!({"operation":"Statement-confirmed reconciliation, not API-measured usage","pending":pending,"originalAccountAndQuote":original_quote,"confirmedChargeNanoGbp":charge.to_string(),"ownerAttestation":"I have checked the original account's Meta dashboard or invoice and this is the exact final GBP charge attributable to this request, including currency conversion, tax and payment costs. A zero amount requires explicit evidence that no charge occurred; an undispatched reservation is not API-measured billed usage. This does not reset other requests or the financial ledger. A charge exceeding the reserved bound blocks new dispatch pending engineering review."}),
     )?;
-    if !review(&window, document).await? {
+    if !review(&window, document, &guard).await? {
         return Ok(ReconcileReceipt { reconciled: false });
     }
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
@@ -992,7 +992,7 @@ async fn delete_conversation(
     input: ConversationIntent,
 ) -> Result<DeleteReceipt, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     if !admission::opaque_id(&input.conversation_id) {
         return Err("invalid_input".into());
@@ -1004,7 +1004,7 @@ async fn delete_conversation(
             .load(&input.conversation_id)
             .map_err(code)?
     };
-    if !review(&window,operation(serde_json::json!({"operation":"Remove conversation from visible history","conversationId":conversation.id,"entryCount":conversation.entries.len(),"effect":"Logical removal only. Encrypted recovery records remain and storage quota is not reclaimed. This is not permanent or secure erasure. Financial records and reservations are preserved."}))?).await?{return Ok(DeleteReceipt{deleted:false});}
+    if !review(&window,operation(serde_json::json!({"operation":"Remove conversation from visible history","conversationId":conversation.id,"entryCount":conversation.entries.len(),"effect":"Logical removal only. Encrypted recovery records remain and storage quota is not reclaimed. This is not permanent or secure erasure. Financial records and reservations are preserved."}))?, &guard).await?{return Ok(DeleteReceipt{deleted:false});}
     host.attachments
         .lock()
         .map_err(|_| "state_unavailable")?
@@ -1103,7 +1103,7 @@ async fn select_attachments(
     input: ConversationIntent,
 ) -> Result<Vec<AttachmentMetadata>, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     require_valid_credential(&host)?;
     if !cfg!(windows) || !admission::opaque_id(&input.conversation_id) {
@@ -1130,7 +1130,9 @@ async fn select_attachments(
         .map_err(|_| "state_unavailable")?
         .invalidate();
     owner(&window)?;
+    let worker_lease = guard.worker_lease();
     let batch = tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
         let paths = app
             .dialog()
             .file()
@@ -1220,7 +1222,7 @@ async fn review_processed_attachment(
     input: ProcessedIntent,
 ) -> Result<ViewedAttachment, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     if !admission::opaque_id(&input.conversation_id)
         || !admission::opaque_id(&input.request_id)
@@ -1246,7 +1248,9 @@ async fn review_processed_attachment(
             .map_err(code)?
     };
     let hwnd = owner(&window)?;
+    let worker_lease = guard.worker_lease();
     let viewed = tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
         let content = stored.materialise(&AtomicBool::new(false)).map_err(code)?;
         let pages = visual_pages(&content, &stored.metadata.label)?;
         if pages.is_empty() {
@@ -1392,7 +1396,7 @@ async fn send_message_for_origin(
         let document=if previews.is_empty(){document}else{document.with_visuals(previews).map_err(|_|"native_review_unavailable".to_owned())?};
         let document=if let Some(deadline)=files.iter().map(AdmittedAttachment::deadline).min(){document.with_source_deadline(deadline)}else{document};
         let document=document.with_request_cancellation(admitted.cancellation.clone());
-        if !review(&window,document).await?{return Err("disclosure_denied".into());}
+        if !review(&window,document,&guard).await?{return Err("disclosure_denied".into());}
         if files.iter().any(|file|!file.still_valid()){return Err("attachment_expired".into());}
         if *admitted.cancellation.borrow(){return Err("cancelled".into());}
         let mut state=host.persistent.lock().map_err(|_|"state_unavailable")?;let p=persistent(&mut state)?;
@@ -1807,7 +1811,7 @@ pub fn run() {
                 sessions: Mutex::new(SessionState::default()),
                 attachments: Mutex::new(AttachmentRegistry::default()),
                 persistent: Mutex::new(persistence),
-                native_dialog_open: AtomicBool::new(false),
+                native_dialog_open: NativeOperationGate::default(),
                 expiry_shutdown: AtomicBool::new(false),
                 window_close: window_guard::CloseState::default(),
             });
@@ -1990,7 +1994,7 @@ mod tests {
             sessions: Mutex::new(SessionState::default()),
             attachments: Mutex::new(AttachmentRegistry::default()),
             persistent: Mutex::new(Err(StoreError::Unavailable)),
-            native_dialog_open: AtomicBool::new(false),
+            native_dialog_open: NativeOperationGate::default(),
             expiry_shutdown: AtomicBool::new(false),
             window_close: window_guard::CloseState::default(),
         };

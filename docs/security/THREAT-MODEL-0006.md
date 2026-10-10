@@ -1,6 +1,6 @@
 # THREAT-MODEL-0006 — v0.2.4 boundaries
 
-Revision 3, 10 October 2026, adding the pending full-window migration boundary after revision 2's controlled integration and the original 9 October register. Controls must be demonstrated in changed-source tests, not inferred from this document or from source implementation. Read [SPEC-0006](../specs/SPEC-0006.md) and [ADR-0021](../adr/ADR-0021.md) before behaviour changes.
+Revision 4, 10 October 2026, adding private capacity and native-worker lease refinements after revision 3's pending full-window migration boundary, revision 2's controlled integration and the original 9 October register. Controls must be demonstrated in changed-source tests, not inferred from this document or from source implementation. Read [SPEC-0006](../specs/SPEC-0006.md) and [ADR-0021](../adr/ADR-0021.md) before behaviour changes.
 
 ## Data flow and custody
 
@@ -31,6 +31,10 @@ Eligible conversation/processed media → explicit bounded context selection and
 The 10 October owner full-window decision in SPEC-0006 revision 5 adds a pending TM-033 migration boundary, not an active control: large-context allocation/serialization exhaustion, corrupt or incomplete display-history migration, count/generation representation drift, stale counts after mutation, and count-endpoint disclosure before review must deny. Output and summary reserves share the provider window; billing usage is not occupancy. Preserve old encrypted histories and attachment-original exclusions, and never add Personalization, private repository text, restored grants or financial authority to new context. Current 20-turn/512-KiB enforcement stays intact until the independently reviewed full-window implementation and negative migration/admission fixtures replace it; early local compaction alone cannot satisfy the owner.
 
 ## 10 October controlled integration and rights amendment
+
+The [native-worker lease refinement](../qa/V024-NATIVE-DIALOG-LEASE-20261010.md) addresses TM-036/038's dropped-waiter/remaining-native-worker boundary without modifying consent or calling any native dialog. Pure shared-ownership tests and source coverage are separate from actual native scheduling/abort acceptance. A non-returning worker retains exclusivity; releasing early is not an availability workaround.
+
+TM-033's [private capacity refinement](../qa/V024-FULL-WINDOW-CAPACITY-20261010.md) rejects representation, revision, key-generation, source-order, reserve and before-append identity mismatches before checked token arithmetic. It supplies no real count receipt, canonical content proof, preventive-headroom guarantee or migration control. The independent ordinary/summary counts cannot be transferred to Chat or a changed post-summary input. No private text/original PDF field exists in this fixed-size metadata-only core; future egress and storage canary tests remain required.
 
 The separate profile, catalogue and credential-proof private-store domains are fixed host-owned names, not renderer-selected paths. Immutable records, exact bounds, revision conflicts and corrupt/uncertain restore must fail closed. A persisted GitHub enabled flag is only a preference: no account, token session, selected repository, confirmation or tool authority is restored. Key proof is distinct from key presence, current-session admission and other independent provider/privacy/budget gates. These are implementation contracts under review, not executed acceptance results.
 

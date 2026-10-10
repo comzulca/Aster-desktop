@@ -438,7 +438,11 @@ impl FakeableTransport for Fake {
         self.outcome.take().expect("fixture request replay")
     }
 }
-fn permit(book: &mut PlanBook, ledger: &Ledger<Memory>, intent: &Intent) -> DispatchPermit {
+fn permit<B: RecordBackend>(
+    book: &mut PlanBook,
+    ledger: &Ledger<B>,
+    intent: &Intent,
+) -> DispatchPermit {
     let fresh = snapshot(intent);
     let id = book
         .prepare(intent.clone(), fresh.clone(), ledger, 1_000)
@@ -447,6 +451,33 @@ fn permit(book: &mut PlanBook, ledger: &Ledger<Memory>, intent: &Intent) -> Disp
     let native_hash = ticket.plan.review_hash.clone();
     book.finish_review(ticket, Some(&native_hash), fresh, 1_002)
         .unwrap()
+}
+
+#[test]
+fn sha256_known_vectors_preserve_exact_lowercase_width_and_leading_zero_bytes() {
+    for (input, expected) in [
+        (
+            b"".as_slice(),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        ),
+        (
+            b"abc".as_slice(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        ),
+    ] {
+        let actual = hash(input);
+        assert_eq!(actual, expected);
+        assert_eq!(actual.len(), 64);
+        assert!(actual
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)));
+    }
+    // The independently known ASCII vector includes 0x01, 0x03 and 0x00;
+    // their two-digit encodings must not lose any leading-zero nibble.
+    let ascii = hash(b"abc");
+    assert_eq!(&ascii[10..12], "01");
+    assert_eq!(&ascii[34..36], "03");
+    assert_eq!(&ascii[58..60], "00");
 }
 
 #[test]
