@@ -170,7 +170,7 @@ fn snapshot(intent: &Intent) -> Snapshot {
             no_existing_pull: true,
         },
         Intent::MergePullRequest { .. } => ResourceSnapshot::Merge {
-            pull: pull(),
+            pull: Box::new(pull()),
             head: branch_state("aster/topic", head()),
             base: branch_state("engineering-target", base_sha()),
             evidence: merge_evidence(),
@@ -481,6 +481,53 @@ fn sha256_known_vectors_preserve_exact_lowercase_width_and_leading_zero_bytes() 
 }
 
 #[test]
+fn owned_merge_indirection_preserves_exact_snapshot_bytes_hashes_and_deep_clone() {
+    // This independent borrowed representation retains the original unboxed
+    // Merge fields and their order; it is never a runtime evidence or grant DTO.
+    #[derive(serde::Serialize)]
+    enum UnboxedMerge<'a> {
+        Merge {
+            pull: &'a Pull,
+            head: &'a Branch,
+            base: &'a Branch,
+            evidence: &'a MergeEvidence,
+        },
+    }
+    let intent = intents().remove(7);
+    let original = snapshot(&intent);
+    let ResourceSnapshot::Merge {
+        pull: original_pull,
+        head,
+        base,
+        evidence,
+    } = &original.resource
+    else {
+        panic!("synthetic merge snapshot expected");
+    };
+    let unboxed = UnboxedMerge::Merge {
+        pull: original_pull.as_ref(),
+        head,
+        base,
+        evidence,
+    };
+    let exact = serde_json::to_vec(&original.resource).unwrap();
+    let prior_shape = serde_json::to_vec(&unboxed).unwrap();
+    assert_eq!(exact, prior_shape);
+    assert_eq!(hash(&exact), hash(&prior_shape));
+
+    let original_title = original_pull.title.clone();
+    let mut cloned = original.clone();
+    assert!(cloned == original);
+    let ResourceSnapshot::Merge { pull, .. } = &mut cloned.resource else {
+        panic!("synthetic cloned merge snapshot expected");
+    };
+    pull.as_mut().title.push_str(" changed clone");
+    assert!(cloned != original);
+    assert_eq!(original_pull.title, original_title);
+    assert_eq!(serde_json::to_vec(&original.resource).unwrap(), exact);
+}
+
+#[test]
 fn all_eight_closed_operations_emit_one_exact_request_and_metadata_only_terminal() {
     for intent in intents() {
         let wire =
@@ -489,7 +536,7 @@ fn all_eight_closed_operations_emit_one_exact_request_and_metadata_only_terminal
         let mut book = PlanBook::new(NONCE).unwrap();
         let mut ledger = Ledger::restore(Memory::default()).unwrap();
         let permit = permit(&mut book, &ledger, &parsed);
-        let mut fake = Fake::new(&parsed, Observation::Readback(readback(&parsed)));
+        let mut fake = Fake::new(&parsed, Observation::Readback(Box::new(readback(&parsed))));
         let result = book
             .dispatch_once(permit, &mut ledger, &mut fake, &mut Checks::ordinary())
             .unwrap();
@@ -1005,7 +1052,7 @@ fn cancellation_after_intent_is_durable_unsent_and_no_transport_call() {
     let mut checks = Checks {
         states: VecDeque::from([(runtime(), 1_003), (disabled, 1_004)]),
     };
-    let mut fake = Fake::new(&intent, Observation::Readback(readback(&intent)));
+    let mut fake = Fake::new(&intent, Observation::Readback(Box::new(readback(&intent))));
     assert_eq!(
         book.dispatch_once(permit, &mut ledger, &mut fake, &mut checks)
             .unwrap(),
@@ -1027,7 +1074,7 @@ fn predispatch_append_failure_never_sends_and_visible_intent_restores_uncertaint
         };
         let mut ledger = Ledger::restore(memory).unwrap();
         let permit = permit(&mut book, &ledger, &intent);
-        let mut fake = Fake::new(&intent, Observation::Readback(readback(&intent)));
+        let mut fake = Fake::new(&intent, Observation::Readback(Box::new(readback(&intent))));
         assert!(matches!(
             book.dispatch_once(permit, &mut ledger, &mut fake, &mut Checks::ordinary()),
             Err(Error::Ledger)
@@ -1055,7 +1102,7 @@ fn possible_write_timeout_late_old_account_and_lost_terminal_never_retry() {
             if case == 0 {
                 Observation::Uncertain
             } else {
-                Observation::Readback(readback(&intent))
+                Observation::Readback(Box::new(readback(&intent)))
             },
         );
         let mut checks = Checks::ordinary();
@@ -1412,7 +1459,7 @@ fn misleading_merge_responses_moved_base_and_unknown_readback_are_uncertain() {
         let mut book = PlanBook::new(NONCE).unwrap();
         let mut ledger = Ledger::restore(Memory::default()).unwrap();
         let permit = permit(&mut book, &ledger, &intent);
-        let mut fake = Fake::new(&intent, Observation::Readback(result));
+        let mut fake = Fake::new(&intent, Observation::Readback(Box::new(result)));
         assert_eq!(
             book.dispatch_once(permit, &mut ledger, &mut fake, &mut Checks::ordinary())
                 .unwrap(),
@@ -1555,7 +1602,7 @@ fn canonical_same_length_prior_record_rewrite_poisons_current_ledger_without_ret
     })
     .unwrap();
     let permit = permit(&mut book, &ledger, &intent);
-    let mut fake = Fake::new(&intent, Observation::Readback(readback(&intent)));
+    let mut fake = Fake::new(&intent, Observation::Readback(Box::new(readback(&intent))));
     assert_eq!(
         book.dispatch_once(permit, &mut ledger, &mut fake, &mut Checks::ordinary())
             .unwrap(),

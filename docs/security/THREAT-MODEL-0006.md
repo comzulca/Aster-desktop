@@ -1,6 +1,6 @@
 # THREAT-MODEL-0006 — v0.2.4 boundaries
 
-Revision 4, 10 October 2026, adding private capacity and native-worker lease refinements after revision 3's pending full-window migration boundary, revision 2's controlled integration and the original 9 October register. Controls must be demonstrated in changed-source tests, not inferred from this document or from source implementation. Read [SPEC-0006](../specs/SPEC-0006.md) and [ADR-0021](../adr/ADR-0021.md) before behaviour changes.
+Revision 5, 10 October 2026, adding the resolved 4-GiB transcript preference and reserved native visibility-origin observation after revision 4's private capacity/native-worker lease refinements, revision 3's pending full-window migration boundary, revision 2's controlled integration and the original 9 October register. Controls must be demonstrated in changed-source tests, not inferred from this document or from source implementation. Read [SPEC-0006](../specs/SPEC-0006.md) and [ADR-0021](../adr/ADR-0021.md) before behaviour changes.
 
 ## Data flow and custody
 
@@ -29,6 +29,10 @@ Eligible conversation/processed media → explicit bounded context selection and
 | TM-039 | NFR-011,012 / AC-084,085 / T-094,095 | Added dependencies, old documentation or inherited PASS expands hidden authority. Minimal existing locked graph, versioned contracts/notices/audit, dated source-specific receipts and honest inactive states. GLib residual and past failures are not relabelled. |
 
 The 10 October owner full-window decision in SPEC-0006 revision 5 adds a pending TM-033 migration boundary, not an active control: large-context allocation/serialization exhaustion, corrupt or incomplete display-history migration, count/generation representation drift, stale counts after mutation, and count-endpoint disclosure before review must deny. Output and summary reserves share the provider window; billing usage is not occupancy. Preserve old encrypted histories and attachment-original exclusions, and never add Personalization, private repository text, restored grants or financial authority to new context. Current 20-turn/512-KiB enforcement stays intact until the independently reviewed full-window implementation and negative migration/admission fixtures replace it; early local compaction alone cannot satisfy the owner.
+
+The owner now selects 4 GiB initially for the new encrypted transcript history, without automatic removal; it is separate from processed attachments and is not a model-window or token-to-byte proof. TM-033/038's [migration draft](../qa/V024-FULL-WINDOW-TRANSCRIPT-CONTRACT-20261010.md) adds pending bounded-replay, shared-quota, immutable cross-domain commit and native-paging controls, not an implemented store. Unknown source/target identity, ambiguity, corrupt references, stale context/count and insufficient terminal capacity must not cause truncation, private-content egress, restoration of grants or automatic retries. Legacy/media occupancy and physical filesystem overhead remain separate residuals.
+
+TM-032's [before-code observation refinement](../qa/V024-WEBVIEW2-OBSERVATION-CONTRACT-20261010.md#before-code-saturated-event-buffer-visibility-refinement) reserves one existing trace slot for the first native visibility event and matching origin. It leaves deadline, schema, validator and maximum unchanged; dropped observations still mean incomplete evidence. No causal flash diagnosis follows. TM-033/039's [primary count-document conflict](../qa/V024-META-COUNT-DOCUMENTATION-20261010.md) remains explicit: no invented hidden-overhead allowance, billing equivalence or free-endpoint claim can authorise the unavailable count route.
 
 ## 10 October controlled integration and rights amendment
 

@@ -762,7 +762,7 @@ enum Observation {
     ProvablyNotStarted,
     DefinitiveNoChange,
     Uncertain,
-    Readback(github_mutation_validation::Readback),
+    Readback(Box<github_mutation_validation::Readback>),
 }
 
 impl PlanBook {
@@ -801,7 +801,7 @@ impl PlanBook {
                     Observation::DefinitiveNoChange => Terminal::RejectedNoChange,
                     Observation::Uncertain => Terminal::AttentionRequired,
                     Observation::Readback(readback) => {
-                        github_mutation_validation::verify_readback(&plan, &readback)
+                        github_mutation_validation::verify_readback(&plan, readback.as_ref())
                             .map(Terminal::Verified)
                             .unwrap_or(Terminal::AttentionRequired)
                     }

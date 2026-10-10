@@ -124,13 +124,20 @@ impl RenderTrace {
     fn record(&self, phase: Phase) {
         if let Ok(mut trace) = self.inner.trace.lock() {
             let tick = self.elapsed();
-            if tick > MAX_MS || trace.events.len() >= MAX_EVENTS {
+            let first_native_visible = matches!(phase, Phase::Native(NativePhase::ParentVisible))
+                && trace.visible_at_ms.is_none();
+            // Keep the first native origin and its event together even when
+            // pre-visibility chatter fills the ordinary observation budget.
+            let limit = if trace.visible_at_ms.is_none() && !first_native_visible {
+                MAX_EVENTS - 1
+            } else {
+                MAX_EVENTS
+            };
+            if tick > MAX_MS || trace.events.len() >= limit {
                 trace.dropped = trace.dropped.saturating_add(1);
                 return;
             }
-            if matches!(phase, Phase::Native(NativePhase::ParentVisible))
-                && trace.visible_at_ms.is_none()
-            {
+            if first_native_visible {
                 trace.visible_at_ms = Some(tick);
             }
             trace.events.push(Event {
@@ -214,12 +221,42 @@ mod tests {
             trace.record(Phase::Renderer(RendererPhase::Visible));
         }
         let snapshot = trace.snapshot().unwrap();
-        assert_eq!(snapshot.events.len(), MAX_EVENTS);
+        assert_eq!(snapshot.events.len(), MAX_EVENTS - 1);
         assert_eq!(snapshot.visible_at_ms, None);
         assert!(snapshot.dropped > 0);
         let value = serde_json::to_value(snapshot).unwrap();
         assert!(!value["webview2DetailEventsAvailable"].as_bool().unwrap());
         assert!(value.to_string().len() < 16_384);
+    }
+    #[test]
+    fn first_native_visibility_retains_its_reserved_event_after_renderer_saturation() {
+        let trace = RenderTrace::new();
+        for _ in 0..200 {
+            trace.record(Phase::Renderer(RendererPhase::Visible));
+        }
+        let before = trace.snapshot().unwrap();
+        assert_eq!(before.events.len(), MAX_EVENTS - 1);
+        assert_eq!(before.visible_at_ms, None);
+        assert_eq!(before.dropped, 106);
+
+        trace.native(NativePhase::ParentVisible);
+        let visible = trace.snapshot().unwrap();
+        assert_eq!(visible.events.len(), MAX_EVENTS);
+        assert_eq!(visible.dropped, before.dropped);
+        let retained = visible.events.last().unwrap();
+        assert!(matches!(
+            retained.phase,
+            Phase::Native(NativePhase::ParentVisible)
+        ));
+        assert_eq!(visible.visible_at_ms, Some(retained.elapsed_ms));
+        assert!(retained.elapsed_ms <= visible.elapsed_ms);
+
+        trace.native(NativePhase::ParentVisible);
+        trace.record(Phase::Renderer(RendererPhase::Visible));
+        let full = trace.snapshot().unwrap();
+        assert_eq!(full.events.len(), MAX_EVENTS);
+        assert_eq!(full.dropped, before.dropped + 2);
+        assert_eq!(full.visible_at_ms, visible.visible_at_ms);
     }
     #[test]
     fn cloned_native_owner_records_in_one_shared_trace_without_renderer_availability() {

@@ -265,7 +265,7 @@ pub(super) enum ResourceSnapshot {
         no_existing_pull: bool,
     },
     Merge {
-        pull: Pull,
+        pull: Box<Pull>,
         head: Branch,
         base: Branch,
         evidence: MergeEvidence,
