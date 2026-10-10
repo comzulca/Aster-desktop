@@ -13,6 +13,8 @@ pub(crate) enum Domain {
     Personalization,
     Customization,
     CredentialProof,
+    #[cfg(test)]
+    GithubMutations,
 }
 
 impl Domain {
@@ -25,6 +27,8 @@ impl Domain {
             Self::Personalization => "personalization-v1",
             Self::Customization => "customization-v1",
             Self::CredentialProof => "credential-proof-v1",
+            #[cfg(test)]
+            Self::GithubMutations => "github-mutations-v1",
         }
     }
 
@@ -37,6 +41,8 @@ impl Domain {
             Self::Personalization => (64 * 1024, 4 * 1024 * 1024, 512),
             Self::Customization => (128 * 1024, 16 * 1024 * 1024, 512),
             Self::CredentialProof => (16 * 1024, 1024 * 1024, 128),
+            #[cfg(test)]
+            Self::GithubMutations => (16 * 1024, 4 * 1024 * 1024, 512),
         }
     }
 }
@@ -878,6 +884,26 @@ mod windows {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn isolated_mutation_fixture_domain_has_exact_separate_fixed_limits() {
+        assert_eq!(Domain::GithubMutations.name(), "github-mutations-v1");
+        assert_eq!(
+            Domain::GithubMutations.limits(),
+            (16 * 1024, 4 * 1024 * 1024, 512)
+        );
+        for production in [
+            Domain::History,
+            Domain::Budget,
+            Domain::Terms,
+            Domain::ProcessedMedia,
+            Domain::Personalization,
+            Domain::Customization,
+            Domain::CredentialProof,
+        ] {
+            assert_ne!(production.name(), Domain::GithubMutations.name());
+        }
+    }
 
     #[test]
     fn v024_domains_are_fixed_separate_and_do_not_change_historical_limits() {

@@ -1,4 +1,5 @@
-//! Authored synthetic fixtures only; no native/store/credential/network launch.
+//! Synthetic core fixtures, with additive hosted-Windows protected-store cases.
+//! No owner-state, Credential Manager, runtime approval or live network access.
 use super::*;
 use github_mutation_ledger::{reserve_capacity, Memory};
 use github_mutation_validation::*;
@@ -1637,5 +1638,366 @@ fn exactly_two_record_and_worst_case_byte_slots_are_reserved_before_dispatch() {
         (0, usize::MAX),
     ] {
         assert!(matches!(reserve_capacity(count, used), Err(Error::Bounds)));
+    }
+}
+
+// Additive protected-backend fixtures. The original 27 core fixtures above
+// remain unchanged. These native cases are authored for hosted Windows only;
+// no local agent execution or owner store/credential access is implied.
+
+#[test]
+fn protected_memory_backend_preserves_exact_bytes_names_and_store_bounds() {
+    use github_mutation_store::ProtectedBackend;
+    let mut backend = ProtectedBackend::memory();
+    let name = format!("{:032x}", 1);
+    let bytes = b"{\"synthetic\":true}";
+    backend.append(&name, bytes).unwrap();
+    assert_eq!(
+        backend.records().unwrap(),
+        vec![(name.clone(), bytes.to_vec())]
+    );
+    assert_eq!(backend.append(&name, b"{}"), Err(Error::Ledger));
+    for hostile in ["", "../x", "A", "github-mutations-v1", "a:stream"] {
+        assert_eq!(backend.append(hostile, b"{}"), Err(Error::Ledger));
+    }
+    for hostile in [Vec::new(), vec![0xff], vec![b'x'; 16 * 1024 + 1]] {
+        assert_eq!(
+            backend.append(&format!("{:032x}", 2), &hostile),
+            Err(Error::Ledger)
+        );
+    }
+    assert_eq!(
+        backend.records().unwrap(),
+        vec![(name.clone(), bytes.to_vec())]
+    );
+    let other = crate::private_store::PrivateStore::memory(crate::private_store::Domain::Terms);
+    assert!(other.records().unwrap().is_empty());
+
+    let mut bytes_full = ProtectedBackend::memory();
+    let maximum = vec![b'x'; 16 * 1024];
+    for sequence in 1..=256 {
+        bytes_full
+            .append(&format!("{sequence:032x}"), &maximum)
+            .unwrap();
+    }
+    let exact = bytes_full.records().unwrap();
+    assert_eq!(exact.len(), 256);
+    assert_eq!(
+        exact.iter().map(|(_, body)| body.len()).sum::<usize>(),
+        4 * 1024 * 1024
+    );
+    assert_eq!(
+        bytes_full.append(&format!("{:032x}", 257), b"x"),
+        Err(Error::Ledger)
+    );
+    assert_eq!(bytes_full.records().unwrap(), exact);
+
+    let mut count_full = ProtectedBackend::memory();
+    for sequence in 1..=512 {
+        count_full
+            .append(&format!("{sequence:032x}"), b"x")
+            .unwrap();
+    }
+    assert_eq!(count_full.records().unwrap().len(), 512);
+    assert_eq!(
+        count_full.append(&format!("{:032x}", 513), b"x"),
+        Err(Error::Ledger)
+    );
+    assert_eq!(count_full.records().unwrap().len(), 512);
+    // Valid bounded UTF-8 backend bytes are not a canonical ledger by themselves.
+    assert!(matches!(Ledger::restore(count_full), Err(Error::Ledger)));
+}
+
+fn canonical_mutation_fixture_records(verified: bool) -> Vec<(String, Vec<u8>)> {
+    let intent = intents().remove(3);
+    let mut book = PlanBook::new(NONCE).unwrap();
+    let mut ledger = Ledger::restore(Memory::default()).unwrap();
+    let permit = permit(&mut book, &ledger, &intent);
+    let operation_id = ledger.begin(&permit.plan, 1_003).unwrap();
+    if verified {
+        let effect = verify_readback(&permit.plan, &readback(&intent)).unwrap();
+        ledger
+            .finish(&operation_id, Terminal::Verified(effect))
+            .unwrap();
+    }
+    ledger.into_backend().records
+}
+
+fn assert_no_mutation_grant_restored<B: RecordBackend>(ledger: &Ledger<B>, verified: bool) {
+    let mut fresh = PlanBook::new("22222222222222222222222222222222").unwrap();
+    assert!(fresh.pending.is_none() && fresh.active_id.is_none());
+    assert!(matches!(
+        fresh.begin_review(&format!("{NONCE}-1"), 1),
+        Err(Error::Replay)
+    ));
+    if verified {
+        ledger.admit(&binding()).unwrap();
+    } else {
+        assert!(matches!(ledger.admit(&binding()), Err(Error::Uncertainty)));
+        let intent = intents().remove(3);
+        assert!(matches!(
+            fresh.prepare(intent.clone(), snapshot(&intent), ledger, 2),
+            Err(Error::Uncertainty)
+        ));
+        assert!(fresh.pending.is_none() && fresh.active_id.is_none());
+    }
+}
+
+#[test]
+fn protected_memory_backend_requires_canonical_ledger_replay_and_restores_no_grants() {
+    use github_mutation_store::ProtectedBackend;
+    for verified in [false, true] {
+        let source = canonical_mutation_fixture_records(verified);
+        let mut backend = ProtectedBackend::memory();
+        for (name, body) in &source {
+            backend.append(name, body).unwrap();
+        }
+        let ledger = Ledger::restore(backend).unwrap();
+        assert_no_mutation_grant_restored(&ledger, verified);
+        assert_eq!(ledger.into_backend().records().unwrap(), source);
+    }
+    for hostile in [b"{\"synthetic\":true}".to_vec(), {
+        let mut canonical = canonical_mutation_fixture_records(false).remove(0).1;
+        canonical.push(b' ');
+        canonical
+    }] {
+        let mut backend = ProtectedBackend::memory();
+        backend.append(&format!("{:032x}", 1), &hostile).unwrap();
+        assert!(matches!(Ledger::restore(backend), Err(Error::Ledger)));
+    }
+}
+
+struct ProtectedFailureFixture {
+    backend: github_mutation_store::ProtectedBackend,
+    calls: usize,
+    fail_at: usize,
+    after_write: bool,
+}
+impl RecordBackend for ProtectedFailureFixture {
+    fn records(&self) -> Result<Vec<(String, Vec<u8>)>, Error> {
+        self.backend.records()
+    }
+    fn append(&mut self, name: &str, bytes: &[u8]) -> Result<(), Error> {
+        self.calls += 1;
+        if self.calls == self.fail_at {
+            self.backend.fail_next_append_for_test(self.after_write);
+        }
+        self.backend.append(name, bytes)
+    }
+}
+
+#[test]
+fn protected_memory_intent_append_failure_poison_never_dispatches_or_retries() {
+    use github_mutation_store::ProtectedBackend;
+    let intent = intents().remove(3);
+    for after_write in [false, true] {
+        let mut book = PlanBook::new(NONCE).unwrap();
+        let mut ledger = Ledger::restore(ProtectedFailureFixture {
+            backend: ProtectedBackend::memory(),
+            calls: 0,
+            fail_at: 1,
+            after_write,
+        })
+        .unwrap();
+        let permit = permit(&mut book, &ledger, &intent);
+        let mut fake = Fake::new(&intent, Observation::Readback(Box::new(readback(&intent))));
+        assert!(matches!(
+            book.dispatch_once(permit, &mut ledger, &mut fake, &mut Checks::ordinary()),
+            Err(Error::Ledger)
+        ));
+        assert_eq!(fake.calls, 0);
+        assert!(matches!(ledger.admit(&binding()), Err(Error::Ledger)));
+        assert!(book
+            .prepare(intent.clone(), snapshot(&intent), &ledger, 1_006)
+            .is_err());
+        let backend = ledger.into_backend();
+        assert_eq!(backend.calls, 1);
+        assert_eq!(backend.records().unwrap().len(), usize::from(after_write));
+        let restored = Ledger::restore(backend).unwrap();
+        assert_eq!(restored.admit(&binding()).is_err(), after_write);
+        assert_eq!(restored.into_backend().calls, 1);
+    }
+}
+
+#[test]
+fn protected_memory_lost_terminal_acknowledgement_poison_never_retries() {
+    use github_mutation_store::ProtectedBackend;
+    let intent = intents().remove(3);
+    for after_write in [false, true] {
+        let mut book = PlanBook::new(NONCE).unwrap();
+        let mut ledger = Ledger::restore(ProtectedFailureFixture {
+            backend: ProtectedBackend::memory(),
+            calls: 0,
+            fail_at: 2,
+            after_write,
+        })
+        .unwrap();
+        let permit = permit(&mut book, &ledger, &intent);
+        let mut fake = Fake::new(&intent, Observation::Readback(Box::new(readback(&intent))));
+        assert_eq!(
+            book.dispatch_once(permit, &mut ledger, &mut fake, &mut Checks::ordinary())
+                .unwrap(),
+            Terminal::AttentionRequired
+        );
+        assert_eq!(fake.calls, 1);
+        assert!(matches!(ledger.admit(&binding()), Err(Error::Ledger)));
+        assert!(book
+            .prepare(intent.clone(), snapshot(&intent), &ledger, 1_006)
+            .is_err());
+        let backend = ledger.into_backend();
+        assert_eq!(backend.calls, 2);
+        assert_eq!(
+            backend.records().unwrap().len(),
+            1 + usize::from(after_write)
+        );
+        // Recovery may accept a visible canonical verified terminal, never
+        // re-dispatch or restore the old permit; an absent terminal is uncertain.
+        let restored = Ledger::restore(backend).unwrap();
+        assert_no_mutation_grant_restored(&restored, after_write);
+        assert_eq!(restored.into_backend().calls, 2);
+    }
+}
+
+#[cfg(windows)]
+struct NativeMutationFixture {
+    base: std::path::PathBuf,
+    identity: crate::new_file::Identity,
+}
+#[cfg(windows)]
+impl NativeMutationFixture {
+    fn create() -> Self {
+        use crate::journal_privacy::{object_identity, open_directory, ObjectKind};
+        let opaque = crate::private_store::new_id().unwrap();
+        assert!(hex(&opaque, 32));
+        let base = std::env::temp_dir().join(format!("aster-mutation-fixture-{opaque}"));
+        std::fs::create_dir(&base).unwrap();
+        let handle = open_directory(&base).unwrap();
+        let identity = object_identity(&handle, ObjectKind::Directory).unwrap();
+        drop(handle);
+        Self { base, identity }
+    }
+    fn record_path(&self, domain: &str, name: &str) -> std::path::PathBuf {
+        assert!(matches!(domain, "github-mutations-v1" | "terms-v1"));
+        assert!(hex(name, 32));
+        self.base
+            .join("com.comzulca.aster-desktop-private-v1")
+            .join(domain)
+            .join(format!("{name}.dpapi"))
+    }
+    fn cleanup(self) {
+        use crate::journal_privacy::{object_identity, open_directory, ObjectKind};
+        use std::os::windows::fs::MetadataExt;
+        let temporary = std::env::temp_dir();
+        assert_eq!(self.base.parent(), Some(temporary.as_path()));
+        let name = self.base.file_name().unwrap().to_str().unwrap();
+        assert!(hex(
+            name.strip_prefix("aster-mutation-fixture-").unwrap(),
+            32
+        ));
+        let metadata = std::fs::symlink_metadata(&self.base).unwrap();
+        assert!(metadata.is_dir() && metadata.file_attributes() & 0x400 == 0);
+        assert_eq!(
+            std::fs::canonicalize(&self.base).unwrap(),
+            std::fs::canonicalize(&temporary).unwrap().join(name)
+        );
+        let handle = open_directory(&self.base).unwrap();
+        assert_eq!(
+            object_identity(&handle, ObjectKind::Directory).unwrap(),
+            self.identity
+        );
+        drop(handle);
+        // All store/record/directory handles are already released. The exact
+        // target is this fresh opaque root, not temp, owner data or a workspace.
+        std::fs::remove_dir_all(&self.base).unwrap();
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn hosted_native_mutation_ciphertext_roundtrip_replays_unmatched_and_verified_without_grants() {
+    use github_mutation_store::ProtectedBackend;
+    for verified in [false, true] {
+        let fixture = NativeMutationFixture::create();
+        let source = canonical_mutation_fixture_records(verified);
+        {
+            let mut backend = ProtectedBackend::open_synthetic_root(&fixture.base).unwrap();
+            for (name, body) in &source {
+                backend.append(name, body).unwrap();
+                let disk = std::fs::read(fixture.record_path("github-mutations-v1", name)).unwrap();
+                assert!(!disk.windows(body.len()).any(|part| part == body.as_slice()));
+            }
+            assert_eq!(backend.records().unwrap(), source);
+            assert!(ProtectedBackend::open_synthetic_root(&fixture.base).is_err());
+        }
+        {
+            let backend = ProtectedBackend::open_synthetic_root(&fixture.base).unwrap();
+            let ledger = Ledger::restore(backend).unwrap();
+            assert_no_mutation_grant_restored(&ledger, verified);
+            assert_eq!(ledger.into_backend().records().unwrap(), source);
+        }
+        fixture.cleanup();
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn hosted_native_mutation_foreign_domain_ciphertext_is_preserved_and_denied() {
+    use crate::journal_privacy::{create_record_exact, OwnerSid};
+    use github_mutation_store::ProtectedBackend;
+    use std::io::Write;
+    let fixture = NativeMutationFixture::create();
+    let source = canonical_mutation_fixture_records(false);
+    let (name, body) = &source[0];
+    {
+        let mut terms = crate::private_store::PrivateStore::open(
+            &fixture.base,
+            crate::private_store::Domain::Terms,
+        )
+        .unwrap();
+        terms.append(name, body).unwrap();
+    }
+    let original = std::fs::read(fixture.record_path("terms-v1", name)).unwrap();
+    {
+        let backend = ProtectedBackend::open_synthetic_root(&fixture.base).unwrap();
+        assert!(backend.records().unwrap().is_empty());
+    }
+    let foreign = fixture.record_path("github-mutations-v1", name);
+    {
+        let owner = OwnerSid::current_process().unwrap();
+        let mut record = create_record_exact(&foreign, &owner).unwrap();
+        record.write_all(&original).unwrap();
+        record.sync_all().unwrap();
+    }
+    assert!(ProtectedBackend::open_synthetic_root(&fixture.base).is_err());
+    assert_eq!(std::fs::read(&foreign).unwrap(), original);
+    fixture.cleanup();
+}
+
+#[cfg(windows)]
+#[test]
+fn hosted_native_mutation_corrupt_ciphertext_and_raw_noncanonical_payload_are_not_evidence() {
+    use github_mutation_store::ProtectedBackend;
+    for corrupt_ciphertext in [false, true] {
+        let fixture = NativeMutationFixture::create();
+        let name = format!("{:032x}", 1);
+        {
+            let mut backend = ProtectedBackend::open_synthetic_root(&fixture.base).unwrap();
+            backend.append(&name, b"{\"synthetic\":true}").unwrap();
+        }
+        let path = fixture.record_path("github-mutations-v1", &name);
+        if corrupt_ciphertext {
+            std::fs::write(&path, b"synthetic corrupt ciphertext").unwrap();
+            assert!(ProtectedBackend::open_synthetic_root(&fixture.base).is_err());
+            assert_eq!(
+                std::fs::read(&path).unwrap(),
+                b"synthetic corrupt ciphertext"
+            );
+        } else {
+            let original = std::fs::read(&path).unwrap();
+            let backend = ProtectedBackend::open_synthetic_root(&fixture.base).unwrap();
+            assert!(matches!(Ledger::restore(backend), Err(Error::Ledger)));
+            assert_eq!(std::fs::read(&path).unwrap(), original);
+        }
+        fixture.cleanup();
     }
 }

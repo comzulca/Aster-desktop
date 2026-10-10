@@ -1,7 +1,8 @@
-//! Metadata-only append ledger. The private backend has NO native implementation
-//! in this slice: no store/domain opening, encryption or owner-state mutation.
-//! Future native integration must use the sole reviewed github-mutations-v1
-//! domain and independently qualify immutable encrypted publication/recovery.
+//! Metadata-only append ledger. There is NO runtime native integration.
+//! A cfg(test)-only adapter exercises synthetic protected-store fixtures;
+//! it does not open owner state, restore grants or enable runtime mutations.
+//! Future runtime integration must independently qualify immutable encrypted
+//! publication/recovery, UTC attribution and the reviewed fixed domain.
 use super::github_mutation_validation::EffectIds;
 use super::{digest, hash, Binding, Error, Operation, Plan, Resource, CONTRACT_VERSION};
 use serde::{Deserialize, Serialize};

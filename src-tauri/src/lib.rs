@@ -22,7 +22,7 @@ pub mod github_connection;
 mod github_credential;
 mod github_host;
 #[cfg(test)]
-mod github_mutation; // Private pure core only; no runtime mutation capability.
+mod github_mutation; // Private synthetic fixtures only; no runtime mutation capability.
 mod history;
 #[cfg(test)]
 mod host_attachments_tests;
@@ -40,6 +40,8 @@ mod processed_history;
 mod provider;
 mod render_trace;
 mod startup;
+#[cfg(test)]
+mod transcript_layout; // Synthetic fragment/quota seams only; no active store migration.
 mod webview_render_observer;
 mod window_controls;
 mod window_guard;

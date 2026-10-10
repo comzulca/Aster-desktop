@@ -4,6 +4,9 @@
 //! Snapshots/review decisions are trusted-host seams, not wire authority.
 #[path = "github_mutation_ledger.rs"]
 mod github_mutation_ledger;
+#[cfg(test)]
+#[path = "github_mutation_store.rs"]
+mod github_mutation_store;
 #[path = "github_mutation_validation.rs"]
 mod github_mutation_validation;
 
