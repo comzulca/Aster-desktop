@@ -62,7 +62,7 @@ describe('v0.2.1 menus/caption/quit integration (T-064/T-066/T-067/T-068/T-070)'
     await userEvent.keyboard('{Control>}{Shift>}s{/Shift}{/Control}'); expect(screen.getByRole('complementary', { hidden: true }).getAttribute('aria-hidden')).toBe('true');
     await userEvent.keyboard('{Control>}{Shift>}s{/Shift}{/Control}'); expect(screen.getByRole('complementary').getAttribute('aria-hidden')).toBe('false');
     await userEvent.keyboard('{Control>}+{/Control}'); expect(screen.getByLabelText('Interface zoom').textContent).toBe('110%');
-    await menu('Help', 'System Status'); expect(screen.getByRole('dialog', { name: 'System Status' })).toBeTruthy(); expect(screen.getByText(/Live connection: unverified/)).toBeTruthy();
+    await menu('Help', 'System Status'); expect(screen.getByRole('dialog', { name: 'System Status' })).toBeTruthy(); expect(screen.getByText('Live inference, billing and capacity: unverified. No request or probe is made by this view.')).toBeTruthy();
     expect(fake.bridge.sendMessage).not.toHaveBeenCalled(); expect(fake.bridge.configureCredential).not.toHaveBeenCalled();
   });
   it('uses guarded caption actions and refuses unavailable or failed native window operations', async () => {

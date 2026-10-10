@@ -5,6 +5,7 @@ export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 export type WindowAction = 'minimise' | 'toggle_maximise' | 'toggle_fullscreen' | 'start_dragging' | 'close';
 export type TerminalState = 'completed' | 'failed' | 'cancelled' | 'truncated' | 'refused';
 export type EntryState = TerminalState | 'interrupted';
+export type CredentialValidation = 'missing' | 'unverified' | 'valid' | 'invalid' | 'unavailable';
 export interface AttachmentSummary {
   id: string;
   kind: 'text' | 'image' | 'pdf';
@@ -48,6 +49,7 @@ export interface AppStatus {
   policyVersion: 4;
   configured: boolean;
   credentialAvailable: boolean;
+  credentialValidation: CredentialValidation;
   defaultModel: ModelId;
   models: { id: ModelId; label: string }[];
   activeRequest: boolean;
@@ -79,8 +81,61 @@ export interface StreamEvent {
   status?: TerminalState;
   errorCode?: string;
 }
+export interface PersonalizationProfile {
+  customInstructions: string;
+  nickname: string;
+  occupation: string;
+  moreAboutYou: string;
+}
+export interface PersonalizationSnapshot { revision: number; profile: PersonalizationProfile }
+export type PackageKind = 'skill' | 'plugin';
+export interface CustomizationDraft { kind: PackageKind; slug: string; name: string; description: string; instructions: string }
+export interface CustomizationEntry {
+  id: string;
+  kind: PackageKind;
+  name: string;
+  description: string;
+  enabled: boolean;
+  readOnly: boolean;
+  availability: 'instructions-only' | 'built-in-connector' | 'reference-unavailable';
+  entryRevision: number;
+}
+export interface CustomizationSnapshot { revision: number; entries: CustomizationEntry[] }
+export interface CustomizationPackage extends CustomizationDraft { id: string; enabled: boolean; entryRevision: number; readOnly: boolean }
+export interface GenerationBinding { requestId: string; conversationId: string }
+export interface GenerationFinished { requestId: string; conversationId: string | null; terminalObserved: boolean }
+export interface GitHubRepositoryIdentity { installation_id: number; repository_id: number; owner: string; name: string }
+export interface GitHubRepository { identity: GitHubRepositoryIdentity; private: boolean; canRead: boolean; canWrite: boolean }
+export interface GitHubStatus {
+  enabled: boolean;
+  state: 'disabled' | 'disconnected' | 'authorising' | 'connected' | 'reconnect_required';
+  account: { id: number; login: string } | null;
+  repository: GitHubRepositoryIdentity | null;
+  userCode: string | null;
+  verificationUri: 'https://github.com/login/device';
+  nextPollSeconds: number;
+  inFlight: boolean;
+  mutationsAvailable: false;
+}
+export interface GitHubFile { path: string; branch: string; blobSha: string; content: string }
+export type RendererTracePhase = 'mounted' | 'assets_ready' | 'hydration_started' | 'hydration_finished' | 'visible' | 'hidden';
+export type NativeTracePhase = 'host_created' | 'parent_created' | 'page_started' | 'page_finished' | 'parent_visible' | 'visibility_denied' | 'resized' | 'scale_changed' | 'focused' | 'unfocused' | 'destroyed'
+  | 'observer_attached' | 'observer_unavailable' | 'observer_detached' | 'navigation_started' | 'content_loading' | 'dom_content_loaded' | 'navigation_completed' | 'navigation_failed' | 'process_failed'
+  | 'controller_visible' | 'controller_hidden' | 'controller_unavailable' | 'background_dark' | 'background_other' | 'background_unavailable' | 'zoom_default' | 'zoom_changed' | 'zoom_unavailable';
+export type RenderTraceEvent = { elapsedMs: number; source: 'renderer'; phase: RendererTracePhase } | { elapsedMs: number; source: 'native'; phase: NativeTracePhase };
+export interface RenderTraceSnapshot {
+  schemaVersion: 1;
+  classification: 'bounded-observation-not-a-rendering-cure';
+  visibleAtMs: number | null;
+  elapsedMs: number;
+  dropped: number;
+  events: RenderTraceEvent[];
+  webview2DetailEventsAvailable: boolean;
+}
 export interface Bridge {
   shellReady?(input: { protocolVersion: 1 }): Promise<{ accepted: boolean; visible: boolean }>;
+  recordRenderEvent?(input: { protocolVersion: 1; phase: RendererTracePhase }): Promise<boolean>;
+  getRenderTrace?(): Promise<RenderTraceSnapshot>;
   selectAttachments?(input: { conversationId: string }): Promise<AttachmentSummary[]>;
   removeAttachment?(input: { conversationId: string; attachmentId: string }): Promise<{ removed: boolean }>;
   viewProcessedAttachment?(input: { conversationId: string; requestId: string; attachmentId: string }): Promise<{ viewed: boolean }>;
@@ -90,6 +145,24 @@ export interface Bridge {
   subscribe(callback: (event: StreamEvent) => void): Promise<() => void>;
   configureCredential(): Promise<{ configured: boolean }>;
   removeCredential(): Promise<{ configured: boolean }>;
+  verifyCredential?(): Promise<{ state: CredentialValidation }>;
+  getPersonalization?(): Promise<PersonalizationSnapshot>;
+  savePersonalization?(input: { expectedRevision: number; profile: PersonalizationProfile }): Promise<unknown>;
+  clearPersonalization?(input: { expectedRevision: number }): Promise<unknown>;
+  getCustomization?(): Promise<CustomizationSnapshot>;
+  getCustomizationPackage?(input: { id: string }): Promise<CustomizationPackage>;
+  saveCustomization?(input: { expectedRevision: number; package: CustomizationDraft }): Promise<unknown>;
+  setCustomizationEnabled?(input: { expectedRevision: number; id: string; enabled: boolean }): Promise<unknown>;
+  importCustomization?(input: { expectedRevision: number }): Promise<unknown>;
+  generateCustomization?(input: { requestId: string; kind: PackageKind; description: string; dataClass: DataClass }): Promise<{ conversationId: string; requestId: string; accepted: true }>;
+  getGitHubStatus?(): Promise<GitHubStatus>;
+  beginGitHubConnection?(): Promise<unknown>;
+  pollGitHubConnection?(): Promise<unknown>;
+  cancelGitHubConnection?(): Promise<unknown>;
+  disconnectGitHub?(): Promise<unknown>;
+  listGitHubRepositories?(): Promise<GitHubRepository[]>;
+  selectGitHubRepository?(input: { installationId: number; repositoryId: number }): Promise<unknown>;
+  readGitHubFile?(input: { path: string; branch: string }): Promise<GitHubFile>;
   acceptContributorTerms(): Promise<{ accepted: boolean }>;
   configureBudget(input: BudgetIntent): Promise<{ configured: boolean }>;
   reconcileBudget(input: { requestId: string; confirmedChargeNanoGbp: string }): Promise<{ reconciled: boolean }>;

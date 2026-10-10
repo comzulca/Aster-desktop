@@ -13,6 +13,38 @@ async function prepare(text = 'A wholly synthetic example') {
   await waitFor(() => expect((screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement).disabled).toBe(false));
 }
 describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
+  it('describes current v0.2.4 boundaries in News and separates GitHub reading from disabled chat tools', async () => {
+    const fake = fakeBridge(); fake.bridge.verifyCredential = vi.fn(async () => ({ state: 'valid' as const }));
+    render(<App bridge={fake.bridge}/>); await ready();
+    await userEvent.click(screen.getByRole('button', { name: 'Help' })); await userEvent.click(screen.getByRole('menuitem', { name: "What's New" }));
+    const news = screen.getByRole('dialog', { name: "What's New" });
+    for (const text of [/v0\.2\.4: the owner-supplied interface/, /current-key authentication proof/, /Personalization is exclusively local/, /fresh ordinary local conversation retains the description, prompt and response/, /Save and enable remain separate/, /Enable its catalogue preference before Connect/, /Expiry or restart requires deliberate reconnect, not automatic refresh/, /File changes, issues, pull requests and merges remain unavailable/, /Automatic context compaction is unfinished/, /do not establish compositor completeness or a flicker cure/]) expect(within(news).getByText(text)).toBeTruthy();
+    expect(news.textContent).not.toContain('Branding, caption, send/stop geometry and sky-blue colours are unchanged.');
+    await userEvent.click(within(news).getByRole('button', { name: 'Close dialogue' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Help' })); await userEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));
+    const documentation = screen.getByRole('dialog', { name: 'Documentation' });
+    expect(within(documentation).getByText(/Main-chat\/model tools, local project reads and file writes/).textContent).toContain('separate GitHub popup supports explicit native-reviewed account/repository selection and bounded file reading only');
+    expect(documentation.textContent).not.toContain('No project reads, file writes, voice, browser, shell, web or model tools are enabled.');
+    expect(fake.bridge.sendMessage).not.toHaveBeenCalled(); expect(fake.bridge.createConversation).not.toHaveBeenCalled(); expect(fake.bridge.configureCredential).not.toHaveBeenCalled(); expect(fake.bridge.verifyCredential).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['valid', 'Authentication verified for the configured key; billing and capacity are separate.'],
+    ['unverified', 'Validate the configured Meta API key in Settings before starting a conversation.'],
+    ['invalid', 'Meta did not accept this key. Replace it in Settings before starting a conversation.'],
+    ['missing', 'Configure and validate a Meta API key in Settings before starting a conversation.'],
+    ['unavailable', 'Key validation is unavailable. Review Settings; no key has been labelled invalid.'],
+  ] as const)('shows %s key proof separately from unverified inference and billing without probing', async (credentialValidation, text) => {
+    const fake = fakeBridge({ ...baseline, credentialValidation, configured: credentialValidation !== 'missing', availability: credentialValidation === 'valid' ? 'ready' : 'needs_credential' });
+    fake.bridge.verifyCredential = vi.fn(async () => ({ state: 'valid' as const }));
+    render(<App bridge={fake.bridge}/>);
+    if (credentialValidation === 'valid') await ready(); else await screen.findByRole('button', { name: 'Open Settings' });
+    await userEvent.click(screen.getByRole('button', { name: 'Help' })); await userEvent.click(screen.getByRole('menuitem', { name: 'System Status' }));
+    const status = screen.getByRole('dialog', { name: 'System Status' });
+    expect(within(status).getByText(`Authentication: ${text}`)).toBeTruthy();
+    expect(within(status).getByText('Live inference, billing and capacity: unverified. No request or probe is made by this view.')).toBeTruthy();
+    expect(within(status).getByText(/GitHub uses a separate reviewed native account\/read route/).textContent).toContain('Mutations and merges remain unavailable.');
+    expect(fake.bridge.sendMessage).not.toHaveBeenCalled(); expect(fake.bridge.configureCredential).not.toHaveBeenCalled(); expect(fake.bridge.verifyCredential).not.toHaveBeenCalled();
+  });
   it('has the requested UK layout, no suggestions, top version/status strip or alternative models', async () => {
     const fake = fakeBridge(); render(<App bridge={fake.bridge}/>); await ready();
     expect(screen.getByRole('heading', { name: 'Ready when you are.' })).toBeTruthy();
@@ -197,7 +229,7 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Delete' })); expect((screen.getByRole('textbox', { name: 'Message for Aster' }) as HTMLTextAreaElement).value).toBe('');
     const opener = screen.getByRole('button', { name: 'Settings' }); await user.click(opener);
     const close = screen.getByRole('button', { name: 'Close dialogue' }); expect(document.activeElement).toBe(close);
-    await user.tab({ shift: true }); expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Review financial configuration in Windows' }));
+    await user.tab({ shift: true }); expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Remove key…' }));
     await user.tab(); expect(document.activeElement).toBe(close); await user.keyboard('{Control>}n{/Control}'); expect(fake.bridge.createConversation).not.toHaveBeenCalled();
     await user.keyboard('{Escape}'); expect(document.activeElement).toBe(opener);
     await user.click(screen.getByRole('button', { name: 'Help' })); await user.click(screen.getByRole('menuitem', { name: 'Documentation' }));
@@ -207,13 +239,14 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
   });
   it('removes only the selected history record through the native-confirmed bridge', async () => {
     const fake = fakeBridge(baseline, [saved('first', 'Remove me', 2), saved('second', 'Keep me', 1)]); render(<App bridge={fake.bridge}/>); await screen.findByText('Reply for first');
-    await userEvent.click(screen.getByRole('button', { name: 'Settings' })); await userEvent.click(screen.getByRole('button', { name: 'Remove this conversation from history…' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' })); await userEvent.click(screen.getByRole('button', { name: 'Local data' })); await userEvent.click(screen.getByRole('button', { name: 'Remove this conversation from history…' }));
     await screen.findByText('Reply for second'); expect(fake.bridge.deleteConversation).toHaveBeenCalledWith({ conversationId: 'first' });
     expect(fake.bridge.removeCredential).not.toHaveBeenCalled(); expect(fake.bridge.configureBudget).not.toHaveBeenCalled(); expect(fake.bridge.reconcileBudget).not.toHaveBeenCalled();
   });
   it('proposes explicit financial integers, preserves account identity and never accepts a key in the renderer', async () => {
     const fake = fakeBridge(); render(<App bridge={fake.bridge}/>); await ready(); await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(document.querySelector('input[type="password"]')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Usage' }));
     for (const [label, value] of [['GBP per USD (integer parts per million)','765432'],['Safety margin (basis points)','100'],['Tax (basis points)','0'],['Payment charges (basis points)','0']]) fireEvent.change(screen.getByLabelText(label), { target: { value } });
     fireEvent.change(screen.getByLabelText(/Valid until/), { target: { value: '2026-10-20T10:00' } }); await userEvent.click(screen.getByRole('button', { name: 'Review financial configuration in Windows' }));
     expect(fake.bridge.configureBudget).toHaveBeenCalledOnce(); const input = vi.mocked(fake.bridge.configureBudget).mock.calls[0][0];
@@ -223,7 +256,7 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
   it('proposes statement-confirmed pending charges with exact decimal arithmetic, not a reset', async () => {
     const status = { ...baseline, availability: 'attention_required' as const, budget: { ...baseline.budget, requiresReconciliation: true, pending: [{ requestId: 'pending_request', period: '2026-10', reservationNanoGbp: '100000000', dispatched: true }] } };
     const fake = fakeBridge(status); render(<App bridge={fake.bridge}/>); await screen.findByText('Attention required. Check Settings; sending is unavailable.');
-    await userEvent.click(screen.getByRole('button', { name: 'Settings' })); fireEvent.change(screen.getByLabelText('Statement-confirmed charge in GBP for pending_request'), { target: { value: '0.012345678' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' })); await userEvent.click(screen.getByRole('button', { name: 'Usage' })); fireEvent.change(screen.getByLabelText('Statement-confirmed charge in GBP for pending_request'), { target: { value: '0.012345678' } });
     await userEvent.click(screen.getByRole('button', { name: 'Review this charge in Windows' })); expect(fake.bridge.reconcileBudget).toHaveBeenCalledWith({ requestId: 'pending_request', confirmedChargeNanoGbp: '12345678' });
     expect(fake.bridge.configureBudget).not.toHaveBeenCalled(); expect(fake.bridge.deleteConversation).not.toHaveBeenCalled();
   });

@@ -5,6 +5,7 @@ import { DEFAULT_MODEL, type AppStatus, type Bridge, type Conversation, type Str
 
 export const baseline: AppStatus = {
   protocolVersion: 4, policyVersion: 4, configured: true, credentialAvailable: true,
+  credentialValidation: 'valid',
   defaultModel: DEFAULT_MODEL, models: [{ id: DEFAULT_MODEL, label: 'Muse Spark 1.3 · Contributor' }],
   activeRequest: false, projectSelected: false, projectLabel: null,
   capabilities: { projectRead: false, proposals: false, applyNewFile: false, applyExistingFile: false, attachmentImport: false },
@@ -32,6 +33,7 @@ export function fakeBridge(status: AppStatus = baseline, initial: Conversation[]
     subscribe: vi.fn(async callback => { onEvent = callback; return () => {}; }),
     configureCredential: vi.fn(async () => ({ configured: true })),
     removeCredential: vi.fn(async () => ({ configured: false })),
+    verifyCredential: vi.fn(async () => ({ state: 'valid' as const })),
     acceptContributorTerms: vi.fn(async () => ({ accepted: true })),
     configureBudget: vi.fn(async () => ({ configured: true })),
     reconcileBudget: vi.fn(async () => ({ reconciled: true })),

@@ -548,7 +548,7 @@ def generate(
         "cargoFilterPlatform": target,
         "sourceInventoryScope": "all installed locked Cargo and pnpm package source trees from unfiltered metadata, including other-target/build/development packages",
         "packagedAppRequirementScope": "Cargo normal dependency closure after target filtering plus installed production npm dependency closure",
-        "payloadEvidenceScope": "separate CI extraction proves only the two declared NSIS resource files and their hashes",
+        "payloadEvidenceScope": "this source notice inventory proves no installer payload; separate exact manifest-bound CI extraction and passive verification are required for the declared NSIS resources and their byte identities",
         "legalConclusion": "UNASSESSED — this inventory is not legal advice or legal approval",
         "overlayManifestSha256": overlay_manifest_sha256,
         "overlayManifestByteCount": overlay_manifest_byte_count,

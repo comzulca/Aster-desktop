@@ -121,9 +121,17 @@ describe('explicit fake-host attachment intent/state denial fixtures (T-075/T-07
     expect(area.value).toBe('Keep first draft'); expect(screen.queryByText(fake.item.label)).toBeNull();
   });
 
-  it('can select locally without financial or credential readiness, but still cannot send', async () => {
-    const fake = attachmentFixture(); vi.mocked(fake.bridge.getStatus).mockResolvedValue({ ...baseline, configured: false, availability: 'needs_credential', capabilities: { ...baseline.capabilities, attachmentImport: true } });
+  it('requires validated credentials even for local attachment selection (v0.2.4 T-085)', async () => {
+    const fake = attachmentFixture(); vi.mocked(fake.bridge.getStatus).mockResolvedValue({ ...baseline, configured: false, credentialValidation: 'missing', availability: 'needs_credential', capabilities: { ...baseline.capabilities, attachmentImport: true } });
     render(<App bridge={fake.bridge}/>); await screen.findByText('Set up Meta in Settings before sending.');
+    expect((screen.getByRole('button', { name: 'Add attachments' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Add attachments' })); expect(fake.bridge.selectAttachments).not.toHaveBeenCalled();
+    expect((screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(fake.bridge.configureCredential).not.toHaveBeenCalled(); expect(fake.bridge.configureBudget).not.toHaveBeenCalled(); expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
+  });
+  it('can select locally with validated credentials but without financial readiness, and still cannot send', async () => {
+    const fake = attachmentFixture(); vi.mocked(fake.bridge.getStatus).mockResolvedValue({ ...baseline, availability: 'needs_budget', budget: { ...baseline.budget, configured: false }, capabilities: { ...baseline.capabilities, attachmentImport: true } });
+    render(<App bridge={fake.bridge}/>); await screen.findByText('Configure the spending policy in Settings before sending.');
     await userEvent.click(screen.getByRole('button', { name: 'Add attachments' })); await screen.findByText(fake.item.label);
     expect((screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement).disabled).toBe(true);
     expect(fake.bridge.configureCredential).not.toHaveBeenCalled(); expect(fake.bridge.configureBudget).not.toHaveBeenCalled(); expect(fake.bridge.sendMessage).not.toHaveBeenCalled();

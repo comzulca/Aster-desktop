@@ -228,6 +228,15 @@ impl StartupGate {
         if window
             .run_on_main_thread(move || {
                 let outcome = show_without_activation(&owned_window);
+                use tauri::Manager;
+                owned_window
+                    .state::<crate::render_trace::RenderTrace>()
+                    .native(if outcome.visible {
+                        crate::render_trace::NativePhase::ParentVisible
+                    } else {
+                        crate::render_trace::NativePhase::VisibilityDenied
+                    });
+                crate::webview_render_observer::sample_on_ui_thread();
                 let mut policy = gate.policy();
                 policy.complete_reveal(reason, outcome.visible, gate.elapsed_ms());
                 if outcome.cleanup_failed {

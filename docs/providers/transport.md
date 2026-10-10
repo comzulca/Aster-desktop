@@ -1,3 +1,15 @@
+<!-- V024 CURRENT APPLICABILITY BEGIN -->
+## v0.2.4 current transport applicability — 10 October 2026
+
+This candidate is partial local engineering source, not a connected-account, live/native or final-installer receipt. [SPEC-0006](../specs/SPEC-0006.md), [ADR-0021](../adr/ADR-0021.md) and the [local verification successor](../qa/V024-LOCAL-VERIFICATION-SUCCESSOR-20261010.md) own current scope. All original dated contracts, D5 and other source-bound results below remain preserved; their PASS does not transfer to changed v0.2.4 bytes.
+
+Inference still uses the fixed Meta Chat Completions POST and unchanged exact-body native review, Contributor eligibility, terms, budget and no-retry rules. The new separate non-inference verifier uses only GET `https://api.meta.ai/v1/models/muse-spark-1.3-contributor`, with a 15-second operation limit and 32-KiB bounded JSON model receipt. It creates current-key authentication/model-visibility proof for conversation creation, attachment selection and sends. Syntax/key presence is not proof, and model retrieval proves neither credit/quota nor all modality rights. This is not the earlier standalone catalogue diagnostic or a generic GET capability.
+
+The isolated Muse package-draft route selects eligible description/kind only in a fresh ordinary conversation, through the unchanged shared native disclosure/budget/send pipeline. It cannot select the main chat's attachments, profile, GitHub data, existing packages or previous conversation. Completed strictly validated output remains an unsaved inert draft; separate catalogue Save/enable decisions confer no tools. Personalization and the profile/catalogue/proof stores are separate encrypted local domains, not provider context; no package-export or reference-resource-read IPC is exposed.
+
+Closed GitHub auth/read sources are separate from the Meta inference contract and remain live/native NOT RUN. GitHub mutations, automatic context compaction and the causal flicker remedy remain unfinished. No provider switch, protocol/limit increase, restored approval or new model tool follows from these additions. All five CI jobs, actual fifteen-codec/six-resource/CPU gates, 42 compound obligations and unresolved GLib remain separate and unchanged.
+<!-- V024 CURRENT APPLICABILITY END -->
+
 <!-- OCT9 FINAL ENGINEERING APPLICABILITY BEGIN -->
 > Final engineering applicability — 9 October 2026, 19:38:51 UTC: the [canonical receipt](../qa/FINAL-ENGINEERING-V023-20261009.md) records actual main `54c64e404b3147170bd5d1a320e11536e9e5406e`, push run `37974140580`, attempt 1: all five mandatory CI jobs PASS, fifteen codec/six resource probes PASS, and local passive package verification PASS (`VERIFIED_NOT_INSTALLED`). This is an unsigned engineering build, not installed or production acceptance. `qualificationComplete` remains false; previous FAILs are preserved. GLib remains OPEN and UNRESOLVED; all 42 compound protocols and manual/live/signing/production qualification remain NOT RUN. Earlier status paragraphs below are dated source-bound history; these results do not qualify later changed bytes.
 <!-- OCT9 FINAL ENGINEERING APPLICABILITY END -->

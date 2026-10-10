@@ -1,0 +1,56 @@
+# Register the dedicated Aster GitHub App
+
+Engineering setup guide, prepared 9 October and reconciled 10 October 2026 (Europe/London). The owner manually registered the dedicated App and created the private disposable repository. The agent has performed only read-only Codex connection checks recorded in the [dated setup receipt](../qa/GITHUB-SETUP-V024-20261010.md), not Aster OAuth, token exchange or repository changes. Closed native authentication/read adapters are now under controlled integration, **not qualified as an actual Aster account connection**. Registration and Codex access do not mean that an Aster build is connected. The [local verification successor](../qa/V024-LOCAL-VERIFICATION-SUCCESSOR-20261010.md) records the newer source-only checks while preserving the [earlier checkpoint](../qa/V024-IMPLEMENTATION-CHECKPOINT-20261010.md) and its failures.
+
+## Current owner setup and temporary scope
+
+- App: **Aster Desktop Engineering**, owned by `renenehru`, slug `aster-desktop-engineering`, App ID `5256613`.
+- Public Client ID supplied directly as text by the owner: `Iv23liKA8uYEYklVfzFF`. It is case-sensitive, exactly 20 ASCII characters, and is an identifier rather than a credential. It does not authorise an account, token request, repository operation or release by itself.
+- Public registration page: [Aster Desktop Engineering](https://github.com/apps/aster-desktop-engineering).
+- The owner reports the installation on **COMZULCA** and expressly elects to retain **All repositories** temporarily. The owner will manually change this to **Only selected repositories** at the end of the process. Do not change that setting or repeatedly require narrowing now.
+- Despite the broad installation, actual engineering tests are restricted to `comzulca/aster-v024-github-test-20261010`, stable repository ID `1412554572`, organisation ID `325269963`. The agent must not write test fixtures or exercise mutations in the real `comzulca/Aster-desktop` repository.
+- The owner manually created the disposable repository as private with an initial README on `main`. Codex's connection can read it; reported `push=true` is a permission observation, not a performed or qualified write.
+
+The narrow-installation recommendation below remains the default and the historical 9 October proposal. The dated owner's temporary exception controls this setup. An **All repositories** installation is still only an upper bound: it does not grant Aster repository-creation, administration or deletion operations. Source-bound host allowlists and per-operation confirmations remain independent.
+
+## Registration checklist
+
+1. Sign into the GitHub account that should own the registration. Open **Settings → Developer settings → GitHub Apps → New GitHub App**. Choose a unique engineering name, for example `Aster Desktop Engineering`; this is separate from any Codex connection.
+2. Use your public GitHub profile or an existing public Aster information page for **Homepage URL**. For this device-flow design, do not enable the installation-triggered web OAuth flow or invent a localhost callback service. Leave optional callback/setup URLs blank where permitted.
+3. Keep expiring user tokens enabled and select **Enable Device Flow**. Turn off the **Active** webhook checkbox: this engineering connector has no webhook receiver. Aster will obtain authority only through its own explicit device session.
+4. Set **Repository permissions** to the table below. Do not add account/organisation permissions, administration, secret management, workflow editing, deletion or bypass privileges.
+5. To permit the requested account-switch workflow, select **Any account** under installation availability. This makes the registration installable by other accounts; it does not publish a Marketplace listing or grant their repositories automatically. If you instead choose **Only on this account**, installation on another account is intentionally unavailable until you change that registration setting.
+6. For a new installation, the default recommendation is **Only select repositories** and a disposable test repository first. For this owner's installation, honour the temporary **All repositories** decision above; only the owner will narrow it at the end. Installation availability and repository selection do not enlarge the engineering test target.
+7. On the registration's settings page, find **Client ID** (not App ID). The owner has supplied the exact public value above. The native device-flow connector does not embed or distribute a Client Secret/private key. Never paste those secrets or access/refresh/device tokens in chat or source. The owner's registration portal initially displayed a private-key installation warning and the owner subsequently reached the installation page; those observations are retained, not dismissed or treated as proof of key generation. Any owner-side portal prerequisite is distinct from Aster's secret-free distributed client design. No secret/private key has been requested, received or handled by this work.
+
+These fields and the distinction between registration and installation follow the [official registration guide](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app). Device flow is documented for desktop clients; its token exchange needs the public Client ID, device code and fixed grant type, not a distributed secret. User/App permissions and installed repository scope intersect. [GitHub user authorisation](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app).
+
+## Minimum proposed repository permissions
+
+| Permission | Level | Intended capability |
+| --- | --- | --- |
+| Contents | Read and write | Read selected repository files; reviewed branch-bound file changes and confirmed PR integration. |
+| Issues | Read and write | Read/create/comment/close issues within the reviewed closed operation set; each change separately confirmed. |
+| Pull requests | Read and write | Read/create PRs and review evidence for ordinary integration; the permission does not expose arbitrary PR updates/comments. |
+| Metadata | Read-only | Repository identity and basic metadata; GitHub normally supplies this automatically. |
+| Checks | Read-only | Observe check-run/suite results before integration. |
+| Commit statuses | Read-only | Observe status contexts before integration. |
+| Actions | Read-only | Inspect workflow runs/jobs for the owner's engineering checks; no workflow dispatch, cancellation, rerun or editing. |
+
+An installation's permission is an upper bound, not an Aster operation grant. The connector will still deny unimplemented endpoints, stale proposals and unconfirmed writes. If required merge rules cannot be determined without unavailable permissions, Aster must explain the limitation and refuse integration; do not add administration or bypass as a workaround. The merge endpoint's expected SHA guards the PR head; server rules and Aster's stronger explicitly required gates remain independent. [PR merge API](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request).
+
+## Authorisation and account switching in the app
+
+Owner-reference UI: **Customize → Plugins → GitHub**. First enable the GitHub catalogue preference; this enables the separate **Connect** intent, not account, token or repository authority. Connect requests native review of the dedicated App/account purpose before showing a short-lived user code for the fixed `https://github.com/login/device` page in the owner's browser. Confirm only a code initiated by Aster; device flow has a phishing risk. Aster must then verify the returned account, obtain separate native account confirmation and freshly enumerate the dedicated App's installed scope before any repository is selected. Selection has its own native review. The slider alone, including a preference restored after restart, grants none of those rights. The reviewed full-page Customize layout is implemented source with headless checks; these workflows are not yet installed/live acceptance. [GitHub security guidance](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps/best-practices-for-creating-a-github-app).
+
+Disable blocks new operations and invalidates pending proposals. **Disconnect from Aster** deletes its local token custody after cancellation; it does not claim to revoke the App everywhere. The popup must offer separate instructions/link to GitHub's authorised-App settings for remote revocation. **Switch account** disconnects and begins a new explicit session; previous-account approvals and late results cannot carry over.
+
+The current source requires explicit reconnection after token expiry or restart; it does not automatically restore an account/repository or rotate a token. Safe native token rotation and recovery remain a deferred design, not an active feature. The original device-flow grant permits refresh without embedding a Client Secret, but the unused refresh-network adapter is absent; unknown future refresh outcomes must require reconnect rather than blind replay. [Token refresh contract](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/refreshing-user-access-tokens).
+
+## Dependency decision
+
+The current locked host already has `reqwest` (HTTPS with Rustls), `serde`/`serde_json`, `tokio`, `zeroize`, and Windows Credential Manager APIs. Review/reuse those for fixed REST/OAuth contracts and native-only token custody; a Node/Python runtime or external GitHub MCP server is not required for the chosen built-in connector. No dependency graph has been expanded by this preparation. If an implementation needs a new crate or feature, pin/review it and regenerate the lock/audit/notices/SBOM with exact evidence before claiming readiness. Do not add a general shell, browser opener, remote URL override or renderer HTTP permission as a dependency shortcut.
+
+No current GitHub account authorisation permits Meta Contributor to receive private/personal/confidential repository content. Such content can remain in the local authorised workflow but must not silently become model input. The public Client ID dependency is resolved; actual Aster account connection, writes and integration still require completed host contracts, tests and separately authorised live acceptance. The owner has separately authorised the v0.2.4 source/documentation PR and its checks, not merge, signing or release. Disposable-repository permission is test scope, not that source-publication authority.
+
+Before eventual deletion of the disposable repository, preserve the generated non-secret documentation and evidence outside it, verify the exact repository identity and inventory, and confirm that no unrelated owner content would be lost. The currently available toolset has no repository-deletion operation; cleanup will be manual unless a separately qualified management route becomes available. Do not enable administration/deletion in Aster to work around this limitation. See the [scope and cleanup obligations](../qa/GITHUB-SETUP-V024-20261010.md#test-and-cleanup-obligations).

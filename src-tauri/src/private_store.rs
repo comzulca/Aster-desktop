@@ -10,6 +10,9 @@ pub(crate) enum Domain {
     Budget,
     Terms,
     ProcessedMedia,
+    Personalization,
+    Customization,
+    CredentialProof,
 }
 
 impl Domain {
@@ -19,6 +22,9 @@ impl Domain {
             Self::Budget => "budget-v1",
             Self::Terms => "terms-v1",
             Self::ProcessedMedia => "processed-media-v1",
+            Self::Personalization => "personalization-v1",
+            Self::Customization => "customization-v1",
+            Self::CredentialProof => "credential-proof-v1",
         }
     }
 
@@ -28,6 +34,9 @@ impl Domain {
             Self::Budget => (64 * 1024, 32 * 1024 * 1024, 32768),
             Self::Terms => (16 * 1024, 1024 * 1024, 512),
             Self::ProcessedMedia => (6 * 1024 * 1024, 128 * 1024 * 1024, 512),
+            Self::Personalization => (64 * 1024, 4 * 1024 * 1024, 512),
+            Self::Customization => (128 * 1024, 16 * 1024 * 1024, 512),
+            Self::CredentialProof => (16 * 1024, 1024 * 1024, 128),
         }
     }
 }
@@ -869,6 +878,35 @@ mod windows {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn v024_domains_are_fixed_separate_and_do_not_change_historical_limits() {
+        assert_eq!(Domain::History.name(), "history-v1");
+        assert_eq!(Domain::Budget.name(), "budget-v1");
+        assert_eq!(Domain::Terms.name(), "terms-v1");
+        assert_eq!(Domain::ProcessedMedia.name(), "processed-media-v1");
+        assert_eq!(Domain::Personalization.name(), "personalization-v1");
+        assert_eq!(Domain::Customization.name(), "customization-v1");
+        assert_eq!(Domain::CredentialProof.name(), "credential-proof-v1");
+        assert_eq!(
+            Domain::CredentialProof.limits(),
+            (16 * 1024, 1024 * 1024, 128)
+        );
+        let names = [
+            Domain::History,
+            Domain::Budget,
+            Domain::Terms,
+            Domain::ProcessedMedia,
+            Domain::Personalization,
+            Domain::Customization,
+            Domain::CredentialProof,
+        ]
+        .map(Domain::name);
+        assert_eq!(
+            names.iter().collect::<std::collections::HashSet<_>>().len(),
+            7
+        );
+    }
 
     #[test]
     fn record_names_and_payloads_are_closed_and_collisions_never_overwrite() {

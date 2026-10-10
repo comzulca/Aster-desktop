@@ -49,6 +49,42 @@ fn send_json() -> serde_json::Value {
 }
 
 #[test]
+fn generation_origin_never_consumes_pending_main_chat_originals() {
+    let mut registry = AttachmentRegistry::default();
+    let conversation = "1".repeat(32);
+    let request = "2".repeat(32);
+    let ids: Vec<_> = registry
+        .insert_batch(
+            &conversation,
+            vec![text_fixture("Synthetic pending original")],
+        )
+        .unwrap()
+        .into_iter()
+        .map(|file| file.id)
+        .collect();
+    let generated = select_send_attachments(SendOrigin::InertPackageGeneration, &[], || {
+        panic!("generation must not acquire or consume the main registry")
+    })
+    .unwrap();
+    assert!(generated.is_empty());
+    assert!(
+        select_send_attachments(SendOrigin::InertPackageGeneration, &ids, || {
+            panic!("even invalid generation IDs must leave the registry untouched")
+        })
+        .is_err()
+    );
+    let ordinary = select_send_attachments(SendOrigin::Conversation, &ids, || {
+        registry
+            .consume(&conversation, &request, &ids)
+            .map_err(|error| error.code().to_owned())
+    })
+    .unwrap();
+    assert_eq!(ordinary.len(), 1);
+    assert_eq!(&*ordinary[0].original, b"Synthetic pending original");
+    assert!(registry.consume(&conversation, &request, &ids).is_err());
+}
+
+#[test]
 fn attachment_processed_and_send_dtos_reject_unknown_fields_null_and_wrong_types() {
     let attachment = json!({"conversationId":"1".repeat(32),"attachmentId":"2".repeat(32)});
     let processed = json!({"conversationId":"1".repeat(32),"requestId":"2".repeat(32),"attachmentId":"3".repeat(32)});

@@ -7,3 +7,14 @@
 /src-tauri/vendor/zune-jpeg-0.5.15/src/color_convert/avx.rs whitespace=-blank-at-eol
 /src-tauri/vendor/zune-jpeg-0.5.15/src/decoder.rs whitespace=-blank-at-eol
 /src-tauri/vendor/zune-jpeg-0.5.15/src/upsampler/portable_simd.rs whitespace=-blank-at-eol
+# Preserve the ten original, inert Aster Builder ZIP-member byte identities.
+/src-tauri/resources/aster-builder/SKILL.md -text
+/src-tauri/resources/aster-builder/references/architecture.md -text
+/src-tauri/resources/aster-builder/references/spec-threats.md -text
+/src-tauri/resources/aster-builder/references/provider-contracts.md -text
+/src-tauri/resources/aster-builder/references/storage-tools.md -text
+/src-tauri/resources/aster-builder/references/ui.md -text
+/src-tauri/resources/aster-builder/references/verification.md -text
+/src-tauri/resources/aster-builder/references/aster-case-study.md -text
+/src-tauri/resources/aster-builder/references/ledger-schema.md -text
+/src-tauri/resources/aster-builder/assets/icon.svg -text
