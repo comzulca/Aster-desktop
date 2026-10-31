@@ -27,3 +27,22 @@ Every dependency change is attributable to the existing PR diff or official regi
 Owner Windows 11 installation, flicker assessment, 42 compound protocols, live credentials/provider requests, signing and production qualification remain separate. Gmail message IDs and email bodies are not committed into the repository.
 
 Primary references: [Vite advisories](https://github.com/vitejs/vite/security/advisories), [rustls 0.23.46](https://github.com/rustls/rustls/releases/tag/v%2F0.23.46), [official rustls index](https://github.com/rust-lang/crates.io-index/blob/master/ru/st/rustls), and [retained GLib decision](GLIB-UPSTREAM-DEFERRAL-20261009.md).
+
+## 31 October expanded advisory discovery (before follow-up changes)
+
+The first candidate head `ef33270fe277a2ec54b388b910110d7cd6b06827`, run `41243841045` attempt 1, passed source-policy, codec fixtures, frozen frontend installation, typecheck, all 100 frontend tests across eight files, and the renderer build. Its unchanged advisory gate then FAILED on eight undici advisories published after the original dependency runs. Windows and package jobs were SKIPPED, not passing.
+
+Before the follow-up lock changes, the current official RustSec tree was also inspected against locked crate names. Extend the existing NFR-003 / SEC-009 / AC-019 maintenance acceptance to these compatible security refreshes:
+
+| Locked input | Intended version | Reason |
+| --- | --- | --- |
+| undici 8.11.2 | 8.12.2 | Eight GHSA advisories: xjj6-f33q-929c, 4w7w-5xrc-9h26, 2m5v-pch6-74hx, qrxm-fqhp-jwvm, 4qv8-2p9j-2685, f72v-6w45-q472, 9fm3-97px-rjf6, 55wc-3pg8-jfw6. |
+| rustls-webpki 0.103.15 | 0.103.16 | RUSTSEC-2026-0382, rejection of distrusted emSign intermediate keys. |
+| webpki-root-certs 1.0.9 | 1.0.10 | RUSTSEC-2026-0383, remove the affected root. This and 0382 share CVE-2026-111943; do not count two distinct CVEs. |
+| tokio 1.53.2 | 1.53.3 | RUSTSEC-2026-0386, Unix AsyncFd I/O safety warning. Avoid the separate yanked 1.54.0 interval regression. |
+
+The three Rust updates have identical declared normal/build dependencies to their respective old versions in the official crates.io Git index. webpki-root-certs raises MSRV from 1.70 to 1.71, within the pinned Rust 1.97.0 toolchain. All selected crate versions are non-yanked. Verify fresh locked resolution and full CI; metadata compatibility alone is not runtime acceptance.
+
+jsdom 30.1.2's official manifest accepts undici `^8.11.2`, and undici 8.12.2 has no runtime dependencies and retains Node >=22.19.0. The npm metadata endpoint was unavailable in this session. The candidate SRI was independently cross-checked in the published Prometheus and OpenAI Node SDK lockfiles; a fresh pnpm frozen install must validate the actual registry download against it. No override or fabricated checksum is permitted. Primary source versions are [jsdom v30.1.2](https://github.com/jsdom/jsdom/blob/v30.1.2/package.json), [undici v8.12.2](https://github.com/nodejs/undici/blob/v8.12.2/package.json), and the RustSec advisories listed above.
+
+The earlier FAIL remains preserved. Follow-up final-source/native/package checks remain NOT RUN at this amendment. GLib and the existing unmaintained proc-macro-error warning retain their prior unresolved status; no ignore or audit suppression is added.
