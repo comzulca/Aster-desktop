@@ -25,6 +25,17 @@ describe('protocol 4 renderer validation (T-055/T-061/T-080)', () => {
     expect(validStatus({ ...baseline, budget: { ...baseline.budget, pending: [item, item] } })).toBe(false);
     expect(validStatus({ ...baseline, budget: { ...baseline.budget, pending: [{ ...item, text: 'secret' }] } })).toBe(false);
   });
+  it('requires exact current authentication status, never syntax or configured presence alone (T-085)', () => {
+    expect(validStatus({ ...baseline, credentialValidation: 'valid' })).toBe(true);
+    const { credentialValidation: _removed, ...withoutProof } = baseline;
+    expect(validStatus(withoutProof)).toBe(false);
+    for (const credentialValidation of ['missing','unverified','invalid','unavailable']) {
+      expect(validStatus({ ...baseline, credentialValidation, availability: 'ready' })).toBe(false);
+      expect(validStatus({ ...baseline, credentialValidation, availability: 'needs_credential' })).toBe(true);
+    }
+    expect(validStatus({ ...baseline, credentialValidation: 'approved' })).toBe(false);
+    expect(validStatus({ ...baseline, credentialValidation: 'valid', credentialAvailable: false })).toBe(false);
+  });
   it('measures UTF-8 rather than UTF-16 without changing user input', () => {
     expect(validMessage('a'.repeat(32768))).toBe(true); expect(validMessage('a'.repeat(32769))).toBe(false);
     expect(validMessage('é'.repeat(16384))).toBe(true); expect(validMessage('é'.repeat(16385))).toBe(false);

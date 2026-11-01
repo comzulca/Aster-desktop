@@ -1,12 +1,14 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { nativeBridge } from './bridge';
 import { formatGbp, parseGbp, MAX_CONVERSATION_BYTES, MAX_MESSAGE_BYTES, MODEL_LABEL, REASONING_EFFORTS, utf8Bytes, validAttachmentSummaries, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
-import { DEFAULT_MODEL, type AppStatus, type AttachmentSummary, type Bridge, type BudgetIntent, type Conversation, type ConversationEntry, type ConversationSummary, type DataClass, type ReasoningEffort, type WindowAction } from './types';
+import { DEFAULT_MODEL, type AppStatus, type AttachmentSummary, type Bridge, type BudgetIntent, type Conversation, type ConversationEntry, type ConversationSummary, type DataClass, type GenerationBinding, type GenerationFinished, type ReasoningEffort, type RendererTracePhase, type WindowAction } from './types';
 import wordmark from './assets/aster-wordmark.png';
 import readyArtwork from './assets/aster-ready.png';
 import { DraftMemory, editSelection, findMatches, helpTitles, menuGroups, shortcutAction, type HelpPage, type LocalAction, type MenuName } from './local-ui';
 import packageInfo from '../package.json';
-import launcherIcon from '../src-tauri/icons/32x32.png';
+import { Personalization } from './Personalization';
+import { Customization } from './Customization';
+import { RenderingDiagnostics } from './RenderingDiagnostics';
 
 type DisplayEntry = Omit<ConversationEntry, 'state'> & { state: ConversationEntry['state'] | 'streaming' };
 const uuid = () => crypto.randomUUID();
@@ -18,6 +20,13 @@ const availabilityText: Record<AppStatus['availability'], string> = {
   ready: 'Ready for separately reviewed requests.',
   busy: 'A request is in progress.',
   unsupported: 'The native Windows host is unavailable.',
+};
+const credentialText: Record<AppStatus['credentialValidation'], string> = {
+  missing: 'Configure and validate a Meta API key in Settings before starting a conversation.',
+  unverified: 'Validate the configured Meta API key in Settings before starting a conversation.',
+  valid: 'Authentication verified for the configured key; billing and capacity are separate.',
+  invalid: 'Meta did not accept this key. Replace it in Settings before starting a conversation.',
+  unavailable: 'Key validation is unavailable. Review Settings; no key has been labelled invalid.',
 };
 const errorText: Record<string, string> = {
   invalid_input: 'The request is invalid. Check the message and its classification.',
@@ -36,6 +45,8 @@ const errorText: Record<string, string> = {
   session_limit: 'This process has reached its request limit. Saved history and spending are retained.',
   context_limit: 'This conversation has reached its context limit. Start a new conversation.',
   credential_missing: 'Set up the Meta credential through the native Windows dialogue.',
+  credential_unverified: 'Validate the configured Meta API key in Settings before continuing.',
+  credential_invalid: 'Meta did not accept this key. Replace it through the native Windows dialogue.',
   review_denied: 'The native disclosure review was declined. Nothing was sent.',
   cancelled: 'The request was stopped. Any unresolved charge remains reserved.',
   refused: 'The response was refused and will not be reused as context.',
@@ -215,6 +226,8 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const attachmentState = useRef<{ conversationId: string | null; items: AttachmentSummary[] }>({ conversationId: null, items: [] });
   const shellRef = useRef<HTMLDivElement>(null);
   const shellReadySent = useRef(false);
+  const assetsReadyMarked = useRef(false);
+  const renderMarkerCount = useRef(0);
   const [activeRequest, setActiveRequest] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -234,6 +247,16 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const [search, setSearch] = useState('');
   const [menu, setMenu] = useState<MenuName | null>(null);
   const [dialog, setDialog] = useState<'settings' | 'help' | 'quit' | null>(null);
+  const [settingsTab, setSettingsTab] = useState<'providers' | 'personalization' | 'usage' | 'local' | 'customize' | 'about'>('providers');
+  const [workspace, setWorkspace] = useState<'chat' | 'customize'>('chat');
+  const workspaceRef = useRef<'chat' | 'customize'>('chat');
+  const [customizationBlocked, setCustomizationBlocked] = useState(false);
+  const customizationBlockedRef = useRef(false);
+  const customizationNavigation = useCallback((blocked: boolean) => { customizationBlockedRef.current = blocked; setCustomizationBlocked(blocked); }, []);
+  const [profileNavigationBlocked, setProfileNavigationBlocked] = useState(false);
+  const profileNavigationBlockedRef = useRef(false);
+  const profileNavigation = useCallback((blocked: boolean) => { profileNavigationBlockedRef.current = blocked; setProfileNavigationBlocked(blocked); }, []);
+  const workspaceReturn = useRef<HTMLButtonElement>(null);
   const [budgetFields, setBudgetFields] = useState({ rate: '', margin: '', tax: '', payment: '', validUntil: '' });
   const [reconciliationCharges, setReconciliationCharges] = useState<Record<string, string>>({});
   const newAccountId = useRef(uuid().replaceAll('-', ''));
@@ -259,6 +282,8 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const menuRegion = useRef<HTMLDivElement>(null);
   const terminal = useRef(new Set<string>());
   const eventTerminals = useRef(new Set<string>());
+  const generationBindings = useRef(new Map<string, string>());
+  const generationTerminals = useRef(new Set<string>());
   const endRef = useRef<HTMLDivElement>(null);
   const locked = busy || Boolean(activeRequest) || Boolean(status?.activeRequest);
 
@@ -305,15 +330,48 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
   function isLocked() { return busyRef.current || Boolean(activeRef.current) || Boolean(statusRef.current?.activeRequest); }
   function markBusy(value: boolean) { busyRef.current = value; setBusy(value); }
+  function generationBound(binding: GenerationBinding) {
+    if (generationBindings.current.size >= 32) generationBindings.current.delete(generationBindings.current.keys().next().value!);
+    generationBindings.current.set(binding.requestId, binding.conversationId);
+  }
+  function generationFinished(result: GenerationFinished) {
+    if (result.terminalObserved) {
+      generationBindings.current.delete(result.requestId);
+      if (generationTerminals.current.has(result.requestId)) return;
+      if (generationTerminals.current.size >= 32) generationTerminals.current.delete(generationTerminals.current.values().next().value!);
+      generationTerminals.current.add(result.requestId);
+    }
+    if (activeRef.current) return;
+    // Only current local status/history metadata is refreshed. This never
+    // adopts generation entries, changes the main draft, or restores imports.
+    void Promise.all([refreshStatus(), refreshList()]).catch(() => setNotice('Generation status or local history metadata could not be refreshed. Existing conversation content and drafts were kept.'));
+  }
+  function markRender(phase: RendererTracePhase) {
+    // Lower-trust fixed markers only. Bounded locally and again by the native
+    // trace; errors neither delay startup nor change visibility or authority.
+    if (!bridge.recordRenderEvent || renderMarkerCount.current >= 32) return;
+    renderMarkerCount.current++;
+    void bridge.recordRenderEvent({ protocolVersion: 1, phase }).catch(() => {});
+  }
 
   useEffect(() => {
-    if (!bridge.shellReady || shellReadySent.current) return;
+    markRender('mounted');
+    const visibility = () => markRender(document.visibilityState === 'hidden' ? 'hidden' : 'visible');
+    visibility(); document.addEventListener('visibilitychange', visibility);
+    return () => document.removeEventListener('visibilitychange', visibility);
+  }, [bridge]);
+
+  useEffect(() => {
+    if ((!bridge.shellReady && !bridge.recordRenderEvent) || shellReadySent.current) return;
     let disposed = false; let firstFrame: number | null = null; let secondFrame: number | null = null;
     const cleanups: (() => void)[] = [];
     const images = [...(shellRef.current?.querySelectorAll<HTMLImageElement>('img') ?? [])];
     let outstanding = images.length;
+    let assetFailed = false;
     function schedule() {
-      if (disposed || outstanding || firstFrame !== null || shellReadySent.current) return;
+      if (disposed || outstanding) return;
+      if (!assetsReadyMarked.current && !assetFailed) { assetsReadyMarked.current = true; markRender('assets_ready'); }
+      if (!bridge.shellReady || firstFrame !== null || shellReadySent.current) return;
       firstFrame = window.requestAnimationFrame(() => {
         firstFrame = null;
         if (disposed) return;
@@ -330,16 +388,17 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       });
     }
     for (const image of images) {
-      if (image.complete) { outstanding--; continue; }
+      if (image.complete) { outstanding--; if (image.naturalWidth === 0) assetFailed = true; continue; }
       let settled = false;
-      function finish() {
+      function finish(event?: Event) {
         if (settled || disposed) return; settled = true; outstanding--;
+        if (event?.type === 'error') assetFailed = true;
         image.removeEventListener('load', finish); image.removeEventListener('error', finish); schedule();
       }
       image.addEventListener('load', finish); image.addEventListener('error', finish);
       cleanups.push(() => { image.removeEventListener('load', finish); image.removeEventListener('error', finish); });
       // Avoid missing a cached asset that settled while listeners were added.
-      if (image.complete) finish();
+      if (image.complete) { if (image.naturalWidth === 0) assetFailed = true; finish(); }
     }
     schedule();
     return () => {
@@ -359,10 +418,15 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     let disposed = false;
     let unsubscribe: (() => void) | undefined;
     async function initialize() {
+      markRender('hydration_started');
       markBusy(true);
       try {
         unsubscribe = await bridge.subscribe(event => {
-          if (!validStreamEvent(event) || event.conversationId !== conversationRef.current || event.requestId !== activeRef.current || terminal.current.has(event.requestId)) return;
+          if (!validStreamEvent(event)) return;
+          if (event.type === 'terminal' && !activeRef.current && generationBindings.current.get(event.requestId) === event.conversationId) {
+            generationFinished({ requestId: event.requestId, conversationId: event.conversationId, terminalObserved: true }); return;
+          }
+          if (event.conversationId !== conversationRef.current || event.requestId !== activeRef.current || terminal.current.has(event.requestId)) return;
           if (event.type === 'content') {
             setEntries(current => current.map(entry => {
               if (entry.role !== 'assistant' || entry.requestId !== event.requestId) return entry;
@@ -397,7 +461,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       } catch (error) {
         if (!disposed) { discardAttachments(); statusRef.current = null; setStatus(null); setHostState('unavailable'); setNotice(safeError(error, 'The native host or its saved-history contract is unavailable or incompatible. Privileged actions are disabled.')); }
       }
-      finally { if (!disposed) markBusy(false); }
+      finally { if (!disposed) { markRender('hydration_finished'); markBusy(false); } }
     }
     void initialize();
     return () => { disposed = true; unsubscribe?.(); };
@@ -418,7 +482,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     if (dialog) (dialogRef.current?.querySelector<HTMLElement>('[data-default-cancel]') ?? dialogRef.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)'))?.focus();
     else if (dialogOpener.current) {
       const previous = dialogOpener.current; dialogOpener.current = null;
-      (previous.isConnected && !(previous as HTMLButtonElement).disabled ? previous : settingsButton.current)?.focus();
+      (previous.isConnected && !previous.closest('[hidden]') && !(previous as HTMLButtonElement).disabled ? previous : workspaceRef.current === 'customize' ? workspaceReturn.current : settingsButton.current)?.focus();
     }
   }, [dialog]);
   useEffect(() => {
@@ -432,6 +496,12 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
         const ordinaryEdit = dialogStateRef.current === 'settings' && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && !target.disabled && ['undo','redo','cut','copy','paste','select'].includes(action);
         if (!ordinaryEdit) event.preventDefault();
         return;
+      }
+      if (workspaceRef.current === 'customize') {
+        const target = event.target;
+        // Ordinary editing remains owned by the visible package fields. Main
+        // draft/history shortcuts must never act on mounted-but-hidden chat.
+        if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && !target.disabled && ['undo','redo','cut','copy','paste','select'].includes(action)) return;
       }
       captureEdit(document.activeElement); captureVisibleSelection();
       event.preventDefault();
@@ -453,7 +523,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }, []);
 
   async function newConversation() {
-    if (isLocked() || !statusRef.current?.historyAvailable || !preserveDraft()) return;
+    if (workspaceRef.current !== 'chat' || dialogStateRef.current || isLocked() || statusRef.current?.credentialValidation !== 'valid' || !statusRef.current.historyAvailable || !preserveDraft()) return;
     markBusy(true); setMenu(null);
     try {
       await materialiseDraft();
@@ -464,7 +534,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     finally { markBusy(false); requestAnimationFrame(() => { if (!dialogStateRef.current) draftRef.current?.focus(); }); }
   }
   async function chooseConversation(id: string) {
-    if (isLocked() || !statusRef.current?.historyAvailable || !preserveDraft()) return;
+    if (workspaceRef.current !== 'chat' || dialogStateRef.current || isLocked() || !statusRef.current?.historyAvailable || !preserveDraft()) return;
     markBusy(true);
     try { await materialiseDraft(); adopt(await readConversation(id)); setSidebarOpen(false); draftRef.current?.focus(); }
     catch (error) { setNotice(safeError(error, 'The conversation could not be loaded. Existing history is unchanged.')); }
@@ -472,6 +542,9 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
   async function materialiseDraft() {
     if (conversationRef.current || !draftValue.current) return;
+    // A missing proof must not manufacture a persisted conversation just to
+    // switch display history. The unsaved draft remains renderer memory.
+    if (statusRef.current?.credentialValidation !== 'valid') return;
     const saved: unknown = await bridge.createConversation();
     if (!validConversation(saved)) throw new Error('history_unavailable');
     if (!drafts.current.write(saved.id, draftValue.current)) throw new Error('history_limit');
@@ -500,7 +573,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     finally { markBusy(false); }
   }
   async function addAttachments() {
-    if (isLocked() || dialogStateRef.current || !statusRef.current?.historyAvailable || !statusRef.current.capabilities.attachmentImport || !bridge.selectAttachments || !bridge.removeAttachment || !preserveDraft()) return;
+    if (workspaceRef.current !== 'chat' || isLocked() || dialogStateRef.current || statusRef.current?.credentialValidation !== 'valid' || !statusRef.current.historyAvailable || !statusRef.current.capabilities.attachmentImport || !bridge.selectAttachments || !bridge.removeAttachment || !preserveDraft()) return;
     markBusy(true); setMenu(null); setNotice(null);
     try {
       if (!conversationRef.current) {
@@ -528,7 +601,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
   async function removeAttachment(id: string) {
     const current = attachmentState.current;
-    if (isLocked() || dialogStateRef.current || !bridge.removeAttachment || current.conversationId !== conversationRef.current || !current.conversationId || !current.items.some(item => item.id === id)) return;
+    if (workspaceRef.current !== 'chat' || isLocked() || dialogStateRef.current || !bridge.removeAttachment || current.conversationId !== conversationRef.current || !current.conversationId || !current.items.some(item => item.id === id)) return;
     markBusy(true);
     try {
       const receipt = await bridge.removeAttachment({ conversationId: current.conversationId, attachmentId: id });
@@ -542,7 +615,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
   async function viewProcessedAttachment(entry: DisplayEntry, attachment: AttachmentSummary, opener: HTMLButtonElement) {
     const conversationId = conversationRef.current;
-    if (!conversationId || isLocked() || dialogStateRef.current || !statusRef.current?.historyAvailable || !bridge.viewProcessedAttachment || entry.role !== 'user' || attachment.kind === 'text' || !entry.processedAttachments?.some(item => item.id === attachment.id)) return;
+    if (workspaceRef.current !== 'chat' || !conversationId || isLocked() || dialogStateRef.current || !statusRef.current?.historyAvailable || !bridge.viewProcessedAttachment || entry.role !== 'user' || attachment.kind === 'text' || !entry.processedAttachments?.some(item => item.id === attachment.id)) return;
     markBusy(true); setMenu(null);
     try {
       // Saved metadata asks for a local native view only. It is never copied
@@ -557,7 +630,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
   async function send() {
     const currentStatus = statusRef.current;
-    if (isLocked() || !currentStatus || currentStatus.availability !== 'ready' || !validMessage(draft) || !dataClass || !['synthetic', 'public_eligible'].includes(dataClass) || !REASONING_EFFORTS.includes(reasoningEffort)) return;
+    if (workspaceRef.current !== 'chat' || dialogStateRef.current || isLocked() || !currentStatus || currentStatus.credentialValidation !== 'valid' || currentStatus.availability !== 'ready' || !validMessage(draft) || !dataClass || !['synthetic', 'public_eligible'].includes(dataClass) || !REASONING_EFFORTS.includes(reasoningEffort)) return;
     const message = draft;
     const classification = dataClass;
     const selectedAttachments = attachmentState.current;
@@ -608,13 +681,28 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     finally { setCancelling(false); }
   }
   function openDialog(next: 'settings' | 'help' | 'quit', opener: HTMLElement) {
+    if (workspaceRef.current === 'customize' && customizationBlockedRef.current) return;
     dialogOpener.current = opener.closest('.menu-group')?.querySelector<HTMLElement>('[data-menu]') ?? opener;
     dialogStateRef.current = next; setMenu(null); setDialog(next);
+  }
+  function openCustomize() {
+    if (isLocked() || profileNavigationBlockedRef.current || workspaceRef.current !== 'chat' || dialogStateRef.current !== 'settings' || !preserveDraft()) return;
+    // Presentation only: no adopt, history load, create or attachment cleanup.
+    workspaceRef.current = 'customize'; setWorkspace('customize'); setMenu(null); setSidebarOpen(false);
+    editTarget.current = null; copiedSelection.current = '';
+    dialogStateRef.current = null; setDialog(null);
+    requestAnimationFrame(() => workspaceReturn.current?.focus());
+  }
+  function returnToChat() {
+    if (isLocked() || dialogStateRef.current || customizationBlockedRef.current || workspaceRef.current !== 'customize') return;
+    workspaceRef.current = 'chat'; setWorkspace('chat'); setMenu(null);
+    editTarget.current = null; copiedSelection.current = '';
+    requestAnimationFrame(() => draftRef.current?.focus());
   }
   function dialogKeys(event: KeyboardEvent<HTMLElement>) {
     if (event.key === 'Escape') { event.preventDefault(); setDialog(null); }
     if (event.key !== 'Tab') return;
-    const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled)') ?? []);
+    const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)') ?? []).filter(control => !control.closest('[hidden]'));
     if (!controls.length) return;
     if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1)?.focus(); }
     else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0].focus(); }
@@ -635,6 +723,11 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     next.focus(); next.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }
   function captureEdit(element: EventTarget | null) {
+    if (element instanceof HTMLElement && element.closest('.personalization-page')) {
+      // Profile editing belongs exclusively to its local component. Never
+      // read its value into global draft/edit-history/clipboard buffers.
+      editTarget.current = null; copiedSelection.current = ''; return;
+    }
     if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) || element.type === 'password' || element.selectionStart === null || element.selectionEnd === null) return;
     editTarget.current = { element, start: element.selectionStart, end: element.selectionEnd, text: element.value };
     const key = element.dataset.editKey;
@@ -642,6 +735,11 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
   function captureVisibleSelection() {
     const selection = window.getSelection();
+    const anchor = selection?.anchorNode;
+    const anchorElement = anchor instanceof Element ? anchor : anchor?.parentElement;
+    if (anchorElement?.closest('.personalization-page')) {
+      editTarget.current = null; copiedSelection.current = ''; return;
+    }
     const text = selection?.toString() ?? '';
     const withinVisibleContent = Boolean(selection?.anchorNode && document.getElementById('main')?.contains(selection.anchorNode));
     copiedSelection.current = withinVisibleContent && utf8Bytes(text) <= MAX_MESSAGE_BYTES ? text : '';
@@ -649,7 +747,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
   function editable() {
     const target = editTarget.current;
-    return target && target.element.isConnected && !target.element.disabled && !target.element.readOnly && target.element.value === target.text ? target : null;
+    return target && target.element.isConnected && !target.element.closest('[hidden]') && !target.element.disabled && !target.element.readOnly && target.element.value === target.text ? target : null;
   }
   function applyEdit(value: string, caret: number) {
     const target = editable(); if (!target) return;
@@ -697,7 +795,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     } catch { setNotice('Clipboard access was refused or is unavailable. No text was changed or sent.'); }
   }
   async function windowAction(action: WindowAction) {
-    if (!bridge.windowAction || isLocked()) return;
+    if (!bridge.windowAction || isLocked() || (workspaceRef.current === 'customize' && customizationBlockedRef.current)) return;
     markBusy(true);
     try {
       const result = await bridge.windowAction({ action });
@@ -707,15 +805,16 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     finally { markBusy(false); }
   }
   function requestQuit() {
-    if (isLocked() || dialogStateRef.current || !bridge.windowAction) return;
+    if (isLocked() || dialogStateRef.current || !bridge.windowAction || (workspaceRef.current === 'customize' && customizationBlockedRef.current)) return;
     setMenu(null);
     if (draftValue.current.length || drafts.current.hasDrafts || attachmentState.current.items.length) openDialog('quit', document.activeElement instanceof HTMLElement ? document.activeElement : document.body);
     else void windowAction('close');
   }
   quitRef.current = requestQuit;
   function actionDisabled(action: LocalAction) {
-    if (locked) return true;
-    if (action === 'new') return !status?.historyAvailable;
+    if (locked || (workspace === 'customize' && customizationBlocked)) return true;
+    if (workspace === 'customize' && ['new','previous','next','sidebar','search','find','undo','redo','cut','copy','paste','delete','select'].includes(action)) return true;
+    if (action === 'new') return !status?.historyAvailable || status.credentialValidation !== 'valid';
     if (action === 'quit' || action === 'fullscreen') return !bridge.windowAction;
     if (action === 'previous' || action === 'next') { const position = summaries.findIndex(item => item.id === conversation?.id); return !status?.historyAvailable || position < 0 || (action === 'previous' ? position === 0 : position === summaries.length - 1); }
     if (['undo','redo','cut','paste','delete','select'].includes(action)) {
@@ -770,36 +869,34 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     void nativeAction(() => bridge.reconcileBudget({ requestId, confirmedChargeNanoGbp }), 'The pending charge was not reconciled. Existing reservations remain unchanged.');
   }
 
-  const canSend = !locked && status?.availability === 'ready' && validMessage(draft) && ['synthetic', 'public_eligible'].includes(dataClass) && REASONING_EFFORTS.includes(reasoningEffort) && (!attachments.length || Boolean(status.capabilities.attachmentImport && attachmentState.current.conversationId === conversation?.id));
+  const canSend = workspace === 'chat' && !locked && status?.credentialValidation === 'valid' && status.availability === 'ready' && validMessage(draft) && ['synthetic', 'public_eligible'].includes(dataClass) && REASONING_EFFORTS.includes(reasoningEffort) && (!attachments.length || Boolean(status.capabilities.attachmentImport && attachmentState.current.conversationId === conversation?.id));
   const filteredSummaries = summaries.filter(item => item.title.toLocaleLowerCase('en-GB').includes(search.toLocaleLowerCase('en-GB')));
   const bytes = utf8Bytes(draft);
   const availability = hostState === 'checking' ? 'Checking the native host…' : hostState === 'unavailable' ? 'Native host unavailable or incompatible.' : status ? availabilityText[status.availability] : 'Unavailable';
   const matchCount = find ? entries.reduce((sum, entry) => sum + findMatches(entry.content, find).count, 0) : 0;
-  const navigationVisible = sidebarVisible && (!compact || sidebarOpen);
-  const canImport = !locked && !dialog && Boolean(status?.historyAvailable && status.capabilities.attachmentImport && bridge.selectAttachments && bridge.removeAttachment);
+  const navigationVisible = workspace === 'chat' && sidebarVisible && (!compact || sidebarOpen);
+  const canImport = workspace === 'chat' && !locked && !dialog && Boolean(status?.credentialValidation === 'valid' && status.historyAvailable && status.capabilities.attachmentImport && bridge.selectAttachments && bridge.removeAttachment);
   return <><div ref={shellRef} className={`app-shell ${sidebarVisible ? '' : 'sidebar-hidden'}`} style={{ zoom: zoom / 100, width: '100%', height: '100%', '--interface-scale': zoom / 100 } as CSSProperties} onFocusCapture={event => captureEdit(event.target)} onSelectCapture={event => captureEdit(event.target)} onChangeCapture={event => captureEdit(event.target)}>
-    <a href="#main" className="skip-link">Skip to content</a>
-    <div className="captionbar" aria-label="Window title bar">
-      <div className="caption-drag-region" onMouseDown={event => { if (event.button === 0 && event.detail === 1 && !dialogStateRef.current) void windowAction('start_dragging'); }} onDoubleClick={() => { if (!dialogStateRef.current) void windowAction('toggle_maximise'); }}><img className="caption-emblem" src={launcherIcon} alt=""/><span>Aster Desktop</span></div>
-      <span className="language-indicator" role="img" aria-label="English (United Kingdom)" title="English (United Kingdom)"><UnionJack/></span>
-      <div className="caption-controls"><button aria-label="Minimise window" disabled={locked || !bridge.windowAction || Boolean(dialog)} onClick={() => void windowAction('minimise')}><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor"/></svg></button><button aria-label={windowState.maximised ? 'Restore window' : 'Maximise window'} disabled={locked || !bridge.windowAction || Boolean(dialog)} onClick={() => void windowAction('toggle_maximise')}><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">{windowState.maximised ? <path d="M3 1h8v8M1 3h8v8H1z" fill="none" stroke="currentColor"/> : <rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor"/>}</svg></button><button className="caption-close" aria-label="Close Aster" disabled={locked || !bridge.windowAction || Boolean(dialog)} onClick={requestQuit}><Icon name="close" size={14}/></button></div>
-    </div>
-    <header className="titlebar">
-      <button className="mobile-menu icon-button" aria-label="Open navigation" disabled={locked} onClick={() => { setSidebarVisible(true); setSidebarOpen(true); }}><Icon name="menu"/></button>
+    <a href={workspace === 'chat' ? '#main' : '#customize-main'} className="skip-link">Skip to content</a>
+    <header className="titlebar captionbar" aria-label="Window title bar">
+      <button className="mobile-menu icon-button" aria-label="Open navigation" hidden={workspace !== 'chat'} disabled={locked} onClick={() => { if (workspaceRef.current === 'chat') { setSidebarVisible(true); setSidebarOpen(true); } }}><Icon name="menu"/></button>
       <div className="titlebar-menu" ref={menuRegion}>
         {(['File','Edit','View','Help'] as MenuName[]).map(name => <div className="menu-group" key={name}>
-          <button data-menu={name} aria-haspopup="menu" aria-expanded={menu === name} disabled={Boolean(dialog)} onMouseDown={captureVisibleSelection} onClick={() => setMenu(menu === name ? null : name)} onKeyDown={event => { if (event.key === 'Escape' && menu === name) { event.preventDefault(); event.stopPropagation(); setMenu(null); event.currentTarget.focus(); return; } if (event.key === 'ArrowDown') { event.preventDefault(); captureVisibleSelection(); setMenu(name); requestAnimationFrame(() => menuRegion.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()); } }}>{name}</button>
+          <button data-menu={name} aria-haspopup="menu" aria-expanded={menu === name} disabled={Boolean(dialog) || customizationBlocked} onMouseDown={captureVisibleSelection} onClick={() => setMenu(menu === name ? null : name)} onKeyDown={event => { if (event.key === 'Escape' && menu === name) { event.preventDefault(); event.stopPropagation(); setMenu(null); event.currentTarget.focus(); return; } if (event.key === 'ArrowDown') { event.preventDefault(); captureVisibleSelection(); setMenu(name); requestAnimationFrame(() => menuRegion.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()); } }}>{name}</button>
           {menu === name && <div role="menu" aria-label={name} className="menu-popup" onKeyDown={menuKeys}>
             {menuGroups[name].map((group, index) => <div key={index} role="none">{index > 0 && <div role="separator" className="menu-separator"/>}{group.map(item => <button key={item.action} role="menuitem" aria-label={item.label} disabled={actionDisabled(item.action)} onClick={event => performAction(item.action, event.currentTarget)}><span>{item.label}</span>{item.shortcut && <kbd>{item.shortcut}</kbd>}</button>)}</div>)}
           </div>}
         </div>)}
       </div>
+      <div className="caption-drag-region" aria-hidden="true" onMouseDown={event => { if (event.button === 0 && event.detail === 1 && !dialogStateRef.current) void windowAction('start_dragging'); }} onDoubleClick={() => { if (!dialogStateRef.current) void windowAction('toggle_maximise'); }}/>
+      <span className="language-indicator" role="img" aria-label="English (United Kingdom)" title="English (United Kingdom)"><UnionJack/></span>
+      <div className="caption-controls"><button aria-label="Minimise window" disabled={locked || !bridge.windowAction || Boolean(dialog) || customizationBlocked} onClick={() => void windowAction('minimise')}><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor"/></svg></button><button aria-label={windowState.maximised ? 'Restore window' : 'Maximise window'} disabled={locked || !bridge.windowAction || Boolean(dialog) || customizationBlocked} onClick={() => void windowAction('toggle_maximise')}><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">{windowState.maximised ? <path d="M3 1h8v8M1 3h8v8H1z" fill="none" stroke="currentColor"/> : <rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor"/>}</svg></button><button className="caption-close" aria-label="Close Aster" disabled={locked || !bridge.windowAction || Boolean(dialog) || customizationBlocked} onClick={requestQuit}><Icon name="close" size={14}/></button></div>
       <span className="visually-hidden" aria-label="Interface zoom">{zoom}%</span>
     </header>
-    {sidebarOpen && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setSidebarOpen(false)}/>}
-    <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`} aria-label="Conversation navigation" aria-hidden={!navigationVisible} inert={!navigationVisible}>
+    {workspace === 'chat' && sidebarOpen && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setSidebarOpen(false)}/>}
+    <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`} hidden={workspace !== 'chat'} aria-label="Conversation navigation" aria-hidden={!navigationVisible} inert={!navigationVisible}>
       <div className="brand-slot"><img src={wordmark} alt="Aster AI" className="brand-image"/></div>
-      <div className="sidebar-tools"><button className="icon-button" aria-label="New conversation" title="New conversation (Ctrl+N)" onClick={() => void newConversation()} disabled={locked || !status?.historyAvailable}><Icon name="new"/></button><button className="icon-button" aria-label="Search conversations" title="Search conversations (Ctrl+K)" disabled={locked} onClick={() => { setSearchOpen(current => !current); requestAnimationFrame(() => searchRef.current?.focus()); }}><Icon name="search"/></button></div>
+      <div className="sidebar-tools"><button className="icon-button" aria-label="New conversation" title="New conversation (Ctrl+N)" onClick={() => void newConversation()} disabled={locked || !status?.historyAvailable || status.credentialValidation !== 'valid'}><Icon name="new"/></button><button className="icon-button" aria-label="Search conversations" title="Search conversations (Ctrl+K)" disabled={locked} onClick={() => { setSearchOpen(current => !current); requestAnimationFrame(() => searchRef.current?.focus()); }}><Icon name="search"/></button></div>
       {searchOpen && <label className="search-field"><span className="visually-hidden">Search saved conversations</span><input ref={searchRef} data-edit-key="search" type="search" value={search} maxLength={256} disabled={locked} onChange={event => setSearch(event.target.value.slice(0,256))} placeholder="Search conversations"/></label>}
       <div className="section-label">Conversations <span>{summaries.length}</span></div>
       <nav ref={historyRef} className="history-list" aria-label="Saved conversations" tabIndex={0}>
@@ -807,7 +904,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       </nav>
       <footer className="sidebar-footer"><p>{status?.historyAvailable ? 'History is saved on this Windows account.' : 'Saved history is currently unavailable.'}<br/>Responses are generated by Meta.</p><button ref={settingsButton} className="settings-button" onClick={event => openDialog('settings', event.currentTarget)}><Icon name="settings"/><span>Settings</span></button></footer>
     </aside>
-    <main className="main-panel" id="main" tabIndex={-1}>
+    <main className="main-panel" id="main" tabIndex={-1} hidden={workspace !== 'chat'} inert={workspace !== 'chat'}>
       {findOpen && <div className="find-bar"><label><span className="visually-hidden">Find in this conversation</span><input ref={findRef} data-edit-key="find" type="search" aria-label="Find in this conversation" maxLength={256} value={find} disabled={locked} onChange={event => setFind(event.target.value.slice(0,256))} onKeyDown={event => { if (event.key === 'Escape') { setFindOpen(false); setFind(''); draftRef.current?.focus(); } }}/></label><span role="status">{matchCount} {matchCount === 1 ? 'match' : 'matches'}</span><button className="icon-button" aria-label="Close find" onClick={() => { setFindOpen(false); setFind(''); draftRef.current?.focus(); }}><Icon name="close" size={16}/></button></div>}
       <div className="content-area">
         {!entries.length ? <section className="welcome" aria-labelledby="welcome-title"><div className="ready-orb" aria-hidden="true"><img className="ready-artwork" src={readyArtwork} alt=""/></div><h1 id="welcome-title">Ready when you are.</h1></section> : <section className="messages" aria-label="Conversation messages">
@@ -829,6 +926,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
         </section>}
       </div>
       <div className="composer-zone">
+        {status && status.credentialValidation !== 'valid' && <div className="credential-notice" role="status"><span>{credentialText[status.credentialValidation]}</span><button onClick={event => { setSettingsTab('providers'); openDialog('settings', event.currentTarget); }}>Open Settings</button></div>}
         {notice && <div className="notice" role="status"><span>{notice}</span><button className="icon-button" aria-label="Dismiss notice" onClick={() => setNotice(null)}><Icon name="close" size={16}/></button></div>}
         <div className="composer"><label className="visually-hidden" htmlFor="message-input">Message for Aster</label><textarea ref={draftRef} id="message-input" placeholder="Ask Aster" value={draft} onChange={event => changeDraft(event.target.value)} disabled={locked || Boolean(dialog)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} rows={2} aria-describedby="composer-guidance message-limit"/>
           {Boolean(attachments.length) && <ul className="attachment-list" aria-label="Temporary attachments">{attachments.map(item => <li key={item.id}><span className="attachment-label">{item.label}</span><span className="attachment-details">{item.kind === 'pdf' ? `${item.pageCount} ${item.pageCount === 1 ? 'page' : 'pages'}` : item.kind === 'image' ? 'Image' : 'Text'} · {item.processedBytes.toLocaleString('en-GB')} bytes</span><button className="icon-button" aria-label={`Remove attachment ${item.label}`} disabled={locked || Boolean(dialog)} onClick={() => void removeAttachment(item.id)}><Icon name="close" size={14}/></button></li>)}</ul>}
@@ -839,23 +937,45 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
         <p className="availability" role="status">{availability}</p>
       </div>
     </main>
+    {workspace === 'customize' && <main id="customize-main" className="customize-workspace" tabIndex={-1} aria-label="Customize workspace">
+      <nav className="workspace-rail" aria-label="Local workspace navigation"><button ref={workspaceReturn} className="icon-button" aria-label="Return to chat" title={customizationBlocked ? 'Finish or cancel the open editor or account popup before returning.' : 'Return without changing the conversation, draft or attachments.'} disabled={locked || Boolean(dialog) || customizationBlocked} onClick={returnToChat}><span aria-hidden="true">←</span></button><button className="icon-button" aria-label="Open workspace Settings" disabled={locked || Boolean(dialog) || customizationBlocked} onClick={event => openDialog('settings', event.currentTarget)}><Icon name="settings"/></button></nav>
+      <Customization bridge={bridge} locked={locked || Boolean(dialog)} credentialValidated={status?.credentialValidation === 'valid'} onGenerationBound={generationBound} onGenerationFinished={generationFinished} onNavigationBlockedChange={customizationNavigation}/>
+    </main>}
     {dialog && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setDialog(null); }}><section ref={dialogRef} className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onKeyDown={dialogKeys}><header className="settings-header"><h2 id="dialog-title">{dialog === 'settings' ? 'Settings and privacy' : dialog === 'quit' ? 'Unsent drafts' : helpTitles[helpPage]}</h2><button className="icon-button" aria-label="Close dialogue" onClick={() => setDialog(null)}><Icon name="close"/></button></header>
       {dialog === 'quit' ? <div className="help-copy"><p>Quitting will discard unsent drafts and temporary attachments held in this process. Saved conversations, credentials and spending records will not be removed or reset.</p><div className="settings-actions"><button className="secondary-action" data-default-cancel onClick={() => setDialog(null)}>Keep working</button><button className="primary-action" disabled={locked || !bridge.windowAction} onClick={() => { dialogStateRef.current = null; setDialog(null); void windowAction('close'); }}>Discard drafts and quit</button></div></div> : dialog === 'help' ? <div className="help-copy">
         {helpPage === 'documentation' && <p>Choosing files with + replaces the complete temporary attachment batch before the native selector opens. Cancelling that selector discards previous temporary attachments; your text draft is retained. Processed text is already included in the saved user message. View processed pages is a local native viewer for image/PDF derivatives, not an original-file reader or disclosure approval.</p>}
         {helpPage === 'documentation' && <p>The combined native PDF-original and normalised-image bytes sent inline must fit 16 MiB before base64 encoding; the complete serialised reviewed request must fit 24 MiB. These additional mixed-egress limits can refuse a batch that fits the separate source and processed-image limits; nothing is silently truncated. Encrypted processed history is limited to 16 MiB cumulative processed content per conversation, including inert text and PNG pages, without automatic eviction or quota reset.</p>}
-        {helpPage === 'documentation' && <><p>Aster uses one model: {MODEL_LABEL}. Responses are generated externally, not on this laptop.</p><p>Use only synthetic examples or public material whose rights and eligibility are established. Personal, confidential, sensitive and unknown content is prohibited. A public source can still contain personal information. Each full outgoing conversation needs fresh native disclosure review.</p><p>Ctrl+N creates a conversation; Ctrl+K searches saved conversation titles. Enter sends and Shift+Enter adds a line. Stop ends the visible request, not a possible charge. Failed, stopped, refused, truncated and interrupted responses are not automatically reused as context.</p><p>Saved history is encrypted for this Windows account. Other processes under the same account remain a risk. Removing a conversation hides it from history; encrypted recovery records remain and disk capacity is not reclaimed. Credentials, spending and file-recovery records are not removed.</p><p>Use + for a native Windows file selection only when the host admits attachment import. Direct formats are TXT, MD, JSON, XML, YAML, CSV, TSV, PNG, JPG, JPEG, static GIF and PDF; no more than four temporary attachments are admitted. Adding a file does not send it, approve it or grant project access.</p><p>Each original is limited to 8 MiB and the current batch to 16 MiB. PDFs are limited to 20 pages per batch; every admitted page is processed for local preview at 150 DPI. Images are limited to 4,096 pixels per dimension and 4,194,304 decoded pixels; GIF must have one frame. A file's processed image output must fit 4 MiB. The complete prompt and text attachment context must fit the 32,768-byte message limit.</p><p>DOCX, XLSX and PPTX are not imported directly. Convert the complete document to PDF externally with your own trusted tool, such as your own LibreOffice installation, and check every page, sheet, print range and visual before attaching it. Aster does not invoke or require an Office converter. Unsupported, excessive or unsafe files are refused rather than silently truncated.</p><p>A PDF is sent natively to Meta from its immutable temporary copy, only after the complete native disclosure review. Processed page-images are a local preview/history representation, not a replacement for that native PDF request. The full original can contain metadata and hidden content that the page preview does not show; confirm eligibility of the complete source, not just its visible pages.</p><p>Originals are temporary and are not restored after restart. Removing an attachment or switching chats discards its temporary identifier. Encrypted history retains only processed content, all processed PDF pages and responses. View processed pages opens a local native view without a Meta request. These pages are not automatically resent, and no original, file-read permission or disclosure approval is reconstructed. Reattach the original PDF for another complete native reading.</p><p>No project reads, file writes, voice, browser, shell, web or model tools are enabled. The £89 monthly admission ceiling is not a provider billing balance and does not cover activity outside Aster.</p><p>Unsent text drafts stay in memory while switching chats. They are not saved between restarts. Quit reviews unsent draft and temporary attachment loss with Keep working selected by default.</p><p>Find counts literal case-insensitive matches in the visible conversation. At most the first 512 matches in each message are highlighted; no protected-store or network search occurs.</p></>}
+        {helpPage === 'documentation' && <><p>Aster uses one model: {MODEL_LABEL}. Responses are generated externally, not on this laptop.</p><p>Use only synthetic examples or public material whose rights and eligibility are established. Personal, confidential, sensitive and unknown content is prohibited. A public source can still contain personal information. Each full outgoing conversation needs fresh native disclosure review.</p><p>Ctrl+N creates a conversation; Ctrl+K searches saved conversation titles. Enter sends and Shift+Enter adds a line. Stop ends the visible request, not a possible charge. Failed, stopped, refused, truncated and interrupted responses are not automatically reused as context.</p><p>Saved history is encrypted for this Windows account. Other processes under the same account remain a risk. Removing a conversation hides it from history; encrypted recovery records remain and disk capacity is not reclaimed. Credentials, spending and file-recovery records are not removed.</p><p>Use + for a native Windows file selection only when the host admits attachment import. Direct formats are TXT, MD, JSON, XML, YAML, CSV, TSV, PNG, JPG, JPEG, static GIF and PDF; no more than four temporary attachments are admitted. Adding a file does not send it, approve it or grant project access.</p><p>Each original is limited to 8 MiB and the current batch to 16 MiB. PDFs are limited to 20 pages per batch; every admitted page is processed for local preview at 150 DPI. Images are limited to 4,096 pixels per dimension and 4,194,304 decoded pixels; GIF must have one frame. A file's processed image output must fit 4 MiB. The complete prompt and text attachment context must fit the 32,768-byte message limit.</p><p>DOCX, XLSX and PPTX are not imported directly. Convert the complete document to PDF externally with your own trusted tool, such as your own LibreOffice installation, and check every page, sheet, print range and visual before attaching it. Aster does not invoke or require an Office converter. Unsupported, excessive or unsafe files are refused rather than silently truncated.</p><p>A PDF is sent natively to Meta from its immutable temporary copy, only after the complete native disclosure review. Processed page-images are a local preview/history representation, not a replacement for that native PDF request. The full original can contain metadata and hidden content that the page preview does not show; confirm eligibility of the complete source, not just its visible pages.</p><p>Originals are temporary and are not restored after restart. Removing an attachment or switching chats discards its temporary identifier. Encrypted history retains only processed content, all processed PDF pages and responses. View processed pages opens a local native view without a Meta request. These pages are not automatically resent, and no original, file-read permission or disclosure approval is reconstructed. Reattach the original PDF for another complete native reading.</p><p>Main-chat/model tools, local project reads and file writes, voice, browser, shell and general web access remain disabled. The separate GitHub popup supports explicit native-reviewed account/repository selection and bounded file reading only; it grants no write, merge or Meta disclosure permission. The £89 monthly admission ceiling is not a provider billing balance and does not cover activity outside Aster.</p><p>Unsent text drafts stay in memory while switching chats. They are not saved between restarts. Quit reviews unsent draft and temporary attachment loss with Keep working selected by default.</p><p>Find counts literal case-insensitive matches in the visible conversation. At most the first 512 matches in each message are highlighted; no protected-store or network search occurs.</p></>}
         {helpPage === 'shortcuts' && <><p>Shortcuts apply to the active Aster field or local view. Busy actions and behind-dialogue shortcuts remain unavailable. Clipboard access can be refused by the WebView; no background clipboard reader is used.</p><p>Ctrl + mouse wheel zooms the local interface. Ctrl++ (including Ctrl+= or keypad plus), Ctrl+- and Ctrl+0 use the same 80–150% range. The current percentage appears for one second after each admitted zoom action.</p><dl className="shortcut-list">{Object.values(menuGroups).flat(2).filter(item => item.shortcut).map(item => <div key={item.action}><dt>{item.label}</dt><dd>{item.shortcut}</dd></div>)}<div><dt>Send / add a line</dt><dd>Enter / Shift+Enter</dd></div><div><dt>Menu navigation</dt><dd>Arrow keys, Home, End, Escape</dd></div></dl></>}
-        {helpPage === 'news' && <><p>v{packageInfo.version}: + expresses a native-selected attachment-import intent; Classify content is a child submenu below Extra high. Reasoning and eligibility remain independent. DOCX, XLSX and PPTX require complete external PDF conversion, not an internal converter.</p><p>Native PDF bytes remain temporary. Encrypted history retains processed pages and responses; another complete native PDF reading requires reattachment. Local processed-page viewing makes no Meta request and restores no approval.</p><p>The dark window starts hidden and has a one-shot native reveal after a shell scheduling signal and at least six seconds. An independent ten-second reveal attempt does not wait for status, history or a missing signal, but requires an available UI loop and operating system. Native show or scoped-hook failure remains possible and is recorded in closed diagnostics; visibility and completed paint are not guaranteed. These mitigations do not prove that the owner-reported flashes are cured; installed Windows acceptance remains separate.</p><p>Ctrl + mouse wheel, main-key and keypad shortcuts retain bounded interface zoom and one-second percentage feedback. Branding, caption, send/stop geometry and sky-blue colours are unchanged.</p></>}
+        {helpPage === 'news' && <>
+          <p>v{packageInfo.version}: the owner-supplied interface governs the adaptive conversation rail, composer and welcome artwork, with one caption/menu row and a full-page Skills and Plugins workspace. Installed layout and accessibility acceptance remain separate.</p>
+          <p>New conversations, attachment import and sends require current-key authentication proof. A configured key alone is not proof; successful validation does not establish inference, billing, quota or capacity. Saved history remains locally viewable.</p>
+          <p>Personalization is exclusively local and never becomes provider, summary, package, GitHub or diagnostic context. The local catalogue supports bounded inert editors, JSON import and enable preferences, including the read-only Aster Builder instructions; scripts, hooks and third-party MCP execution remain unavailable.</p>
+          <p>Muse Spark generation uses only an explicitly classified eligible description and a separate native review. Its fresh ordinary local conversation retains the description, prompt and response. Only a completed valid result opens an unsaved draft; Save and enable remain separate.</p>
+          <p>The dedicated Aster GitHub App has separate native account and bounded file-read intents. Enable its catalogue preference before Connect; enabling alone does not connect. Expiry or restart requires deliberate reconnect, not automatic refresh. File changes, issues, pull requests and merges remain unavailable; private repository content must not be sent to Meta. Native/live connector acceptance is not established by this view.</p>
+          <p>Automatic context compaction is unfinished. The existing context limits remain in force; no silent truncation or successful compaction is claimed.</p>
+          <p>Inherited attachment behaviour remains: + requests native file selection and Classify content stays below Extra high. DOCX, XLSX and PPTX require complete external PDF conversion. Native PDF bytes remain temporary; encrypted history retains processed pages and responses, and another complete native PDF reading requires reattachment. Local processed-page viewing makes no Meta request and restores no approval.</p>
+          <p>The dark window starts hidden and has a one-shot native reveal after a shell scheduling signal and at least six seconds. An independent ten-second reveal attempt does not wait for status, history or a missing signal, but requires an available UI loop and operating system. Native show or scoped-hook failure remains possible and is recorded in closed diagnostics; visibility and completed paint are not guaranteed. Bounded content-free rendering observations do not establish compositor completeness or a flicker cure. The owner-reported flashes remain under investigation; installed Windows acceptance remains separate.</p>
+          <p>Ctrl + mouse wheel, main-key and keypad shortcuts retain bounded interface zoom and one-second percentage feedback. Existing branding assets and blue send/stop treatment are retained; the owner-reference layout, not predecessor geometry, governs this version.</p>
+        </>}
         {helpPage === 'troubleshooting' && <><p>If the host, history or spending needs attention, read the local notice and Settings. Do not reset protected records, remove unresolved charges or repeatedly retry a failed request.</p><p>Enter a key only in the native Windows dialogue. Do not paste keys into chat or diagnostic reports. A configured key does not prove a live connection.</p><p>If Windows or security software blocks the app, retain the exact alert and seek review. Do not disable protection or add exclusions. Opening help does not submit files, logs or a Meta request.</p><p>Use Keep working to cancel quitting. If clipboard access fails, ordinary editing remains local; no alternative global reader is attempted.</p></>}
-        {helpPage === 'status' && <><p>Native host: {hostState === 'ready' ? 'Available; protocol 4.' : 'Unavailable or not yet verified.'}</p><p>Live connection: unverified. No request or probe is made by this view.</p><p>Credential: {status?.configured ? 'Configured; bytes are not available here.' : 'Not configured or unavailable.'}</p><p>Saved history: {status?.historyAvailable ? 'Available for this Windows account.' : 'Unavailable or unverified.'}</p><p>Contributor eligibility: {status?.contributor.eligible ? 'Recorded locally; not a live entitlement check.' : 'Unconfirmed.'}</p><p>Spending policy: {status?.budget.configured ? 'Configured locally; not a provider billing balance.' : 'Not configured or unavailable.'} {status?.budget.requiresReconciliation ? 'Pending reconciliation blocks sending.' : 'No current reconciliation flag; no zero-charge claim is made.'}</p><p>Native-selected attachment import: {status?.capabilities.attachmentImport && bridge.selectAttachments && bridge.removeAttachment ? 'Available; every disclosure still needs native review.' : 'Unavailable or unverified.'}</p><p>Project reads, file writes, shell, browser, web and model tools: disabled.</p><p>Window controls: {bridge.windowAction ? 'Native bounded actions available; installed behaviour requires acceptance.' : 'Unavailable in this host.'}</p></>}
+        {helpPage === 'status' && <><p>Native host: {hostState === 'ready' ? 'Available; protocol 4.' : 'Unavailable or not yet verified.'}</p><p>Live inference, billing and capacity: unverified. No request or probe is made by this view.</p><p>Credential: {status?.configured ? 'Configured; bytes are not available here.' : 'Not configured or unavailable.'}</p><p>Authentication: {status ? credentialText[status.credentialValidation] : 'Current key validation is unavailable.'}</p><p>Saved history: {status?.historyAvailable ? 'Available for this Windows account.' : 'Unavailable or unverified.'}</p><p>Contributor eligibility: {status?.contributor.eligible ? 'Recorded locally; not a live entitlement check.' : 'Unconfirmed.'}</p><p>Spending policy: {status?.budget.configured ? 'Configured locally; not a provider billing balance.' : 'Not configured or unavailable.'} {status?.budget.requiresReconciliation ? 'Pending reconciliation blocks sending.' : 'No current reconciliation flag; no zero-charge claim is made.'}</p><p>Native-selected attachment import: {status?.capabilities.attachmentImport && bridge.selectAttachments && bridge.removeAttachment ? 'Available; every disclosure still needs native review.' : 'Unavailable or unverified.'}</p><p>Main-chat/model tools, local project reads and file writes, shell, browser and general web access: disabled. GitHub uses a separate reviewed native account/read route; its live acceptance is not established by this view. Mutations and merges remain unavailable.</p><p>Window controls: {bridge.windowAction ? 'Native bounded actions available; installed behaviour requires acceptance.' : 'Unavailable in this host.'}</p></>}
         {helpPage === 'about' && <><p>Aster Desktop v{packageInfo.version}</p><p>Unsigned engineering build for Windows 11 x64. This is not a production or live-provider acceptance claim.</p><p>{MODEL_LABEL} is the sole admitted model. Responses are generated by Meta.</p><p>British English interface. History is protected for this Windows account; unsent drafts remain process memory only.</p></>}
-      </div> : <>
+      </div> : <div className="settings-layout">
+        <nav className="settings-navigation" aria-label="Settings sections">{([['providers','Providers'],['personalization','Personalization'],['usage','Usage'],['local','Local data'],['customize','Customize'],['about','About']] as const).map(([value,label]) => <button key={value} aria-current={settingsTab === value ? 'page' : undefined} onClick={() => setSettingsTab(value)}>{label}</button>)}</nav>
+        <div className="settings-content">
+        <div hidden={settingsTab !== 'personalization'}><Personalization bridge={bridge} locked={locked} onNavigationBlockedChange={profileNavigation}/></div>
+        <section hidden={settingsTab !== 'customize'} className="settings-section"><h3>Customize workspace</h3><p>Skills and Plugins have a full-page local workspace. Opening it preserves the chat, its draft, classification and temporary attachments. Personalization stays separately in Settings and is never used to generate a package.</p><p>Save or clear any changed Personalization before opening Customize. Alternatively, explicitly close Settings to discard unsaved profile edits, then reopen it. A local profile change in progress must finish first.</p><button className="primary-action" disabled={locked || profileNavigationBlocked || workspace === 'customize'} onClick={openCustomize}>Open Customize workspace</button></section>
+        <section hidden={settingsTab !== 'about'} className="settings-section"><h3>About Aster</h3><p>Aster Desktop v{packageInfo.version}. Unsigned engineering development; native, installed and live acceptance remain separate.</p><p>Personalization is exclusively local. Skills and imported plugins are inert instructions, not permissions. Context compaction is not available until its provider accounting and migration are qualified.</p><p>The owner-reported flicker remains under investigation. Startup delays are not evidence of a cure.</p><RenderingDiagnostics bridge={bridge}/></section>
+        <div hidden={settingsTab !== 'providers'}>
         <section className="settings-section"><h3>Contributor terms and eligibility</h3><p>Terms revision: {status?.contributor.termsRevision ?? 'Unavailable'}. {status?.contributor.accepted ? 'Reviewed locally.' : 'Not yet reviewed.'} {status?.contributor.eligible ? 'Account eligibility recorded.' : 'Eligibility unconfirmed.'}</p><p>Contributor permits training on inputs and responses. Sensitive, personal and confidential content is prohibited; consent cannot make prohibited content admissible.</p><button className="primary-action" disabled={locked || !status} onClick={() => void nativeAction(() => bridge.acceptContributorTerms(), 'The Contributor terms or eligibility review was not accepted.')}>Review terms and eligibility in Windows</button></section>
-        <section className="settings-section"><h3>Meta credential</h3><p>{status?.configured ? 'Configured for this Windows account. This is not proof of a live connection.' : 'Not configured. Enter the key only in the native Windows dialogue.'}</p><div className="settings-actions"><button className="primary-action" disabled={locked || !status?.credentialAvailable} onClick={() => void nativeAction(() => bridge.configureCredential(), 'The credential could not be configured. Check the native Windows dialogue.')}>{status?.configured ? 'Change key in Windows' : 'Set up key in Windows'}</button><button className="secondary-action" disabled={locked || !status?.configured} onClick={() => void nativeAction(() => bridge.removeCredential(), 'The credential was not removed. Check the native confirmation.')}>Remove key…</button></div></section>
+        <section className="settings-section"><h3>Meta credential</h3><p>{status ? credentialText[status.credentialValidation] : 'The native credential status is unavailable.'}</p><p>Enter the key only in the native Windows dialogue. Authentication does not prove billing, quota or capacity.</p><div className="settings-actions"><button className="primary-action" disabled={locked || !status?.credentialAvailable} onClick={() => void nativeAction(() => bridge.configureCredential(), 'The credential could not be configured. Check the native Windows dialogue.')}>{status?.configured ? 'Change key in Windows' : 'Set up key in Windows'}</button><button className="secondary-action" disabled={locked || !status?.configured || !bridge.verifyCredential} onClick={() => void nativeAction(() => bridge.verifyCredential!(), 'Key validation could not be completed. The existing key was not labelled invalid.')}>Validate key in Windows</button><button className="secondary-action" disabled={locked || !status?.configured} onClick={() => void nativeAction(() => bridge.removeCredential(), 'The credential was not removed. Check the native confirmation.')}>Remove key…</button></div></section>
+        </div><div hidden={settingsTab !== 'usage'}>
         <section className="settings-section"><h3>Monthly spending policy</h3><dl className="budget-summary"><dt>Period (Edinburgh / London)</dt><dd>{status?.budget.period ?? 'Not configured'}</dd><dt>Admission ceiling</dt><dd>£89.00</dd><dt>Recorded spending</dt><dd>{status ? formatGbp(status.budget.spentNanoGbp) : 'Unavailable'}</dd><dt>Pending reservations</dt><dd>{status ? formatGbp(status.budget.reservedNanoGbp) : 'Unavailable'}</dd><dt>Remaining admission amount</dt><dd>{status ? formatGbp(status.budget.remainingNanoGbp) : 'Unavailable'}</dd></dl>{status?.budget.warning && <p className="inline-state">The 90% spending warning has been reached.</p>}{status?.budget.requiresReconciliation && <p className="inline-state">Reconciliation required. Sending remains blocked; restarting or removing conversations does not free reservations.</p>}<p>Enter conservative values explicitly. One part per million represents 0.000001 GBP per USD; 100 basis points represents 1%. There is no automatic FX estimate or reset.</p><div className="financial-fields">{([['rate','GBP per USD (integer parts per million)'],['margin','Safety margin (basis points)'],['tax','Tax (basis points)'],['payment','Payment charges (basis points)']] as const).map(([field,label]) => <label key={field}>{label}<input inputMode="numeric" value={budgetFields[field]} onChange={event => setBudgetFields(current => ({ ...current, [field]: event.target.value }))} disabled={locked}/></label>)}<label>Valid until (local Windows time; maximum 31 days)<input type="datetime-local" value={budgetFields.validUntil} onChange={event => setBudgetFields(current => ({ ...current, validUntil: event.target.value }))} disabled={locked}/></label></div><button className="secondary-action" disabled={locked || !status} onClick={submitBudget}>Review financial configuration in Windows</button></section>
         {Boolean(status?.budget.pending.length) && <section className="settings-section"><h3>Pending request charges</h3><p>Use your Meta statement or dashboard to confirm each charge. This is owner-confirmed reconciliation, not API-measured usage. Each proposal needs a separate native confirmation; no balance reset is available.</p>{status?.budget.pending.map(item => <div className="pending-charge" key={item.requestId}><p>Request: {item.requestId}<br/>Period: {item.period} · Reserved: {formatGbp(item.reservationNanoGbp)} · {item.dispatched ? 'Dispatch may have occurred' : 'Not marked dispatched'}</p><label>Statement-confirmed charge in GBP for {item.requestId}<input inputMode="decimal" value={reconciliationCharges[item.requestId] ?? ''} onChange={event => setReconciliationCharges(current => ({ ...current, [item.requestId]: event.target.value }))} disabled={locked}/></label><button className="secondary-action" disabled={locked} onClick={() => reconcile(item.requestId)}>Review this charge in Windows</button></div>)}</section>}
-        <section className="settings-section"><h3>Saved conversations</h3><p>Host-owned, encrypted history persists across restarts. Loading it restores processed display content and responses, never original files, approvals, active requests or financial authority. Historical page views are local only; reattach a PDF for another complete native reading. No history import or export is enabled.</p><button className="secondary-action" disabled={locked || !conversation} onClick={() => void removeConversation()}><Icon name="trash" size={15}/> Remove this conversation from history…</button><p>Removal needs native confirmation. Encrypted recovery records remain and disk capacity is not reclaimed. Spending, credentials and file-recovery records are unchanged.</p></section>
-      </>}
+        </div><div hidden={settingsTab !== 'local'}><section className="settings-section"><h3>Saved conversations</h3><p>Host-owned, encrypted history persists across restarts. Loading it restores processed display content and responses, never original files, approvals, active requests or financial authority. Historical page views are local only; reattach a PDF for another complete native reading. No history import or export is enabled.</p><button className="secondary-action" disabled={locked || !conversation} onClick={() => void removeConversation()}><Icon name="trash" size={15}/> Remove this conversation from history…</button><p>Removal needs native confirmation. Encrypted recovery records remain and disk capacity is not reclaimed. Spending, credentials and file-recovery records are unchanged.</p></section></div>
+        </div>
+      </div>}
     </section></div>}
   </div><div className="zoom-feedback" role="status" aria-label="Zoom level" aria-live="polite" aria-atomic="true" hidden={!zoomFeedback} style={{ '--interface-scale': zoom / 100 } as CSSProperties}>{zoomFeedback ? `${zoom}%` : ''}</div></>;
 }

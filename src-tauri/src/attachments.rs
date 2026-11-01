@@ -102,6 +102,18 @@ pub(crate) struct SelectedOriginal {
 }
 /// `path` must originate from the host-owned native selector, never an IPC DTO.
 pub(crate) fn read_selected_native(path: &Path) -> Result<SelectedOriginal, AttachmentError> {
+    read_selected_native_bounded(path, MAX_SOURCE)
+}
+
+/// Fixed host callers may use a stricter local-package limit. No renderer path
+/// or arbitrary size parameter is exposed through IPC.
+pub(crate) fn read_selected_native_bounded(
+    path: &Path,
+    maximum: usize,
+) -> Result<SelectedOriginal, AttachmentError> {
+    if maximum == 0 || maximum > MAX_SOURCE {
+        return Err(AttachmentError::Denied);
+    }
     let label = path
         .file_name()
         .and_then(|s| s.to_str())
@@ -152,13 +164,12 @@ pub(crate) fn read_selected_native(path: &Path) -> Result<SelectedOriginal, Atta
         "docx" | "xlsx" | "pptx" => return Err(AttachmentError::ConversionRequired),
         _ => return Err(AttachmentError::Denied),
     };
-    let bytes =
-        crate::workspace::read_selected_attachment(path, MAX_SOURCE).map_err(|e| match e {
-            crate::workspace::WorkspaceError::TooLarge => AttachmentError::Capacity,
-            crate::workspace::WorkspaceError::Conflict => AttachmentError::Conflict,
-            crate::workspace::WorkspaceError::Unavailable => AttachmentError::Unavailable,
-            _ => AttachmentError::Denied,
-        })?;
+    let bytes = crate::workspace::read_selected_attachment(path, maximum).map_err(|e| match e {
+        crate::workspace::WorkspaceError::TooLarge => AttachmentError::Capacity,
+        crate::workspace::WorkspaceError::Conflict => AttachmentError::Conflict,
+        crate::workspace::WorkspaceError::Unavailable => AttachmentError::Unavailable,
+        _ => AttachmentError::Denied,
+    })?;
     Ok(SelectedOriginal {
         kind,
         label: label.to_owned(),

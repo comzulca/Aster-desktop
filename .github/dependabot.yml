@@ -11,6 +11,11 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # PR #44 splits the reviewed WinRT ABI cohort. Other updates stay enabled.
+    # A coordinated windows/windows-future migration needs separate review.
+    ignore:
+      - dependency-name: windows-future
+        versions: ["0.100.x"]
 
   - package-ecosystem: github-actions
     directory: /

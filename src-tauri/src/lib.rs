@@ -11,20 +11,38 @@ mod contributor;
 mod creation_process_fixture;
 mod credential;
 mod credential_fixture;
+mod credential_validation;
+mod customization;
+mod customization_generation;
+#[cfg(test)]
+mod full_window_admission; // Content-free capacity core only; no active compaction.
+mod github_api;
+pub mod github_connection;
+#[allow(dead_code)]
+mod github_credential;
+mod github_host;
+#[cfg(test)]
+mod github_mutation; // Private synthetic fixtures only; no runtime mutation capability.
 mod history;
 #[cfg(test)]
 mod host_attachments_tests;
 #[cfg(windows)]
 mod journal_privacy;
+mod native_operation_lease;
 mod native_review;
 mod native_visual;
 #[cfg(windows)]
 mod new_file; // Shared file identity types and frozen recovery, no IPC routes.
+mod personalization;
 mod policy;
 mod private_store;
 mod processed_history;
 mod provider;
+mod render_trace;
 mod startup;
+#[cfg(test)]
+mod transcript_layout; // Synthetic fragment/quota seams only; no active store migration.
+mod webview_render_observer;
 mod window_controls;
 mod window_guard;
 #[allow(dead_code)]
@@ -35,8 +53,10 @@ use attachments::{AdmittedAttachment, AttachmentKind, AttachmentMetadata, Attach
 use budget::{Budget, BudgetStatus, Configuration};
 use contributor::{Contributor, ContributorStatus};
 use credential::CredentialStore;
+use credential_validation::{CredentialValidation, ValidationState};
 use futures_util::FutureExt;
 use history::{Conversation, ConversationSummary, EntryState, History};
+use native_operation_lease::{NativeOperationGate, NativeOperationLease};
 use native_review::ReviewDocument;
 use policy::{
     FinishDisposition, Model, SessionState, TransportOutcome, DEFAULT_MODEL, POLICY_VERSION,
@@ -64,6 +84,26 @@ const COMMANDS: &[&str] = &[
     "get_app_status",
     "configure_meta_credential",
     "remove_meta_credential",
+    "verify_meta_credential",
+    "get_personalization",
+    "save_personalization",
+    "clear_personalization",
+    "get_customization",
+    "get_customization_package",
+    "save_customization",
+    "set_customization_enabled",
+    "import_customization",
+    "generate_customization",
+    "get_github_status",
+    "begin_github_connection",
+    "poll_github_connection",
+    "cancel_github_connection",
+    "disconnect_github",
+    "list_github_repositories",
+    "select_github_repository",
+    "read_github_file",
+    "record_render_event",
+    "get_render_trace",
     "accept_contributor_terms",
     "configure_budget",
     "reconcile_budget",
@@ -98,33 +138,22 @@ impl Persistence {
 }
 struct Host {
     credentials: CredentialStore,
+    credential_validation: Mutex<Result<CredentialValidation, StoreError>>,
+    personalization: Mutex<Result<personalization::Personalization, StoreError>>,
+    customization: Mutex<Result<customization::Customization, StoreError>>,
+    github: Mutex<github_host::GithubHost>,
     sessions: Mutex<SessionState>,
     attachments: Mutex<AttachmentRegistry>,
     persistent: Mutex<Result<Persistence, StoreError>>,
-    native_dialog_open: AtomicBool,
+    native_dialog_open: NativeOperationGate,
     expiry_shutdown: AtomicBool,
     window_close: window_guard::CloseState,
 }
-struct NativeDialogGuard<'a>(&'a AtomicBool);
-impl Drop for NativeDialogGuard<'_> {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::Release);
-    }
-}
 impl Host {
-    fn enter_native_dialog(&self) -> Result<NativeDialogGuard<'_>, String> {
-        if self.window_close.is_closing() {
-            return Err("window_closing".into());
-        }
-        let guard = self
-            .native_dialog_open
-            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-            .map(|_| NativeDialogGuard(&self.native_dialog_open))
-            .map_err(|_| "native_dialog_busy".to_owned())?;
-        if self.window_close.is_closing() {
-            return Err("window_closing".into());
-        }
-        Ok(guard)
+    fn enter_native_dialog(&self) -> Result<NativeOperationLease, String> {
+        self.native_dialog_open
+            .acquire(|| self.window_close.is_closing())
+            .map_err(str::to_owned)
     }
     fn idle(&self) -> Result<(), String> {
         if self.window_close.is_closing() {
@@ -162,6 +191,205 @@ fn code(error: StoreError) -> String {
 fn persistent(value: &mut Result<Persistence, StoreError>) -> Result<&mut Persistence, String> {
     value.as_mut().map_err(|e| code(*e))
 }
+
+#[tauri::command]
+fn get_personalization(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+) -> Result<personalization::PersonalizationSnapshot, String> {
+    trusted(&window)?;
+    host.personalization
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_ref()
+        .map_err(|e| code(*e))?
+        .snapshot()
+        .map_err(code)
+}
+
+#[tauri::command]
+fn save_personalization(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: personalization::SavePersonalizationInput,
+) -> Result<personalization::PersonalizationSnapshot, String> {
+    trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    host.personalization
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_mut()
+        .map_err(|e| code(*e))?
+        .save(input)
+        .map_err(code)
+}
+
+#[tauri::command]
+fn clear_personalization(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: personalization::ExpectedRevisionInput,
+) -> Result<personalization::PersonalizationSnapshot, String> {
+    trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    host.personalization
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_mut()
+        .map_err(|e| code(*e))?
+        .clear(input)
+        .map_err(code)
+}
+
+#[tauri::command]
+fn get_customization(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+) -> Result<customization::CatalogueSnapshot, String> {
+    trusted(&window)?;
+    host.customization
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_ref()
+        .map_err(|e| code(*e))?
+        .snapshot()
+        .map_err(code)
+}
+
+#[tauri::command]
+fn get_customization_package(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: customization::PackageIdInput,
+) -> Result<customization::PackageView, String> {
+    trusted(&window)?;
+    host.customization
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_ref()
+        .map_err(|e| code(*e))?
+        .package(&input.id)
+        .map_err(code)
+}
+
+#[tauri::command]
+fn save_customization(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: customization::SavePackageInput,
+) -> Result<customization::CatalogueSnapshot, String> {
+    trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    host.customization
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_mut()
+        .map_err(|e| code(*e))?
+        .save(input)
+        .map_err(code)
+}
+
+#[tauri::command]
+fn set_customization_enabled(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: customization::SetPackageEnabledInput,
+) -> Result<customization::CatalogueSnapshot, String> {
+    trusted(&window)?;
+    // Cancellation must remain available while a device/read operation owns
+    // the native-operation guard. Denying a stale preference revision may not
+    // restore the cancelled session or grant any runtime authority.
+    if input.id == customization::BUILTIN_GITHUB_ID && !input.enabled {
+        host.github
+            .lock()
+            .map_err(|_| "github_state_unavailable")?
+            .set_enabled(false)?;
+        return host
+            .customization
+            .lock()
+            .map_err(|_| "state_unavailable")?
+            .as_mut()
+            .map_err(|e| code(*e))?
+            .set_enabled(input)
+            .map_err(code);
+    }
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    let enable_github = input.id == customization::BUILTIN_GITHUB_ID && input.enabled;
+    let snapshot = host
+        .customization
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_mut()
+        .map_err(|e| code(*e))?
+        .set_enabled(input)
+        .map_err(code)?;
+    if enable_github {
+        host.github
+            .lock()
+            .map_err(|_| "github_state_unavailable")?
+            .set_enabled(true)?;
+    }
+    Ok(snapshot)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ImportCustomizationIntent {
+    expected_revision: u64,
+}
+
+#[tauri::command]
+async fn import_customization(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    host: State<'_, Host>,
+    input: ImportCustomizationIntent,
+) -> Result<customization::CatalogueSnapshot, String> {
+    trusted(&window)?;
+    let guard = host.enter_native_dialog()?;
+    host.idle()?;
+    owner(&window)?;
+    let worker_lease = guard.worker_lease();
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
+        let selected = app
+            .dialog()
+            .file()
+            .set_parent(&window)
+            .set_title("Aster: import an inert skill or plugin package")
+            .add_filter("Aster inert JSON package", &["json"])
+            .blocking_pick_file()
+            .ok_or_else(|| "cancelled".to_owned())?;
+        let path = selected.as_path().ok_or("package_denied")?;
+        if path
+            .extension()
+            .and_then(|v| v.to_str())
+            .is_none_or(|v| !v.eq_ignore_ascii_case("json"))
+        {
+            return Err("package_denied".to_owned());
+        }
+        let file = attachments::read_selected_native_bounded(path, customization::MAX_IMPORT_BYTES)
+            .map_err(|_| "package_denied".to_owned())?;
+        if file.bytes.len() > customization::MAX_IMPORT_BYTES {
+            return Err("package_capacity".to_owned());
+        }
+        Ok::<_, String>(file.bytes)
+    })
+    .await
+    .map_err(|_| "package_denied")??;
+    host.idle()?;
+    host.customization
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_mut()
+        .map_err(|e| code(*e))?
+        .import_json(input.expected_revision, &bytes)
+        .map_err(code)
+}
 #[cfg(windows)]
 fn owner(window: &WebviewWindow) -> Result<usize, String> {
     window
@@ -173,9 +401,15 @@ fn owner(window: &WebviewWindow) -> Result<usize, String> {
 fn owner(_: &WebviewWindow) -> Result<usize, String> {
     Err("unsupported_platform".into())
 }
-async fn review(window: &WebviewWindow, document: ReviewDocument) -> Result<bool, String> {
+async fn review(
+    window: &WebviewWindow,
+    document: ReviewDocument,
+    guard: &NativeOperationLease,
+) -> Result<bool, String> {
     let hwnd = owner(window)?;
+    let worker_lease = guard.worker_lease();
     tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
         match native_review::confirm_owned(&document, hwnd).map_err(|error| match error {
             native_review::ReviewError::Cancelled => "cancelled".to_owned(),
             _ => "native_review_unavailable".to_owned(),
@@ -220,6 +454,7 @@ struct AppStatus {
     policy_version: u32,
     configured: bool,
     credential_available: bool,
+    credential_validation: ValidationState,
     default_model: &'static str,
     models: [ModelDisplay; 1],
     active_request: bool,
@@ -234,6 +469,10 @@ struct AppStatus {
 #[derive(Serialize)]
 struct CredentialStatus {
     configured: bool,
+}
+#[derive(Serialize)]
+struct ValidationReceipt {
+    state: ValidationState,
 }
 #[derive(Serialize)]
 struct TermsReceipt {
@@ -338,6 +577,7 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
     let key = host.credentials.configured();
     let credential_available = key.is_ok();
     let configured = key.unwrap_or(false);
+    let credential_validation = credential_state(&host, configured);
     let writable = p.history.can_append_request().unwrap_or(false) && p.budget.can_append_request();
     let availability = if !cfg!(windows) {
         "unsupported"
@@ -347,7 +587,7 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         "busy"
     } else if !contributor.accepted {
         "needs_terms"
-    } else if !configured {
+    } else if !configured || credential_validation != ValidationState::Valid {
         "needs_credential"
     } else if budget.requires_reconciliation {
         "attention_required"
@@ -363,6 +603,7 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         policy_version: POLICY_VERSION,
         configured,
         credential_available,
+        credential_validation,
         default_model: DEFAULT_MODEL,
         models: [ModelDisplay {
             id: DEFAULT_MODEL,
@@ -390,6 +631,13 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
 }
 
 fn invalidate_identity(host: &Host) -> Result<(), String> {
+    host.credential_validation
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_mut()
+        .map_err(|e| code(*e))?
+        .revoke()
+        .map_err(code)?;
     host.attachments
         .lock()
         .map_err(|_| "state_unavailable")?
@@ -407,11 +655,13 @@ async fn configure_meta_credential(
     host: State<'_, Host>,
 ) -> Result<CredentialStatus, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     // No key is read or sent to the WebView; saved history and finances survive.
     let hwnd = owner(&window)?;
+    let worker_lease = guard.worker_lease();
     let configured = tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
         CredentialStore
             .enter_with_native_dialog_after(hwnd, || {
                 invalidate_identity(&app.state::<Host>())
@@ -421,7 +671,118 @@ async fn configure_meta_credential(
     })
     .await
     .map_err(|_| "credential_unavailable")??;
+    if configured {
+        // Native review explicitly covers the fixed non-inference GET.
+        let _ = verify_credential_inner(&window, &host, &guard).await?;
+    }
     Ok(CredentialStatus { configured })
+}
+
+fn credential_state(host: &Host, configured: bool) -> ValidationState {
+    if !configured {
+        return ValidationState::Missing;
+    }
+    let Ok(key) = host.credentials.read() else {
+        return ValidationState::Unavailable;
+    };
+    host.credential_validation
+        .lock()
+        .ok()
+        .and_then(|proof| proof.as_ref().ok().map(|p| p.state(Some(key.as_str()))))
+        .unwrap_or(ValidationState::Unavailable)
+}
+
+fn require_valid_credential(host: &Host) -> Result<(), String> {
+    let key = host
+        .credentials
+        .read()
+        .map_err(|_| "credential_validation_required")?;
+    host.credential_validation
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_ref()
+        .map_err(|e| code(*e))?
+        .require(&key)
+        .map_err(str::to_owned)
+}
+
+async fn verify_credential_inner(
+    window: &WebviewWindow,
+    host: &Host,
+    guard: &NativeOperationLease,
+) -> Result<ValidationReceipt, String> {
+    if !host.credentials.configured().map_err(|e| e.code())? {
+        return Ok(ValidationReceipt {
+            state: ValidationState::Missing,
+        });
+    }
+    if !review(window, operation(serde_json::json!({
+        "operation":"Verify configured Meta API credential",
+        "destination":provider::MODEL_VALIDATION_ENDPOINT,
+        "effect":"One fixed model metadata GET. The native key is sent only to Meta. No conversation, attachment, Personalization or inference is sent. This proves authentication/model access only, not quota or billing. No automatic retry."
+    }))?, guard).await? {
+        return Ok(ValidationReceipt { state: credential_state(host, true) });
+    }
+    let key = host.credentials.read().map_err(|e| e.code())?;
+    if !host
+        .credential_validation
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_ref()
+        .map_err(|e| code(*e))?
+        .can_verify()
+        .map_err(code)?
+    {
+        return Err("credential_proof_capacity".into());
+    }
+    host.credential_validation
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_mut()
+        .map_err(|e| code(*e))?
+        .revoke()
+        .map_err(code)?;
+    let result = provider::verify_registered_model(key.clone()).await;
+    // A concurrent external credential edit cannot validate different bytes.
+    let current = host.credentials.read().map_err(|e| e.code())?;
+    if current.as_str() != key.as_str() {
+        return Err("credential_validation_stale".into());
+    }
+    let state = match result {
+        Ok(()) => {
+            host.credential_validation
+                .lock()
+                .map_err(|_| "state_unavailable")?
+                .as_mut()
+                .map_err(|e| code(*e))?
+                .record_result(&key, true)
+                .map_err(code)?;
+            ValidationState::Valid
+        }
+        Err(ProviderFailure::Authentication) => {
+            host.credential_validation
+                .lock()
+                .map_err(|_| "state_unavailable")?
+                .as_mut()
+                .map_err(|e| code(*e))?
+                .record_result(&key, false)
+                .map_err(code)?;
+            ValidationState::Invalid
+        }
+        Err(_) => ValidationState::Unavailable,
+    };
+    Ok(ValidationReceipt { state })
+}
+
+#[tauri::command]
+async fn verify_meta_credential(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+) -> Result<ValidationReceipt, String> {
+    trusted(&window)?;
+    let guard = host.enter_native_dialog()?;
+    host.idle()?;
+    verify_credential_inner(&window, &host, &guard).await
 }
 #[tauri::command]
 async fn remove_meta_credential(
@@ -429,11 +790,14 @@ async fn remove_meta_credential(
     host: State<'_, Host>,
 ) -> Result<CredentialStatus, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
-    if !review(&window,operation(serde_json::json!({"operation":"Remove Meta API credential","target":"AsterDesktop/MetaModelAPI/v1","preserved":"Earlier provider credentials, protected conversation display history and financial reservations remain."}))?).await? {return Ok(CredentialStatus{configured:host.credentials.configured().map_err(|e|e.code())?});}
-    invalidate_identity(&host)?;
+    if !review(&window,operation(serde_json::json!({"operation":"Remove Meta API credential","target":"AsterDesktop/MetaModelAPI/v1","preserved":"Earlier provider credentials, protected conversation display history and financial reservations remain."}))?, &guard).await? {return Ok(CredentialStatus{configured:host.credentials.configured().map_err(|e|e.code())?});}
+    // A full/unavailable proof or history store must never prevent the owner
+    // deleting the native secret. Revocation still latches closed first.
+    let revocation = invalidate_identity(&host);
     host.credentials.delete().map_err(|e| e.code())?;
+    revocation?;
     Ok(CredentialStatus { configured: false })
 }
 #[tauri::command]
@@ -442,7 +806,7 @@ async fn accept_contributor_terms(
     host: State<'_, Host>,
 ) -> Result<TermsReceipt, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     let document = operation(
         serde_json::json!({"operation":"Contributor owner attestation","termsRevision":contributor::TERMS_REVISION,
@@ -451,7 +815,7 @@ async fn accept_contributor_terms(
         "spending":"Cancelling, refusing or failing after dispatch does not establish zero cost. Missing usage requires statement-confirmed reconciliation. The £89 local limit does not cap other clients or guarantee Meta's invoice.",
         "terms":"https://dev.meta.ai/legal/terms-of-service","geography":"https://dev.meta.ai/legal/geographic-use-policy","expiry":"2026-11-02T00:00:00Z"}),
     )?;
-    if !review(&window, document).await? {
+    if !review(&window, document, &guard).await? {
         return Ok(TermsReceipt { accepted: false });
     }
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
@@ -468,7 +832,7 @@ async fn configure_budget(
     input: Configuration,
 ) -> Result<BudgetReceipt, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     let time = now()?;
     let (status, period_review) = {
@@ -483,7 +847,7 @@ async fn configure_budget(
         serde_json::json!({"operation":"Confirm bounded financial configuration and London calendar period","configuration":input,"currentLedger":status,"previousPeriodAndClock":period_review,
         "period":budget::period(time).map_err(code)?,"statement":"I have checked the actual date and London calendar month. This explicitly activates the displayed period; changing the account alias does not reset charges. Earlier uncertain reservations remain. The declared GBP/USD rate, positive margin, tax and payment costs conservatively bound my invoice until the stated expiry. No exchange rate or tax exemption is verified by Aster.","limitNanoGbp":budget::LIMIT.to_string(),"noReset":true}),
     )?;
-    if !review(&window, document).await? {
+    if !review(&window, document, &guard).await? {
         return Ok(BudgetReceipt { configured: false });
     }
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
@@ -512,7 +876,7 @@ async fn reconcile_budget(
     input: ReconcileIntent,
 ) -> Result<ReconcileReceipt, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     if !admission::opaque_id(&input.request_id)
         || input.confirmed_charge_nano_gbp.is_empty()
@@ -548,7 +912,7 @@ async fn reconcile_budget(
     let document = operation(
         serde_json::json!({"operation":"Statement-confirmed reconciliation, not API-measured usage","pending":pending,"originalAccountAndQuote":original_quote,"confirmedChargeNanoGbp":charge.to_string(),"ownerAttestation":"I have checked the original account's Meta dashboard or invoice and this is the exact final GBP charge attributable to this request, including currency conversion, tax and payment costs. A zero amount requires explicit evidence that no charge occurred; an undispatched reservation is not API-measured billed usage. This does not reset other requests or the financial ledger. A charge exceeding the reserved bound blocks new dispatch pending engineering review."}),
     )?;
-    if !review(&window, document).await? {
+    if !review(&window, document, &guard).await? {
         return Ok(ReconcileReceipt { reconciled: false });
     }
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
@@ -572,13 +936,32 @@ fn create_conversation(
     window: WebviewWindow,
     host: State<'_, Host>,
 ) -> Result<Conversation, String> {
+    create_conversation_for_origin(window, host, SendOrigin::Conversation)
+}
+
+// Not serializable and never an IPC field: only the fixed generation command
+// may bypass the main chat's temporary-original lifecycle.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SendOrigin {
+    Conversation,
+    InertPackageGeneration,
+}
+
+fn create_conversation_for_origin(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    origin: SendOrigin,
+) -> Result<Conversation, String> {
     trusted(&window)?;
     let _guard = host.enter_native_dialog()?;
     host.idle()?;
-    host.attachments
-        .lock()
-        .map_err(|_| "state_unavailable")?
-        .invalidate();
+    require_valid_credential(&host)?;
+    if origin == SendOrigin::Conversation {
+        host.attachments
+            .lock()
+            .map_err(|_| "state_unavailable")?
+            .invalidate();
+    }
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
     host.idle()?;
     persistent(&mut state)?.history.create(now()?).map_err(code)
@@ -611,7 +994,7 @@ async fn delete_conversation(
     input: ConversationIntent,
 ) -> Result<DeleteReceipt, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     if !admission::opaque_id(&input.conversation_id) {
         return Err("invalid_input".into());
@@ -623,7 +1006,7 @@ async fn delete_conversation(
             .load(&input.conversation_id)
             .map_err(code)?
     };
-    if !review(&window,operation(serde_json::json!({"operation":"Remove conversation from visible history","conversationId":conversation.id,"entryCount":conversation.entries.len(),"effect":"Logical removal only. Encrypted recovery records remain and storage quota is not reclaimed. This is not permanent or secure erasure. Financial records and reservations are preserved."}))?).await?{return Ok(DeleteReceipt{deleted:false});}
+    if !review(&window,operation(serde_json::json!({"operation":"Remove conversation from visible history","conversationId":conversation.id,"entryCount":conversation.entries.len(),"effect":"Logical removal only. Encrypted recovery records remain and storage quota is not reclaimed. This is not permanent or secure erasure. Financial records and reservations are preserved."}))?, &guard).await?{return Ok(DeleteReceipt{deleted:false});}
     host.attachments
         .lock()
         .map_err(|_| "state_unavailable")?
@@ -722,8 +1105,9 @@ async fn select_attachments(
     input: ConversationIntent,
 ) -> Result<Vec<AttachmentMetadata>, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
+    require_valid_credential(&host)?;
     if !cfg!(windows) || !admission::opaque_id(&input.conversation_id) {
         return Err("attachment_denied".into());
     }
@@ -748,7 +1132,9 @@ async fn select_attachments(
         .map_err(|_| "state_unavailable")?
         .invalidate();
     owner(&window)?;
+    let worker_lease = guard.worker_lease();
     let batch = tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
         let paths = app
             .dialog()
             .file()
@@ -838,7 +1224,7 @@ async fn review_processed_attachment(
     input: ProcessedIntent,
 ) -> Result<ViewedAttachment, String> {
     trusted(&window)?;
-    let _guard = host.enter_native_dialog()?;
+    let guard = host.enter_native_dialog()?;
     host.idle()?;
     if !admission::opaque_id(&input.conversation_id)
         || !admission::opaque_id(&input.request_id)
@@ -864,7 +1250,9 @@ async fn review_processed_attachment(
             .map_err(code)?
     };
     let hwnd = owner(&window)?;
+    let worker_lease = guard.worker_lease();
     let viewed = tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
         let content = stored.materialise(&AtomicBool::new(false)).map_err(code)?;
         let pages = visual_pages(&content, &stored.metadata.label)?;
         if pages.is_empty() {
@@ -890,6 +1278,28 @@ async fn send_message(
     host: State<'_, Host>,
     input: SendIntent,
 ) -> Result<Accepted, String> {
+    send_message_for_origin(window, app, host, input, SendOrigin::Conversation).await
+}
+
+fn select_send_attachments(
+    origin: SendOrigin,
+    ids: &[String],
+    consume_chat: impl FnOnce() -> Result<Vec<AdmittedAttachment>, String>,
+) -> Result<Vec<AdmittedAttachment>, String> {
+    match origin {
+        SendOrigin::Conversation => consume_chat(),
+        SendOrigin::InertPackageGeneration if ids.is_empty() => Ok(Vec::new()),
+        SendOrigin::InertPackageGeneration => Err("generation_input_denied".into()),
+    }
+}
+
+async fn send_message_for_origin(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    host: State<'_, Host>,
+    input: SendIntent,
+    origin: SendOrigin,
+) -> Result<Accepted, String> {
     trusted(&window)?;
     if !admission::opaque_id(&input.conversation_id) || !admission::opaque_id(&input.request_id) {
         return Err("invalid_input".into());
@@ -900,16 +1310,18 @@ async fn send_message(
     let effort = ReasoningEffort::parse(&input.reasoning_effort).ok_or("reasoning_denied")?;
     let guard = host.enter_native_dialog()?;
     host.idle()?;
-    let files = host
-        .attachments
-        .lock()
-        .map_err(|_| "state_unavailable")?
-        .consume(
-            &input.conversation_id,
-            &input.request_id,
-            &input.attachment_ids,
-        )
-        .map_err(|e| e.code().to_owned())?;
+    require_valid_credential(&host)?;
+    let files = select_send_attachments(origin, &input.attachment_ids, || {
+        host.attachments
+            .lock()
+            .map_err(|_| "state_unavailable")?
+            .consume(
+                &input.conversation_id,
+                &input.request_id,
+                &input.attachment_ids,
+            )
+            .map_err(|e| e.code().to_owned())
+    })?;
     if files.iter().any(|file| !file.still_valid()) {
         return Err("attachment_expired".into());
     }
@@ -986,7 +1398,7 @@ async fn send_message(
         let document=if previews.is_empty(){document}else{document.with_visuals(previews).map_err(|_|"native_review_unavailable".to_owned())?};
         let document=if let Some(deadline)=files.iter().map(AdmittedAttachment::deadline).min(){document.with_source_deadline(deadline)}else{document};
         let document=document.with_request_cancellation(admitted.cancellation.clone());
-        if !review(&window,document).await?{return Err("disclosure_denied".into());}
+        if !review(&window,document,&guard).await?{return Err("disclosure_denied".into());}
         if files.iter().any(|file|!file.still_valid()){return Err("attachment_expired".into());}
         if *admitted.cancellation.borrow(){return Err("cancelled".into());}
         let mut state=host.persistent.lock().map_err(|_|"state_unavailable")?;let p=persistent(&mut state)?;
@@ -998,6 +1410,7 @@ async fn send_message(
         // Reading only the native key occurs after review; a proven unsent
         // failure can release. A durable dispatch intent precedes networking.
         let key=host.credentials.read().map_err(|e|e.code().to_owned())?;
+        host.credential_validation.lock().map_err(|_|"state_unavailable")?.as_ref().map_err(|e|code(*e))?.require(&key).map_err(str::to_owned)?;
         if *admitted.cancellation.borrow(){return Err("cancelled".into());}
         let dispatch_time=now()?;
         if files.iter().any(|file|!file.still_valid()){return Err("attachment_expired".into());}
@@ -1100,6 +1513,13 @@ async fn send_message(
         // Keep bounded text actually delivered even on a transport unwind.
         let answer = visible;
         let host = app.state::<Host>();
+        if outcome.failure == Some(ProviderFailure::Authentication) {
+            if let Ok(mut proof) = host.credential_validation.lock() {
+                if let Ok(proof) = proof.as_mut() {
+                    let _ = proof.revoke();
+                }
+            }
+        }
         let mut error = outcome.failure.map(|e| e.code().to_owned());
         let mut terminal = match outcome.terminal {
             ProviderTerminal::Completed => EntryState::Completed,
@@ -1325,13 +1745,32 @@ pub fn run() {
         }
     }
     tauri::Builder::default()
+        .manage(render_trace::RenderTrace::new())
+        .on_page_load(|webview, payload| {
+            if webview.label() == MAIN_WINDOW {
+                webview
+                    .state::<render_trace::RenderTrace>()
+                    .native(match payload.event() {
+                        tauri::webview::PageLoadEvent::Started => {
+                            render_trace::NativePhase::PageStarted
+                        }
+                        tauri::webview::PageLoadEvent::Finished => {
+                            render_trace::NativePhase::PageFinished
+                        }
+                    });
+            }
+        })
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let gate = startup::StartupGate::new();
+            let gate =
+                startup::StartupGate::new(app.state::<render_trace::RenderTrace>().inner().clone());
             let window = app
                 .get_webview_window(MAIN_WINDOW)
                 .ok_or("startup_window_unavailable")?;
             app.manage(gate.clone());
+            app.state::<render_trace::RenderTrace>()
+                .native(render_trace::NativePhase::ParentCreated);
+            webview_render_observer::attach(&window);
             gate.start_monitor(window);
             // Existing local-data base only; PrivateStore creates its own fixed
             // protected child. Never reset/repair an unavailable existing store.
@@ -1340,12 +1779,42 @@ pub fn run() {
                 .local_data_dir()
                 .map_err(|_| StoreError::Unavailable)
                 .and_then(|base| Persistence::open(&base));
+            let catalogue = app
+                .path()
+                .local_data_dir()
+                .map_err(|_| StoreError::Unavailable)
+                .and_then(|base| customization::Customization::open(&base));
+            let mut github = github_host::GithubHost::default();
+            if catalogue
+                .as_ref()
+                .ok()
+                .and_then(|catalogue| catalogue.package(customization::BUILTIN_GITHUB_ID).ok())
+                .is_some_and(|package| package.enabled)
+            {
+                // A persisted enabled preference restores no token, account,
+                // repository, session, approval or automatic network work.
+                github.set_enabled(true).map_err(std::io::Error::other)?;
+            }
             app.manage(Host {
                 credentials: CredentialStore,
+                credential_validation: Mutex::new(
+                    app.path()
+                        .local_data_dir()
+                        .map_err(|_| StoreError::Unavailable)
+                        .and_then(|base| CredentialValidation::open(&base)),
+                ),
+                personalization: Mutex::new(
+                    app.path()
+                        .local_data_dir()
+                        .map_err(|_| StoreError::Unavailable)
+                        .and_then(|base| personalization::Personalization::open(&base)),
+                ),
+                customization: Mutex::new(catalogue),
+                github: Mutex::new(github),
                 sessions: Mutex::new(SessionState::default()),
                 attachments: Mutex::new(AttachmentRegistry::default()),
                 persistent: Mutex::new(persistence),
-                native_dialog_open: AtomicBool::new(false),
+                native_dialog_open: NativeOperationGate::default(),
                 expiry_shutdown: AtomicBool::new(false),
                 window_close: window_guard::CloseState::default(),
             });
@@ -1371,6 +1840,26 @@ pub fn run() {
             get_app_status,
             configure_meta_credential,
             remove_meta_credential,
+            verify_meta_credential,
+            get_personalization,
+            save_personalization,
+            clear_personalization,
+            get_customization,
+            get_customization_package,
+            save_customization,
+            set_customization_enabled,
+            import_customization,
+            customization_generation::generate_customization,
+            github_host::get_github_status,
+            github_host::begin_github_connection,
+            github_host::poll_github_connection,
+            github_host::cancel_github_connection,
+            github_host::disconnect_github,
+            github_host::list_github_repositories,
+            github_host::select_github_repository,
+            github_host::read_github_file,
+            render_trace::record_render_event,
+            render_trace::get_render_trace,
             accept_contributor_terms,
             configure_budget,
             reconcile_budget,
@@ -1386,7 +1875,34 @@ pub fn run() {
             remove_attachment,
             review_processed_attachment
         ])
-        .on_window_event(window_controls::on_window_event)
+        .on_window_event(|window, event| {
+            if window.label() == MAIN_WINDOW {
+                let phase = match event {
+                    tauri::WindowEvent::Resized(_) => Some(render_trace::NativePhase::Resized),
+                    tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                        Some(render_trace::NativePhase::ScaleChanged)
+                    }
+                    tauri::WindowEvent::Focused(true) => Some(render_trace::NativePhase::Focused),
+                    tauri::WindowEvent::Focused(false) => {
+                        Some(render_trace::NativePhase::Unfocused)
+                    }
+                    tauri::WindowEvent::Destroyed => Some(render_trace::NativePhase::Destroyed),
+                    _ => None,
+                };
+                if let Some(phase) = phase {
+                    window.state::<render_trace::RenderTrace>().native(phase);
+                    let destroying = matches!(event, tauri::WindowEvent::Destroyed);
+                    let _ = window.run_on_main_thread(move || {
+                        if destroying {
+                            webview_render_observer::detach_on_ui_thread();
+                        } else {
+                            webview_render_observer::sample_on_ui_thread();
+                        }
+                    });
+                }
+            }
+            window_controls::on_window_event(window, event);
+        })
         .run(tauri::generate_context!())
         .expect("Aster Desktop host failed to start");
 }
@@ -1474,10 +1990,14 @@ mod tests {
     fn native_guard_retained_through_idle_preparation_cleanup_excludes_close() {
         let host = Host {
             credentials: CredentialStore,
+            credential_validation: Mutex::new(Err(StoreError::Unavailable)),
+            personalization: Mutex::new(Err(StoreError::Unavailable)),
+            customization: Mutex::new(Err(StoreError::Unavailable)),
+            github: Mutex::new(github_host::GithubHost::default()),
             sessions: Mutex::new(SessionState::default()),
             attachments: Mutex::new(AttachmentRegistry::default()),
             persistent: Mutex::new(Err(StoreError::Unavailable)),
-            native_dialog_open: AtomicBool::new(false),
+            native_dialog_open: NativeOperationGate::default(),
             expiry_shutdown: AtomicBool::new(false),
             window_close: window_guard::CloseState::default(),
         };

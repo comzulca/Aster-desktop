@@ -923,6 +923,66 @@ fn classify_status(status: StatusCode) -> ProviderFailure {
     }
 }
 
+pub(crate) const MODEL_VALIDATION_ENDPOINT: &str =
+    "https://api.meta.ai/v1/models/muse-spark-1.3-contributor";
+
+fn admit_model_validation(bytes: &[u8]) -> Result<(), ProviderFailure> {
+    if bytes.is_empty() || bytes.len() > 32 * 1024 {
+        return Err(ProviderFailure::InvalidContract);
+    }
+    let value = unique_json(bytes)?;
+    if value.as_object().is_none()
+        || value["id"].as_str() != Some(crate::policy::DEFAULT_MODEL)
+        || value["object"].as_str() != Some("model")
+    {
+        return Err(ProviderFailure::InvalidContract);
+    }
+    Ok(())
+}
+
+/// Explicit owner-reviewed authentication only: no inference, prompt or retries.
+/// It proves the exact key can retrieve this model, not billing or quota.
+pub(crate) async fn verify_registered_model(key: Zeroizing<String>) -> Result<(), ProviderFailure> {
+    let http = client()?;
+    tokio::time::timeout(Duration::from_secs(15), async move {
+        let request = http
+            .get(MODEL_VALIDATION_ENDPOINT)
+            .header(header::ACCEPT, "application/json")
+            .header(header::ACCEPT_ENCODING, "identity")
+            .bearer_auth(key.as_str());
+        drop(key);
+        let response = request.send().await.map_err(|_| ProviderFailure::Network)?;
+        if response.status() != StatusCode::OK {
+            return Err(classify_status(response.status()));
+        }
+        if response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_none_or(|v| {
+                v.split(';')
+                    .next()
+                    .is_none_or(|mime| !mime.trim().eq_ignore_ascii_case("application/json"))
+            })
+            || response.content_length().is_some_and(|n| n > 32 * 1024)
+        {
+            return Err(ProviderFailure::InvalidContract);
+        }
+        let mut stream = response.bytes_stream();
+        let mut bytes = Zeroizing::new(Vec::new());
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|_| ProviderFailure::Network)?;
+            if bytes.len().saturating_add(chunk.len()) > 32 * 1024 {
+                return Err(ProviderFailure::ResponseLimit);
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        admit_model_validation(&bytes)
+    })
+    .await
+    .map_err(|_| ProviderFailure::Timeout)?
+}
+
 /// Sole production dispatch entry point. Callers must native-review this exact
 /// allocation and durably reserve/mark potential dispatch before invoking it.
 pub async fn stream_chat_exact<F>(
@@ -1059,6 +1119,31 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn model_validation_requires_exact_authenticated_model_contract() {
+        assert!(
+            admit_model_validation(br#"{"id":"muse-spark-1.3-contributor","object":"model"}"#)
+                .is_ok()
+        );
+        for body in [
+            br#"{"id":"muse-spark-1.3","object":"model"}"#.as_slice(),
+            br#"{"id":"muse-spark-1.3-contributor","object":"list"}"#.as_slice(),
+            br#"{"id":"forged","id":"muse-spark-1.3-contributor","object":"model"}"#.as_slice(),
+            br#"[]"#.as_slice(),
+        ] {
+            assert!(admit_model_validation(body).is_err());
+        }
+        assert!(admit_model_validation(&vec![b' '; 32 * 1024 + 1]).is_err());
+        assert_eq!(
+            classify_status(StatusCode::UNAUTHORIZED),
+            ProviderFailure::Authentication
+        );
+        assert_eq!(
+            classify_status(StatusCode::SERVICE_UNAVAILABLE),
+            ProviderFailure::ProviderUnavailable
+        );
+    }
 
     // T-078/T-081: native PDF bytes, not a raster substitute; no URL or
     // persistent file ID. Protocol fixtures do not prove parser/live success.

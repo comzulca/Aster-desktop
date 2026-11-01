@@ -110,6 +110,20 @@ describe('bounded host-owned initial presentation (T-077)', () => {
     expect(source).not.toMatch(/\.hide\(|\.set_focus\(|\.navigate\(|\.reload\(|\.eval\(/);
     expect(readFileSync('src-tauri/capabilities/main.json', 'utf8')).not.toMatch(/core:window:|allow-show|allow-hide/);
   });
+  it('keeps the initial timing and shared trace bounds unchanged while adding capture-only native milestones', () => {
+    const source = readFileSync('src-tauri/src/startup.rs', 'utf8');
+    const trace = readFileSync('src-tauri/src/render_trace.rs', 'utf8');
+    expect(source).toContain('const MIN_REVEAL_MS: u64 = 6_000;');
+    expect(source).toContain('const HARD_DEADLINE_MS: u64 = 10_000;');
+    expect(trace).toContain('const MAX_EVENTS: usize = 96;');
+    expect(trace).toContain('const MAX_MS: u64 = 60_000;');
+    expect(trace).toContain('const RESERVED_CRITICAL_EVENTS: usize = 9;');
+    for (const category of ['StartupGateCreated', 'StartupShellAccepted', 'StartupRevealReady', 'StartupRevealDeadline', 'StartupShowStarted',
+      'StartupShowVisible', 'StartupShowDenied', 'StartupShowVisibleCleanupFailed', 'StartupShowDeniedCleanupFailed', 'StartupDispatchDenied']) {
+      expect(trace).toContain(category);
+    }
+    expect(source).not.toMatch(/std::env::var|env::var|additional_browser_args|disable.gpu|\.hide\(|\.set_focus\(/i);
+  });
   it('preserves Tao visibility with a bounded owned-UI-thread activation veto, never a global input hook', () => {
     const source = readFileSync('src-tauri/src/startup.rs', 'utf8');
     expect(source).toContain('run_on_main_thread');

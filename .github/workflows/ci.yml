@@ -41,6 +41,10 @@ jobs:
         run: |
           python3 -I scripts/ci/check_tauri_versions.py --self-test
           python3 -I scripts/ci/check_tauri_versions.py --root .
+      - name: Require the reviewed WinRT async ABI cohort
+        run: |
+          python3 -I scripts/ci/check_winrt_versions.py --self-test
+          python3 -I scripts/ci/check_winrt_versions.py --root .
       - name: Reject forged or incomplete CPU containment receipts
         run: python3 -I scripts/ci/verify_cpu_receipt.py --self-test
 
@@ -182,6 +186,13 @@ jobs:
               $item = $item.Parent
             }
           }
+      - name: Check pure installer provenance and resource contracts
+        shell: pwsh
+        run: |
+          ./scripts/qa/Test-InstallerProvenanceContract.ps1 | Tee-Object -FilePath reports/installer-provenance-contract.json
+          if (-not $?) { throw 'Pure installer provenance contract failed.' }
+          ./scripts/qa/Test-AsterBuilderResourceContract.ps1 | Tee-Object -FilePath reports/installer-resource-contract.json
+          if (-not $?) { throw 'Pure installer resource contract failed.' }
       - name: Check Rust formatting
         run: |
           cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
@@ -362,7 +373,60 @@ jobs:
           $candidates = @(Get-ChildItem -LiteralPath src-tauri/target/release/bundle/nsis -File -Filter '*-setup.exe' -ErrorAction Stop)
           if ($candidates.Count -ne 1 -or $candidates[0].Length -le 0) { throw 'Expected exactly one nonempty NSIS setup executable.' }
           $installer = $candidates[0]
-          if ($installer.Name -cne 'Aster Desktop_0.2.3_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
+          if ($installer.Name -cne 'Aster Desktop_0.2.4_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
+          function Get-AsterBuilderResourceInventory {
+            # Exact original inert ZIP-member identities; no manifest-defined replacements.
+            return [ordered]@{
+              'aster-builder/SKILL.md' = @{ byte_count=7329; sha256='4a2eb40201f49ac4dee89cfd08852b4f764c44e770d90bee2d4dd18847773c71' }
+              'aster-builder/references/architecture.md' = @{ byte_count=2240; sha256='f1835a20299004b83318d9ebb068a909deee02a8518af4dcecaad77b22dc7f10' }
+              'aster-builder/references/spec-threats.md' = @{ byte_count=1677; sha256='0a5c611e7508d9d13251f97a682afa4fc8a382c8966b511f5b0d537ef3ab3cfd' }
+              'aster-builder/references/provider-contracts.md' = @{ byte_count=1655; sha256='675b3443e9005a559d4d5d719121aac3cbd826929c1508646db8f98577b6f294' }
+              'aster-builder/references/storage-tools.md' = @{ byte_count=1481; sha256='46b01b2fb5dd3a8adb00cafad6d71e92e188dfd30c6e40bcf6fdb8ea24db9ac9' }
+              'aster-builder/references/ui.md' = @{ byte_count=1613; sha256='c22cfa4a62ddf334f3b3b9a24f46b5d755c4cddcb4204d758c0e548e9548720a' }
+              'aster-builder/references/verification.md' = @{ byte_count=2256; sha256='ef0e3c086f350c2b9ef629f087c4a80f66de308f7efd97fb5ca61ec1f4a534bf' }
+              'aster-builder/references/aster-case-study.md' = @{ byte_count=1160; sha256='31e868a022e71c84fa2bd0418a2ff621c597fc576bdd056fc90be303afadaf3a' }
+              'aster-builder/references/ledger-schema.md' = @{ byte_count=4172; sha256='d322712e3d4614827248aceed46ff82ac126501e60f805ba94a68a86191dd591' }
+              'aster-builder/assets/icon.svg' = @{ byte_count=1738; sha256='8936b24f674a1250d999e2c2b5901374fb4240426f32bd1ae340c352a90d617d' }
+            }
+          }
+          function Assert-RequiredResourceMembers([object[]]$Members, $ExpectedSizes) {
+            $names = @($ExpectedSizes.Keys)
+            $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+            foreach ($member in $Members) {
+              $path = ([string]$member.Path).Replace('\', '/')
+              $parts = @($path.Split('/'))
+              $leaf = $parts[$parts.Count - 1]
+              $isBuilder = @($parts | Where-Object { [string]::Equals($_.TrimEnd(' ', '.'), 'aster-builder', [System.StringComparison]::OrdinalIgnoreCase) }).Count -gt 0
+              $isResource = $isBuilder -or $leaf.TrimEnd(' ', '.') -in @('THIRD-PARTY-NOTICES.txt', 'LICENSE.txt')
+              if (-not $isResource) { continue }
+              if ($names -cnotcontains $path -or -not $seen.Add($path)) { throw 'Installer resource namespace contains an unknown, aliased or duplicate member.' }
+              if ([long]$member.Size -ne [long]$ExpectedSizes[$path]) { throw 'Installer resource member length differs from the fixed inventory.' }
+            }
+            if ($seen.Count -ne $names.Count) { throw 'Installer resource inventory is incomplete.' }
+          }
+          $builderInventory = Get-AsterBuilderResourceInventory
+          $expectedMappings = [ordered]@{
+            '../reports/THIRD-PARTY-NOTICES.txt' = 'THIRD-PARTY-NOTICES.txt'
+            '../LICENSE' = 'LICENSE.txt'
+          }
+          foreach ($name in $builderInventory.Keys) { $expectedMappings['resources/' + $name] = $name }
+          $configMappings = @((Get-Content -LiteralPath src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).bundle.resources.PSObject.Properties)
+          if ($configMappings.Count -ne $expectedMappings.Count) { throw 'Bundle resource config mapping set is not exact.' }
+          foreach ($mapping in $configMappings) {
+            if (@($expectedMappings.Keys) -cnotcontains $mapping.Name -or [string]$mapping.Value -cne [string]$expectedMappings[$mapping.Name]) { throw 'Bundle resource source/destination mapping is not an exact reviewed pair.' }
+          }
+          $resourceHashes = [ordered]@{}
+          $resourceByteCounts = [ordered]@{}
+          foreach ($sourceName in $expectedMappings.Keys) {
+            $name = $expectedMappings[$sourceName]
+            $sourcePath = Join-Path src-tauri $sourceName
+            $sourceItem = Get-Item -LiteralPath $sourcePath -Force -ErrorAction Stop
+            if ($sourceItem.PSIsContainer -or ($sourceItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or $sourceItem.Length -le 0 -or $sourceItem.Length -gt 268435456) { throw 'Bundle resource source is not a normal bounded nonempty file.' }
+            $hash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($builderInventory.Contains($name) -and ($sourceItem.Length -ne $builderInventory[$name].byte_count -or $hash -cne $builderInventory[$name].sha256)) { throw 'Original inert Aster Builder source byte identity changed.' }
+            $resourceHashes[$name] = $hash
+            $resourceByteCounts[$name] = [long]$sourceItem.Length
+          }
           $sevenZip = Get-Command 7z.exe -ErrorAction Stop
           $rawPayloadList = Join-Path $env:RUNNER_TEMP 'aster-installer-payload-list-raw.txt'
           $payloadListing = @(& $sevenZip.Source l -slt -ba $installer.FullName)
@@ -371,6 +435,7 @@ jobs:
           [long]$preflightBytes = 0
           $currentPath = $null
           $currentSize = $null
+          $payloadMembers = New-Object 'System.Collections.Generic.List[object]'
           foreach ($line in @($payloadListing) + '') {
             if ([string]::IsNullOrWhiteSpace([string]$line)) {
               if ($null -ne $currentPath) {
@@ -382,6 +447,7 @@ jobs:
                 $preflightBytes += $parsedSize
                 $entryCount++
                 if ($entryCount -gt 8192) { throw 'Installer payload has too many members.' }
+                $payloadMembers.Add([pscustomobject]@{ Path=$normalized.Replace('\', '/'); Size=$parsedSize })
                 $currentPath = $null
                 $currentSize = $null
               }
@@ -392,6 +458,7 @@ jobs:
             if ([string]$line -clike 'Anti = +*' -or [string]$line -clike 'Symbolic Link = *' -or [string]$line -clike 'Hard Link = *') { throw 'Installer payload contains a link or anti-item.' }
           }
           if ($entryCount -eq 0) { throw 'Installer payload listing contains no members.' }
+          Assert-RequiredResourceMembers $payloadMembers.ToArray() $resourceByteCounts
           $payloadListing | Set-Content -LiteralPath $rawPayloadList -Encoding utf8
           $payloadRoot = Join-Path $env:RUNNER_TEMP ("aster-installer-payload-{0}-{1}" -f $env:GITHUB_RUN_ID, $env:GITHUB_RUN_ATTEMPT)
           if (Test-Path -LiteralPath $payloadRoot) { throw 'Fresh installer payload extraction directory already exists.' }
@@ -405,23 +472,27 @@ jobs:
           if (@($payloadItems | Where-Object { -not $_.PSIsContainer -and $_.Length -gt 268435456 }).Count -ne 0) { throw 'Extracted installer payload member exceeds 256 MiB.' }
           $expandedBytes = @($payloadItems | Where-Object { -not $_.PSIsContainer } | Measure-Object -Property Length -Sum).Sum
           if ([long]$expandedBytes -gt 536870912) { throw 'Extracted installer payload exceeds the 512 MiB expanded-size bound.' }
-          $noticeMatches = @($payloadItems | Where-Object { -not $_.PSIsContainer -and $_.Name -ceq 'THIRD-PARTY-NOTICES.txt' })
-          $licenseMatches = @($payloadItems | Where-Object { -not $_.PSIsContainer -and $_.Name -ceq 'LICENSE.txt' })
-          if ($noticeMatches.Count -ne 1 -or $licenseMatches.Count -ne 1) { throw 'Installer must contain exactly one notice resource and one license resource.' }
-          $noticeHash = (Get-FileHash -LiteralPath reports/THIRD-PARTY-NOTICES.txt -Algorithm SHA256).Hash.ToLowerInvariant()
-          $licenseHash = (Get-FileHash -LiteralPath LICENSE -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ((Get-FileHash -LiteralPath $noticeMatches[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() -cne $noticeHash) { throw 'Bundled notice resource differs from generated notice evidence.' }
-          if ((Get-FileHash -LiteralPath $licenseMatches[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() -cne $licenseHash) { throw 'Bundled license resource differs from the repository license.' }
+          $extractedMembers = @($payloadItems | Where-Object { -not $_.PSIsContainer } | ForEach-Object {
+            [pscustomobject]@{ Path=$_.FullName.Substring($payloadRoot.Length + 1).Replace('\', '/'); Size=$_.Length }
+          })
+          Assert-RequiredResourceMembers $extractedMembers $resourceByteCounts
+          foreach ($name in $resourceHashes.Keys) {
+            $resourcePath = Join-Path $payloadRoot $name
+            if ((Get-FileHash -LiteralPath $resourcePath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $resourceHashes[$name]) { throw 'Extracted bundle resource hash differs from the exact reviewed source.' }
+          }
           $payloadHeader = @(
             'classification=verified-extracted-nsis-payload'
-            'required_resource_count=2'
+            'required_resource_count=12'
+            'aster_builder_resource_count=10'
             "preflight_entry_count=$entryCount"
             "preflight_total_bytes=$preflightBytes"
             "extracted_file_bytes=$expandedBytes"
-            "THIRD-PARTY-NOTICES.txt.sha256=$noticeHash"
-            "LICENSE.txt.sha256=$licenseHash"
-            '--- 7z listing follows ---'
           )
+          foreach ($name in $resourceHashes.Keys) {
+            $payloadHeader += "$name.sha256=$($resourceHashes[$name])"
+            $payloadHeader += "$name.byte_count=$($resourceByteCounts[$name])"
+          }
+          $payloadHeader += '--- 7z listing follows ---'
           $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
           [System.IO.File]::WriteAllLines((Join-Path $PWD 'reports/installer-payload-list.txt'), $payloadHeader, $utf8NoBom)
           [System.IO.File]::AppendAllText((Join-Path $PWD 'reports/installer-payload-list.txt'), [System.IO.File]::ReadAllText($rawPayloadList), $utf8NoBom)
@@ -447,10 +518,8 @@ jobs:
             byte_count = $installer.Length
             sha256 = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             authenticode_status = [string]$signature.Status
-            bundle_resource_sha256 = [ordered]@{
-              'THIRD-PARTY-NOTICES.txt' = $noticeHash
-              'LICENSE.txt' = $licenseHash
-            }
+            bundle_resource_sha256 = $resourceHashes
+            bundle_resource_byte_count = $resourceByteCounts
             evidence_sha256 = [ordered]@{
               'THIRD-PARTY-NOTICES.txt' = (Get-FileHash reports/THIRD-PARTY-NOTICES.txt -Algorithm SHA256).Hash.ToLowerInvariant()
               'third-party-notice-inventory.json' = (Get-FileHash reports/third-party-notice-inventory.json -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -463,6 +532,7 @@ jobs:
             built_at_utc = (Get-Date).ToUniversalTime().ToString('o')
           }
           $details | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath reports/engineering-installer/manifest.json -Encoding utf8
+          if ((Get-Item -LiteralPath reports/engineering-installer/manifest.json).Length -gt 16384) { throw 'Installer manifest exceeds the existing passive 16-KiB bound.' }
           Get-Content -LiteralPath reports/engineering-installer/manifest.json
       - name: Preserve synthetic attachment diagnostics even on failure
         if: ${{ always() && hashFiles('reports/installer-execution-context.json') != '' }}

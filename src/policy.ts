@@ -17,9 +17,10 @@ export function validMessage(text: string): boolean {
   return Boolean(text.trim()) && !text.includes('\0') && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(text) && utf8Bytes(text) <= MAX_MESSAGE_BYTES;
 }
 export function validStatus(v: unknown): v is AppStatus {
-  if (!record(v) || !exact(v, ['protocolVersion','policyVersion','configured','credentialAvailable','defaultModel','models','activeRequest','projectSelected','projectLabel','capabilities','availability','contributor','historyAvailable','budget'])) return false;
+  if (!record(v) || !exact(v, ['protocolVersion','policyVersion','configured','credentialAvailable','credentialValidation','defaultModel','models','activeRequest','projectSelected','projectLabel','capabilities','availability','contributor','historyAvailable','budget'])) return false;
   if (v.protocolVersion !== 4 || v.policyVersion !== 4 || v.defaultModel !== DEFAULT_MODEL ||
       !['configured','credentialAvailable','activeRequest','historyAvailable'].every(k => typeof v[k] === 'boolean') ||
+      !['missing','unverified','valid','invalid','unavailable'].includes(String(v.credentialValidation)) ||
       v.projectSelected !== false || v.projectLabel !== null || !Array.isArray(v.models) || v.models.length !== 1 ||
       !record(v.models[0]) || !exact(v.models[0], ['id','label']) || v.models[0].id !== DEFAULT_MODEL ||
       typeof v.models[0].label !== 'string' || v.models[0].label.length > 100 ||
@@ -34,7 +35,8 @@ export function validStatus(v: unknown): v is AppStatus {
       !['limitNanoGbp','spentNanoGbp','reservedNanoGbp','remainingNanoGbp'].every(k => integerString(b[k])) ||
       b.limitNanoGbp !== '89000000000' || !(b.configurationExpiresAt === null || safeInteger(b.configurationExpiresAt))) return false;
   if (!Array.isArray(b.pending) || b.pending.length > 1024 || !b.pending.every(item => record(item) && exact(item, ['requestId','period','reservationNanoGbp','dispatched']) && validId(item.requestId) && typeof item.period === 'string' && /^\d{4}-\d{2}$/.test(item.period) && integerString(item.reservationNanoGbp) && typeof item.dispatched === 'boolean') || new Set(b.pending.map(item => item.requestId)).size !== b.pending.length) return false;
-  if (v.availability === 'ready' && (!v.configured || !v.credentialAvailable || !v.historyAvailable || !t.accepted || !t.eligible || !b.configured || b.requiresReconciliation || v.activeRequest)) return false;
+  if (v.credentialValidation === 'valid' && (!v.configured || !v.credentialAvailable)) return false;
+  if (v.availability === 'ready' && (v.credentialValidation !== 'valid' || !v.configured || !v.credentialAvailable || !v.historyAvailable || !t.accepted || !t.eligible || !b.configured || b.requiresReconciliation || v.activeRequest)) return false;
   return true;
 }
 // Only inert metadata crosses this seam. A renderer path, original bytes or

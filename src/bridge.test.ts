@@ -21,9 +21,24 @@ describe('closed Meta/persistence IPC envelope (T-055)', () => {
     const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');
     await nativeBridge.configureCredential(); expect(invoke).toHaveBeenLastCalledWith('configure_meta_credential', undefined);
     await nativeBridge.removeCredential(); expect(invoke).toHaveBeenLastCalledWith('remove_meta_credential', undefined);
+    await nativeBridge.verifyCredential!(); expect(invoke).toHaveBeenLastCalledWith('verify_meta_credential', undefined);
     await nativeBridge.acceptContributorTerms(); expect(invoke).toHaveBeenLastCalledWith('accept_contributor_terms', undefined);
     await nativeBridge.createConversation(); expect(invoke).toHaveBeenLastCalledWith('create_conversation', undefined);
     await nativeBridge.listConversations(); expect(invoke).toHaveBeenLastCalledWith('list_conversations', undefined);
+  });
+  it('keeps local Personalization and inert catalogue edits in separate closed commands (T-088/T-093)', async () => {
+    (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');
+    const profile = { customInstructions: 'LOCAL_ONLY_CANARY', nickname: '', occupation: '', moreAboutYou: '' };
+    await nativeBridge.getPersonalization!(); expect(invoke).toHaveBeenLastCalledWith('get_personalization', undefined);
+    await nativeBridge.savePersonalization!({ expectedRevision: 1, profile }); expect(invoke).toHaveBeenLastCalledWith('save_personalization', { input: { expectedRevision: 1, profile } });
+    await nativeBridge.clearPersonalization!({ expectedRevision: 2 }); expect(invoke).toHaveBeenLastCalledWith('clear_personalization', { input: { expectedRevision: 2 } });
+    await nativeBridge.getCustomization!(); expect(invoke).toHaveBeenLastCalledWith('get_customization', undefined);
+    await nativeBridge.getCustomizationPackage!({ id: 'skill:synthetic' }); expect(invoke).toHaveBeenLastCalledWith('get_customization_package', { input: { id: 'skill:synthetic' } });
+    await nativeBridge.setCustomizationEnabled!({ expectedRevision: 3, id: 'builtin:github', enabled: false }); expect(invoke).toHaveBeenLastCalledWith('set_customization_enabled', { input: { expectedRevision: 3, id: 'builtin:github', enabled: false } });
+    await nativeBridge.importCustomization!({ expectedRevision: 4 }); expect(invoke).toHaveBeenLastCalledWith('import_customization', { input: { expectedRevision: 4 } });
+    expect(vi.mocked(invoke).mock.calls.some(call => call[0] === 'send_message')).toBe(false);
+    expect(JSON.stringify(vi.mocked(invoke).mock.calls)).not.toMatch(/apiKey|accessToken|endpoint|powershell|commandLine/);
   });
   it('fails closed when the native host is absent', async () => {
     const { nativeBridge } = await import('./bridge');
@@ -31,6 +46,48 @@ describe('closed Meta/persistence IPC envelope (T-055)', () => {
     await expect(nativeBridge.createConversation()).rejects.toThrow('host_unavailable');
     await expect(nativeBridge.windowAction!({ action: 'close' })).rejects.toThrow('host_unavailable');
     await expect(nativeBridge.subscribeClose!(() => {})).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.getGitHubStatus!()).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.beginGitHubConnection!()).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.pollGitHubConnection!()).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.cancelGitHubConnection!()).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.disconnectGitHub!()).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.listGitHubRepositories!()).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.selectGitHubRepository!({ installationId: 1, repositoryId: 2 })).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.readGitHubFile!({ path: 'README.md', branch: 'main' })).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.recordRenderEvent!({ protocolVersion: 1, phase: 'mounted' })).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.getRenderTrace!()).rejects.toThrow('host_unavailable');
+    await expect(nativeBridge.generateCustomization!({ requestId: 'a'.repeat(32), kind: 'skill', description: 'Synthetic fixture only', dataClass: 'synthetic' })).rejects.toThrow('host_unavailable');
+  });
+  it('uses one reviewed Muse-generation route and rejects forged intents or mismatching output receipts (T-089/T-093)', async () => {
+    (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');
+    const input = { requestId: 'a'.repeat(32), kind: 'skill' as const, description: 'Synthetic fixture only', dataClass: 'synthetic' as const };
+    const receipt = { conversationId: 'b'.repeat(32), requestId: input.requestId, accepted: true };
+    vi.mocked(invoke).mockResolvedValueOnce(receipt); await expect(nativeBridge.generateCustomization!(input)).resolves.toEqual(receipt); expect(invoke).toHaveBeenLastCalledWith('generate_customization', { input });
+    vi.mocked(invoke).mockClear();
+    for (const value of [{ ...input, profile: 'PRIVATE_PROFILE_CANARY' }, { ...input, endpoint: 'https://invalid.example' }, { ...input, confirmed: true }, { ...input, description: '' }, { ...input, requestId: 'invalid' }, { ...input, kind: 'mcp' }, { ...input, dataClass: 'private' }]) await expect(nativeBridge.generateCustomization!(value as typeof input)).rejects.toThrow('generation_intent_invalid');
+    expect(invoke).not.toHaveBeenCalled();
+    for (const value of [{ ...receipt, requestId: 'wrong' }, { ...receipt, accepted: false }, { ...receipt, approved: true }, { ...receipt, conversationId: '' }]) { vi.mocked(invoke).mockResolvedValueOnce(value); await expect(nativeBridge.generateCustomization!(input)).rejects.toThrow('generation_receipt_unavailable'); }
+    expect(JSON.stringify(vi.mocked(invoke).mock.calls)).not.toMatch(/PRIVATE_PROFILE_CANARY|apiKey|repository|approved|endpoint|profile/);
+  });
+  it('exposes only the reviewed GitHub auth/read command envelopes, without endpoint or approval authority (T-090/T-091)', async () => {
+    (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');
+    for (const [method, command] of [['getGitHubStatus', 'get_github_status'], ['beginGitHubConnection', 'begin_github_connection'], ['pollGitHubConnection', 'poll_github_connection'], ['cancelGitHubConnection', 'cancel_github_connection'], ['disconnectGitHub', 'disconnect_github'], ['listGitHubRepositories', 'list_github_repositories']] as const) {
+      await nativeBridge[method]!(); expect(invoke).toHaveBeenLastCalledWith(command, undefined);
+    }
+    await nativeBridge.selectGitHubRepository!({ installationId: 1, repositoryId: 2 }); expect(invoke).toHaveBeenLastCalledWith('select_github_repository', { input: { installationId: 1, repositoryId: 2 } });
+    await nativeBridge.readGitHubFile!({ path: 'README.md', branch: 'main' }); expect(invoke).toHaveBeenLastCalledWith('read_github_file', { input: { path: 'README.md', branch: 'main' } });
+    expect(Object.keys(nativeBridge).filter(key => /github/i.test(key))).toHaveLength(8);
+    expect(Object.keys(nativeBridge).join('|')).not.toMatch(/setGitHubEnabled|mergePull|writeFile|createIssue|invoke|execute/);
+    expect(JSON.stringify(vi.mocked(invoke).mock.calls)).not.toMatch(/apiKey|accessToken|deviceCode|clientSecret|approved|confirmed|https:|endpoint|commandLine/);
+  });
+  it('keeps rendering diagnostics in fixed content-free observation commands (T-086)', async () => {
+    (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');
+    await nativeBridge.recordRenderEvent!({ protocolVersion: 1, phase: 'mounted' }); expect(invoke).toHaveBeenLastCalledWith('record_render_event', { input: { protocolVersion: 1, phase: 'mounted' } });
+    await nativeBridge.getRenderTrace!(); expect(invoke).toHaveBeenLastCalledWith('get_render_trace', undefined);
+    expect(JSON.stringify(vi.mocked(invoke).mock.calls)).not.toMatch(/url|path|content|credential|approved|upload|visibleAtMs/);
   });
   it('uses only the bounded window DTO and main close-notification channel (T-069)', async () => {
     (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};

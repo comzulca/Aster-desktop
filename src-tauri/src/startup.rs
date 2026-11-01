@@ -1,6 +1,7 @@
 //! Bounded initial presentation only (NFR-008 / TM-030 / T-077).
 //! Shell readiness is a scheduling signal, never proof of native painting or
 //! permission to read, disclose, spend, restore a grant or mutate user data.
+use crate::render_trace::{NativePhase, RenderTrace};
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{Arc, Mutex, MutexGuard},
@@ -190,14 +191,18 @@ impl Policy {
 pub(crate) struct StartupGate {
     started: Instant,
     policy: Arc<Mutex<Policy>>,
+    render_trace: RenderTrace,
 }
 
 impl StartupGate {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new(render_trace: RenderTrace) -> Self {
+        let gate = Self {
             started: Instant::now(),
             policy: Arc::new(Mutex::new(Policy::new())),
-        }
+            render_trace,
+        };
+        gate.render_trace.native(NativePhase::StartupGateCreated);
+        gate
     }
 
     fn policy(&self) -> MutexGuard<'_, Policy> {
@@ -213,11 +218,48 @@ impl StartupGate {
         self.started.elapsed().as_millis().min(u64::MAX as u128) as u64
     }
 
+    fn admit_shell(
+        &self,
+        caller: &str,
+        protocol_version: u8,
+        clock: impl FnOnce() -> u64,
+    ) -> Result<(), &'static str> {
+        let mut policy = self.policy();
+        // Preserve the original receiver/argument evaluation order: the gate
+        // clock is sampled after Policy acquisition, never before contention.
+        let elapsed_ms = clock();
+        let was_ready = policy.ready;
+        policy.admit_shell(caller, protocol_version, elapsed_ms)?;
+        if !was_ready && policy.ready {
+            // Only Policy -> Trace nesting: the milestone cannot overtake the
+            // serialised reveal decision, and a replay is not a new admission.
+            self.render_trace.native(NativePhase::StartupShellAccepted);
+        }
+        Ok(())
+    }
+
+    fn begin_reveal(&self, clock: impl FnOnce() -> u64) -> Option<RevealReason> {
+        let mut policy = self.policy();
+        let reason = policy.begin_reveal(clock())?;
+        self.render_trace.native(match reason {
+            RevealReason::ShellReady => NativePhase::StartupRevealReady,
+            RevealReason::Deadline => NativePhase::StartupRevealDeadline,
+        });
+        Some(reason)
+    }
+
+    fn dispatch_denied(&self, reason: RevealReason, clock: impl FnOnce() -> u64) {
+        let mut policy = self.policy();
+        let elapsed_ms = clock();
+        self.render_trace.native(NativePhase::StartupDispatchDenied);
+        policy.complete_reveal(reason, false, elapsed_ms);
+    }
+
     fn reveal_if_due(&self, window: &WebviewWindow) -> Result<(), String> {
         if window.label() != crate::MAIN_WINDOW {
             return Err("caller_denied".into());
         }
-        let Some(reason) = self.policy().begin_reveal(self.elapsed_ms()) else {
+        let Some(reason) = self.begin_reveal(|| self.elapsed_ms()) else {
             return Ok(());
         };
         let gate = self.clone();
@@ -227,7 +269,18 @@ impl StartupGate {
         // only for this owned window during that single show call.
         if window
             .run_on_main_thread(move || {
+                gate.render_trace.native(NativePhase::StartupShowStarted);
                 let outcome = show_without_activation(&owned_window);
+                gate.render_trace.native(outcome.observed_phase());
+                use tauri::Manager;
+                owned_window
+                    .state::<crate::render_trace::RenderTrace>()
+                    .native(if outcome.visible {
+                        crate::render_trace::NativePhase::ParentVisible
+                    } else {
+                        crate::render_trace::NativePhase::VisibilityDenied
+                    });
+                crate::webview_render_observer::sample_on_ui_thread();
                 let mut policy = gate.policy();
                 policy.complete_reveal(reason, outcome.visible, gate.elapsed_ms());
                 if outcome.cleanup_failed {
@@ -236,8 +289,7 @@ impl StartupGate {
             })
             .is_err()
         {
-            self.policy()
-                .complete_reveal(reason, false, self.elapsed_ms());
+            self.dispatch_denied(reason, || self.elapsed_ms());
             return Err("startup_visibility_unavailable".into());
         }
         Ok(())
@@ -265,6 +317,16 @@ impl StartupGate {
 struct ShowOutcome {
     visible: bool,
     cleanup_failed: bool,
+}
+impl ShowOutcome {
+    fn observed_phase(&self) -> NativePhase {
+        match (self.visible, self.cleanup_failed) {
+            (true, false) => NativePhase::StartupShowVisible,
+            (false, false) => NativePhase::StartupShowDenied,
+            (true, true) => NativePhase::StartupShowVisibleCleanupFailed,
+            (false, true) => NativePhase::StartupShowDeniedCleanupFailed,
+        }
+    }
 }
 
 // A fixed native CBT hook, not an input hook. In particular, a negative code,
@@ -415,8 +477,7 @@ pub(crate) async fn startup_shell_ready(
     input: ShellIntent,
 ) -> Result<ShellReceipt, String> {
     crate::trusted(&window)?;
-    gate.policy()
-        .admit_shell(window.label(), input.protocol_version, gate.elapsed_ms())
+    gate.admit_shell(window.label(), input.protocol_version, || gate.elapsed_ms())
         .map_err(str::to_owned)?;
     gate.reveal_if_due(&window)?;
     Ok(ShellReceipt {
@@ -430,6 +491,17 @@ pub(crate) async fn startup_shell_ready(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn native_phases(trace: &RenderTrace) -> Vec<String> {
+        let value = serde_json::to_value(trace.snapshot_for_fixture()).unwrap();
+        value["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|event| event["source"] == "native")
+            .map(|event| event["phase"].as_str().unwrap().to_owned())
+            .collect()
+    }
 
     #[test]
     fn activation_veto_is_only_owned_window_focus_or_activation_not_input() {
@@ -621,5 +693,299 @@ mod tests {
         let mut state = policy.lock().unwrap();
         state.complete_reveal(RevealReason::Deadline, true, 10_001);
         assert_eq!(state.begin_reveal(10_002), None);
+    }
+
+    #[test]
+    fn native_shell_marker_records_only_first_admission_not_forgery_replay_or_late_ack() {
+        let trace = RenderTrace::new();
+        let gate = StartupGate::new(trace.clone());
+        let clone = gate.clone();
+        assert_eq!(
+            native_phases(&trace),
+            ["host_created", "startup_gate_created"]
+        );
+        for caller in ["", "other", "MAIN", "main-child"] {
+            assert_eq!(clone.admit_shell(caller, 1, || 6_000), Err("caller_denied"));
+        }
+        assert_eq!(
+            clone.admit_shell(crate::MAIN_WINDOW, 2, || 6_000),
+            Err("incompatible_startup_protocol")
+        );
+        assert_eq!(
+            native_phases(&trace),
+            ["host_created", "startup_gate_created"]
+        );
+        clone.admit_shell(crate::MAIN_WINDOW, 1, || 100).unwrap();
+        for now in [100, 1_000, 5_000, 5_999] {
+            assert_eq!(gate.begin_reveal(|| now), None);
+            gate.admit_shell(crate::MAIN_WINDOW, 1, || now).unwrap();
+        }
+        assert_eq!(clone.begin_reveal(|| 6_000), Some(RevealReason::ShellReady));
+        assert_eq!(gate.begin_reveal(|| 6_000), None);
+        gate.policy()
+            .complete_reveal(RevealReason::ShellReady, true, 6_001);
+        gate.admit_shell(crate::MAIN_WINDOW, 1, || 12_000).unwrap();
+        assert_eq!(gate.begin_reveal(|| 12_000), None);
+        assert_eq!(
+            native_phases(&trace),
+            [
+                "host_created",
+                "startup_gate_created",
+                "startup_shell_accepted",
+                "startup_reveal_ready",
+            ]
+        );
+        assert_eq!(gate.policy().presentation, Presentation::VisibleRequested);
+        assert_eq!(gate.policy().trace.len(), 4);
+    }
+
+    #[test]
+    fn native_deadline_marker_does_not_invent_late_readiness_or_accept_stale_completion() {
+        let trace = RenderTrace::new();
+        let gate = StartupGate::new(trace.clone());
+        assert_eq!(gate.begin_reveal(|| 9_999), None);
+        assert_eq!(gate.begin_reveal(|| 10_000), Some(RevealReason::Deadline));
+        gate.admit_shell(crate::MAIN_WINDOW, 1, || 10_001).unwrap();
+        gate.policy()
+            .complete_reveal(RevealReason::ShellReady, true, 10_001);
+        assert_eq!(
+            gate.policy().presentation,
+            Presentation::Showing(RevealReason::Deadline)
+        );
+        assert!(!gate.policy().ready);
+        gate.policy()
+            .complete_reveal(RevealReason::Deadline, true, 10_002);
+        assert_eq!(gate.begin_reveal(|| 20_000), None);
+        assert_eq!(
+            native_phases(&trace),
+            [
+                "host_created",
+                "startup_gate_created",
+                "startup_reveal_deadline"
+            ]
+        );
+    }
+
+    #[test]
+    fn native_show_model_keeps_decision_entry_outcome_order_and_fixed_cleanup_alternatives() {
+        for (visible, cleanup_failed, outcome_phase) in [
+            (true, false, "startup_show_visible"),
+            (false, false, "startup_show_denied"),
+            (true, true, "startup_show_visible_cleanup_failed"),
+            (false, true, "startup_show_denied_cleanup_failed"),
+        ] {
+            let trace = RenderTrace::new();
+            let gate = StartupGate::new(trace.clone());
+            gate.admit_shell(crate::MAIN_WINDOW, 1, || 100).unwrap();
+            let reason = gate.begin_reveal(|| 6_000).unwrap();
+            // Pure boundary model only: no Tauri window, hook or OS show.
+            gate.render_trace.native(NativePhase::StartupShowStarted);
+            let outcome = ShowOutcome {
+                visible,
+                cleanup_failed,
+            };
+            gate.render_trace.native(outcome.observed_phase());
+            trace.native(if outcome.visible {
+                NativePhase::ParentVisible
+            } else {
+                NativePhase::VisibilityDenied
+            });
+            {
+                let mut policy = gate.policy();
+                policy.complete_reveal(reason, outcome.visible, 6_001);
+                if outcome.cleanup_failed {
+                    policy.record(Phase::HookCleanupFailed, 6_001);
+                }
+            }
+            assert_eq!(
+                native_phases(&trace),
+                [
+                    "host_created",
+                    "startup_gate_created",
+                    "startup_shell_accepted",
+                    "startup_reveal_ready",
+                    "startup_show_started",
+                    outcome_phase,
+                    if visible {
+                        "parent_visible"
+                    } else {
+                        "visibility_denied"
+                    },
+                ]
+            );
+            let value = serde_json::to_value(trace.snapshot_for_fixture()).unwrap();
+            let events = value["events"].as_array().unwrap();
+            assert!(events
+                .windows(2)
+                .all(|pair| pair[0]["elapsedMs"].as_u64().unwrap()
+                    <= pair[1]["elapsedMs"].as_u64().unwrap()));
+            assert_eq!(value["visibleAtMs"].is_number(), visible);
+        }
+    }
+
+    #[test]
+    fn native_early_failure_records_only_one_subsequent_deadline_attempt() {
+        let trace = RenderTrace::new();
+        let gate = StartupGate::new(trace.clone());
+        gate.admit_shell(crate::MAIN_WINDOW, 1, || 20).unwrap();
+        assert_eq!(gate.begin_reveal(|| 6_000), Some(RevealReason::ShellReady));
+        gate.render_trace.native(NativePhase::StartupShowStarted);
+        gate.render_trace.native(
+            ShowOutcome {
+                visible: false,
+                cleanup_failed: false,
+            }
+            .observed_phase(),
+        );
+        gate.policy()
+            .complete_reveal(RevealReason::ShellReady, false, 6_001);
+        assert_eq!(gate.begin_reveal(|| 9_999), None);
+        assert_eq!(gate.begin_reveal(|| 10_000), Some(RevealReason::Deadline));
+        gate.render_trace.native(NativePhase::StartupShowStarted);
+        gate.render_trace.native(
+            ShowOutcome {
+                visible: false,
+                cleanup_failed: true,
+            }
+            .observed_phase(),
+        );
+        gate.policy()
+            .complete_reveal(RevealReason::Deadline, false, 10_001);
+        for now in [10_002, 20_000, u64::MAX] {
+            assert_eq!(gate.begin_reveal(|| now), None);
+            gate.admit_shell(crate::MAIN_WINDOW, 1, || now).unwrap();
+        }
+        assert_eq!(gate.policy().presentation, Presentation::DeadlineFailed);
+        assert_eq!(
+            native_phases(&trace),
+            [
+                "host_created",
+                "startup_gate_created",
+                "startup_shell_accepted",
+                "startup_reveal_ready",
+                "startup_show_started",
+                "startup_show_denied",
+                "startup_reveal_deadline",
+                "startup_show_started",
+                "startup_show_denied_cleanup_failed",
+            ]
+        );
+    }
+
+    #[test]
+    fn native_dispatch_denial_never_fabricates_ui_entry_or_returned_show() {
+        let trace = RenderTrace::new();
+        let gate = StartupGate::new(trace.clone());
+        gate.admit_shell(crate::MAIN_WINDOW, 1, || 100).unwrap();
+        let reason = gate.begin_reveal(|| 6_000).unwrap();
+        gate.dispatch_denied(reason, || 6_001);
+        assert_eq!(gate.begin_reveal(|| 9_999), None);
+        let reason = gate.begin_reveal(|| 10_000).unwrap();
+        gate.dispatch_denied(reason, || 10_001);
+        assert_eq!(gate.begin_reveal(|| 20_000), None);
+        assert_eq!(
+            native_phases(&trace),
+            [
+                "host_created",
+                "startup_gate_created",
+                "startup_shell_accepted",
+                "startup_reveal_ready",
+                "startup_dispatch_denied",
+                "startup_reveal_deadline",
+                "startup_dispatch_denied",
+            ]
+        );
+        assert_eq!(gate.policy().presentation, Presentation::DeadlineFailed);
+        let value = serde_json::to_value(trace.snapshot_for_fixture()).unwrap();
+        assert!(value["visibleAtMs"].is_null());
+    }
+
+    #[test]
+    fn native_policy_race_serialises_admission_before_the_single_deadline_marker() {
+        let trace = RenderTrace::new();
+        let gate = StartupGate::new(trace.clone());
+        let barrier = Arc::new(std::sync::Barrier::new(3));
+        let workers: Vec<_> = [false, true]
+            .into_iter()
+            .map(|signal| {
+                let gate = gate.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    if signal {
+                        gate.admit_shell(crate::MAIN_WINDOW, 1, || 10_000).unwrap();
+                    }
+                    gate.begin_reveal(|| 10_000)
+                })
+            })
+            .collect();
+        barrier.wait();
+        let reasons: Vec<_> = workers
+            .into_iter()
+            .filter_map(|worker| worker.join().unwrap())
+            .collect();
+        assert_eq!(reasons, [RevealReason::Deadline]);
+        let phases = native_phases(&trace);
+        assert!(
+            phases
+                == [
+                    "host_created",
+                    "startup_gate_created",
+                    "startup_reveal_deadline"
+                ]
+                || phases
+                    == [
+                        "host_created",
+                        "startup_gate_created",
+                        "startup_shell_accepted",
+                        "startup_reveal_deadline"
+                    ]
+        );
+        assert_eq!(
+            gate.policy().presentation,
+            Presentation::Showing(RevealReason::Deadline)
+        );
+    }
+
+    #[test]
+    fn native_clock_suppliers_are_sampled_once_while_policy_transition_is_locked() {
+        let trace = RenderTrace::new();
+        let gate = StartupGate::new(trace.clone());
+        let calls = std::cell::Cell::new(0);
+        let sampled = |elapsed_ms| {
+            assert!(matches!(
+                gate.policy.try_lock(),
+                Err(std::sync::TryLockError::WouldBlock)
+            ));
+            calls.set(calls.get() + 1);
+            elapsed_ms
+        };
+        gate.admit_shell(crate::MAIN_WINDOW, 1, || sampled(100))
+            .unwrap();
+        gate.admit_shell(crate::MAIN_WINDOW, 1, || sampled(101))
+            .unwrap();
+        assert_eq!(gate.begin_reveal(|| sampled(5_999)), None);
+        let ready = gate.begin_reveal(|| sampled(6_000)).unwrap();
+        gate.dispatch_denied(ready, || sampled(6_001));
+        assert_eq!(gate.begin_reveal(|| sampled(9_999)), None);
+        let deadline = gate.begin_reveal(|| sampled(10_000)).unwrap();
+        gate.dispatch_denied(deadline, || sampled(10_001));
+        gate.admit_shell(crate::MAIN_WINDOW, 1, || sampled(12_000))
+            .unwrap();
+        assert_eq!(gate.begin_reveal(|| sampled(12_000)), None);
+        assert_eq!(calls.get(), 10);
+        assert_eq!(gate.policy().presentation, Presentation::DeadlineFailed);
+        assert_eq!(
+            native_phases(&trace),
+            [
+                "host_created",
+                "startup_gate_created",
+                "startup_shell_accepted",
+                "startup_reveal_ready",
+                "startup_dispatch_denied",
+                "startup_reveal_deadline",
+                "startup_dispatch_denied",
+            ]
+        );
     }
 }
