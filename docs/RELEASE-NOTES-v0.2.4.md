@@ -1,5 +1,11 @@
 # v0.2.4 engineering candidate notes — 10 October 2026
 
+## 1 November resolution scope
+
+The [current resolution contract](qa/PR-AND-BRANCH-RESOLUTION-20261101.md) supersedes the dated PR/check-only authority below for this scoped maintenance task. PR #41 is being synchronised with the already-integrated 31 October security maintenance. The incompatible standalone WinRT update in PR #44 is excluded without changing the reviewed ABI pair or weakening audits; an early manifest/lock cohort guard adds negative regression controls. Fresh changed-source CI and actual-main package evidence remain required before corresponding integration/delivery claims.
+
+The scope is **partial v0.2.4 engineering**. Runtime GitHub writes/PR integration and full-window automatic compaction remain unavailable. Owner-installed visual/flicker, native/live acceptance, signing, all 42 compound obligations and unresolved GLib are separate. Historical receipts below retain their exact source scope and are not current-source PASS results.
+
 Latest capture-only startup slice: the [numerical report](qa/V024-STARTUP-MEASUREMENT-RESULTS-20261010.md) observes no flash/significant movement in one supplied recording, with explicit frame-rate/clipping/source-binding limits. The [reviewed timing contract](qa/V024-STARTUP-MEASUREMENT-CONTRACT-20261010.md) preserves 6,000/10,000-ms bounds and mitigations, adding fixed native timing categories and critical reservations within 96/60,000. Ten new owner-operated baseline launches and every progressive reduction are NOT RUN. Prior `e1ea2bb` / `38067233773` attempt 1 completed all five jobs and actual 15+6/CPU PASS; no success transfers to the changed measurement source. Original notes below are preserved historical checkpoints, not current speed/cure/final-build claims.
 
 Later hosted evidence, before the historical checkpoints below: the [exact-source receipt](qa/V024-HOSTED-CHECKPOINT-38064110842-20261010.md) observes four successful jobs for head `5008e9b` / run `38064110842` attempt 1 at 15:54:25 UTC. The complete Rust suite and two separate authorised disposable credential cases passed; installer is in progress, not qualified. New unpublished test-only storage sources cannot inherit that PASS. Runtime mutation/full-window migration, installed flicker correction and final/main delivery remain unfinished.

@@ -1,3 +1,7 @@
+## 1 November PR and branch resolution applicability
+
+The owner now requests resolving PRs #41 and #44, then checking active branches. Read the [before-change resolution contract](docs/qa/PR-AND-BRANCH-RESOLUTION-20261101.md). For this scoped task, normal integration is authorised only after all mandatory fresh current-source CI/package gates pass. Earlier PR/check-only restrictions remain dated history and are superseded only for this task. Preserve the partial engineering scope, unavailable runtime mutations/compaction, owner-installed/native/live gaps, all 42 compound obligations and unresolved GLib. Do not weaken checks, force-push, claim a flicker cure or sign/publish a production release.
+
 <!-- V024 BEFORE-CODE SCOPE BEGIN -->
 ## 9 October v0.2.4 development amendment
 
