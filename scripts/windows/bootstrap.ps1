@@ -1,4 +1,4 @@
-# Clone a reviewed private repository into the requested Windows user profile.
+# Clone a reviewed repository into the requested Windows user profile.
 # Run interactively on the user's Windows laptop after the GitHub repo exists.
 # Git Credential Manager handles browser authentication and credential storage.
 
@@ -38,7 +38,7 @@ if (Test-Path -LiteralPath $destination) {
     throw "Destination already exists; inspect it manually before proceeding: $destination"
 }
 
-Write-Host "Cloning the private repository into: $destination"
+Write-Host "Cloning the repository into: $destination"
 # Apply GCM only to this command. Do not request a PAT or place credentials in
 # a remote URL, script, environment variable, log, or app source file.
 & git -c credential.helper=manager -c credential.credentialStore=wincredman clone --origin origin --branch main --single-branch $repositoryUrl $destination
