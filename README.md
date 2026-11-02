@@ -1,3 +1,51 @@
+# Aster Desktop
+
+A Windows 11 desktop agentic harness by Computación Zuliana C.A. (COMZULCA), Venezuela. Built with Tauri, Rust, React and TypeScript, with explicit host-controlled security boundaries.
+
+**Licence: [Apache License 2.0](LICENSE)** · [Licensing and third-party terms](docs/LICENSING.md) · [Engineering status](docs/V0.2.4-DOCUMENTATION-INDEX.md)
+
+## Code_Tree
+
+| Path | Contents |
+| --- | --- |
+| [`.github/`](.github/) | Continuous integration and dependency maintenance. |
+| [`docs/`](docs/) | Specifications, architecture, security reviews and engineering evidence. |
+| [`public/`](public/) | Static application assets. |
+| [`scripts/`](scripts/) | Build, verification, dependency inventories and Windows setup helpers. |
+| [`src-tauri/`](src-tauri/) | Native Rust host, constrained capabilities and preserved vendored dependencies. |
+| [`src/`](src/) | React interface, styles and frontend tests. |
+| [`LICENSE`](LICENSE), [`NOTICE`](NOTICE) | Apache 2.0 licence and COMZULCA attribution. |
+
+## COMZULCA — Open-Source License and Disclaimer
+
+Computación Zuliana C.A. (COMZULCA) is a Venezuelan company seeking to grow and expand with the support of the global developer community. By sharing our software openly, we welcome collaboration, contributions, and opportunities to build useful technology together.
+
+Aster-desktop and all other COMZULCA software products are licensed under the Apache License, Version 2.0. Anyone may use, reproduce, modify, distribute, and create derivative works, including for commercial purposes, without paying COMZULCA license fees or royalties. Commercial use requires no separate permission from COMZULCA, provided the applicable license terms are met.
+
+These permissions are subject to Apache 2.0 and applicable law. Redistribution requires compliance with its conditions, including supplying the license, identifying modified files, and preserving required attribution and NOTICE information. Third-party components retain their respective licenses. Trademark rights are limited to those permitted by Apache 2.0.
+
+Each user, developer, distributor, or other third party is solely responsible for their own decisions, actions, modifications, deployments, and use of COMZULCA products and derivative works. Any misuse, infringement, unlawful activity, unethical conduct, or other improper practice is the responsibility of the individuals or entities involved. COMZULCA and its business partners do not authorize or endorse such conduct and assume no responsibility for decisions or actions taken independently by persons or entities outside the company, to the fullest extent permitted by applicable law.
+
+The products are provided **“AS IS,” without express or implied warranties**, including merchantability, fitness for a particular purpose, and non-infringement, except as required by law or expressly agreed in writing.
+
+To the fullest extent permitted by applicable law, and except for obligations expressly accepted in writing, **neither COMZULCA nor its business partners shall be liable for third-party misuse of COMZULCA products or derivative works, or for resulting losses, damages, claims, or other consequences**. Nothing in this disclaimer excludes or limits liability that cannot legally be excluded or limited.
+
+This disclaimer supplements the Apache License 2.0 without changing its terms or adding restrictions. In the event of conflict, the license governs, subject to applicable law.
+
+Full license: [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+
+## Aster UI preview
+
+![Aster Desktop interface supplied by COMZULCA](docs/assets/Aster_UI.png)
+
+*Interface preview supplied by COMZULCA. Available capabilities and engineering qualification are documented in the [v0.2.4 index](docs/V0.2.4-DOCUMENTATION-INDEX.md).*
+
+## Development and redistribution
+
+Start with [AGENTS.md](AGENTS.md) and the [source checks and Windows build instructions](#source-checks-and-windows-build). Third-party dependencies retain their own licences and notices; see [licensing](docs/LICENSING.md). Apache 2.0 permits free commercial use, modification and redistribution subject to its conditions. Open-source publication is separate from installed-app acceptance, signing and production qualification.
+
+The dated engineering record below is preserved for traceability. Historical references to private visibility or proprietary licensing describe earlier checkpoints and are superseded for COMZULCA-owned material by the [2 November 2026 licensing transition](docs/LICENSING.md).
+
 ## v0.2.4 engineering source — 10 October 2026
 
 Latest startup work: the [sanitised recording/measurement report](docs/qa/V024-STARTUP-MEASUREMENT-RESULTS-20261010.md) records one clean 816-frame owner observation, not repeated acceptance or a cure. The [before-code measurement contract](docs/qa/V024-STARTUP-MEASUREMENT-CONTRACT-20261010.md) adds fixed native milestones and up to nine reserved critical slots within 96 events / 60,000 ms, retaining the 6,000/10,000-ms timers and all dark/non-activation safeguards. The owner agrees to ten baseline tests. Shorter 4,000/2,000-ms candidates remain NOT RUN and are not adopted. Independently observed predecessor head `e1ea2bb` / run `38067233773` attempt 1 passed all five jobs and actual 15+6/causal CPU gates; those results do not qualify this changed measurement source. Earlier checkpoints below remain dated history, and the existing delivered diagnostic stays unchanged.
