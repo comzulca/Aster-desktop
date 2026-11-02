@@ -477,7 +477,11 @@ def generate(
     app = next((package for package in metadata["packages"] if package["id"] == root_id), None)
     if not app or app["name"] != "aster-desktop" or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", app["version"]):
         raise ValueError("Notice title has no valid exact application version")
+    project_notice = read_regular(project / "NOTICE", project, 64 * 1024).decode("utf-8")
+    if not project_notice.strip():
+        raise ValueError("COMZULCA NOTICE must not be empty")
     sections = [
+        "COMZULCA project attribution (NOTICE)\n\n" + project_notice + "\n",
         f"Aster {app['version']} — third-party source notices\n\n",
         "Generated without network access from exact installed locked Rust and npm source packages. "
         "The complete inventory includes build/development sources; requiredForPackagedApp marks the "
@@ -550,6 +554,8 @@ def generate(
         "packagedAppRequirementScope": "Cargo normal dependency closure after target filtering plus installed production npm dependency closure",
         "payloadEvidenceScope": "this source notice inventory proves no installer payload; separate exact manifest-bound CI extraction and passive verification are required for the declared NSIS resources and their byte identities",
         "legalConclusion": "UNASSESSED — this inventory is not legal advice or legal approval",
+        "projectNoticeSha256": hashlib.sha256(project_notice.encode("utf-8")).hexdigest(),
+        "projectNoticeByteCount": len(project_notice.encode("utf-8")),
         "overlayManifestSha256": overlay_manifest_sha256,
         "overlayManifestByteCount": overlay_manifest_byte_count,
         "reviewedOverlays": [dict(EXPECTED_OVERLAYS[key]) for key in sorted(EXPECTED_OVERLAYS)],
