@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2021"
 rust-version = "1.97.0"
 publish = false
-license-file = "../../../LICENSE"
+license = "Apache-2.0"
 
 # Test-only exact-source harness. No Tauri/build script, key, host or PDF API.
 [dependencies]

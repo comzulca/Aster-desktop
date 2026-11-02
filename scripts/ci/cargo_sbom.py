@@ -30,12 +30,14 @@ def make_reports(metadata: dict) -> tuple[dict, dict]:
     if root_id not in by_id:
         raise ValueError("Cargo metadata has no resolvable workspace root")
     app = by_id[root_id]
+    if app.get("license") != "Apache-2.0":
+        raise ValueError("Application root must explicitly declare Apache-2.0")
     root_ref = stable_ref(root_id)
     components = []
     licenses = []
     for package_id, pkg in sorted(by_id.items(), key=lambda item: (item[1]["name"], item[1]["version"], item[0])):
         source_type = (pkg.get("source") or "path").split("+", 1)[0]
-        declared_license = pkg.get("license") or ("LicenseRef-Aster-Proprietary" if package_id == root_id and pkg.get("license_file") else "UNKNOWN")
+        declared_license = pkg.get("license") or "UNKNOWN"
         licenses.append(
             {"name": pkg["name"], "version": pkg["version"], "declaredLicense": declared_license, "sourceType": source_type}
         )
@@ -74,7 +76,7 @@ def make_reports(metadata: dict) -> tuple[dict, dict]:
         "specVersion": "1.5",
         "serialNumber": "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, root_ref)),
         "version": 1,
-        "metadata": {"component": {"type": "application", "bom-ref": root_ref, "name": app["name"], "version": app["version"]}},
+        "metadata": {"component": {"type": "application", "bom-ref": root_ref, "name": app["name"], "version": app["version"], "licenses": [{"expression": app["license"]}]}},
         "components": components,
         "dependencies": sorted(dependencies, key=lambda item: item["ref"]),
     }

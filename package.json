@@ -1,5 +1,6 @@
 {
   "name": "aster-desktop",
+  "license": "Apache-2.0",
   "private": true,
   "version": "0.2.4",
   "type": "module",
