@@ -1,22 +1,4 @@
-# Aster Desktop
-
-A Windows 11 desktop agentic harness by Computación Zuliana C.A. (COMZULCA), Venezuela. Built with Tauri, Rust, React and TypeScript, with explicit host-controlled security boundaries.
-
-**Licence: [Apache License 2.0](LICENSE)** · [Licensing and third-party terms](docs/LICENSING.md) · [Engineering status](docs/V0.2.4-DOCUMENTATION-INDEX.md)
-
-## Code_Tree
-
-| Path | Contents |
-| --- | --- |
-| [`.github/`](.github/) | Continuous integration and dependency maintenance. |
-| [`docs/`](docs/) | Specifications, architecture, security reviews and engineering evidence. |
-| [`public/`](public/) | Static application assets. |
-| [`scripts/`](scripts/) | Build, verification, dependency inventories and Windows setup helpers. |
-| [`src-tauri/`](src-tauri/) | Native Rust host, constrained capabilities and preserved vendored dependencies. |
-| [`src/`](src/) | React interface, styles and frontend tests. |
-| [`LICENSE`](LICENSE), [`NOTICE`](NOTICE) | Apache 2.0 licence and COMZULCA attribution. |
-
-## COMZULCA — Open-Source License and Disclaimer
+# COMZULCA — Open-Source License and Disclaimer
 
 Computación Zuliana C.A. (COMZULCA) is a Venezuelan company seeking to grow and expand with the support of the global developer community. By sharing our software openly, we welcome collaboration, contributions, and opportunities to build useful technology together.
 
@@ -34,11 +16,15 @@ This disclaimer supplements the Apache License 2.0 without changing its terms or
 
 Full license: [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
-## Aster UI preview
-
 ![Aster Desktop interface supplied by COMZULCA](docs/assets/Aster_UI.png)
 
 *Interface preview supplied by COMZULCA. Available capabilities and engineering qualification are documented in the [v0.2.4 index](docs/V0.2.4-DOCUMENTATION-INDEX.md).*
+
+# Aster Desktop
+
+A Windows 11 desktop agentic harness by Computación Zuliana C.A. (COMZULCA), Venezuela. Built with Tauri, Rust, React and TypeScript, with explicit host-controlled security boundaries.
+
+**Licence: [Apache License 2.0](LICENSE)** · [Licensing and third-party terms](docs/LICENSING.md) · [Engineering status](docs/V0.2.4-DOCUMENTATION-INDEX.md)
 
 ## Development and redistribution
 
