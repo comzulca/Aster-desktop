@@ -1,4 +1,4 @@
-**Historical v0.2.3 record — current navigation, 5 November 2026:** the complete original body below retains its dated source/failure scope. For current protocol 4, additive selection, aggregate/expiry limits and current executable evidence, read [attachments.md](attachments.md), [current status](../ENGINEERING-STATUS.md) and the [5 November engineering receipt](../qa/FINAL-ENGINEERING-V024-20261105.md). Earlier replacement-selection and NOT RUN statements do not describe the delivered v0.2.4 source.
+**Historical v0.2.3 record — current navigation, 5 November 2026:** the complete original body below retains its dated source/failure scope. For current policy 4 / IPC protocol 5, additive selection, aggregate/expiry limits and current executable evidence, read [attachments.md](attachments.md), [current status](../ENGINEERING-STATUS.md) and the [5 November engineering receipt](../qa/FINAL-ENGINEERING-V024-20261105.md). Earlier replacement-selection and NOT RUN statements do not describe the delivered v0.2.4 source.
 
 ---
 

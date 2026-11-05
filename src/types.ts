@@ -45,7 +45,7 @@ export interface SendMessageIntent {
   attachmentIds?: string[];
 }
 export interface AppStatus {
-  protocolVersion: 4;
+  protocolVersion: 5;
   policyVersion: 4;
   configured: boolean;
   credentialAvailable: boolean;
@@ -71,6 +71,7 @@ export interface AppStatus {
     warning: boolean;
     requiresReconciliation: boolean;
     configurationExpiresAt: number | null;
+    configurationMaxUntil: number | null;
   };
 }
 export interface StreamEvent {

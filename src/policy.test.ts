@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { formatGbp, parseGbp, validAttachmentSummaries, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
 import { baseline, saved } from './test-fixtures';
 
-describe('protocol 4 renderer validation (T-055/T-061/T-080)', () => {
+describe('protocol 5 renderer validation (T-055/T-061/T-080/T-105)', () => {
   it('admits exactly the reviewed fixed model and false capabilities', () => {
     expect(validStatus(baseline)).toBe(true);
-    for (const version of [1, 2, 3, 5]) expect(validStatus({ ...baseline, protocolVersion: version })).toBe(false);
+    for (const version of [1, 2, 3, 4, 6]) expect(validStatus({ ...baseline, protocolVersion: version })).toBe(false);
     expect(validStatus({ ...baseline, policyVersion: 2 })).toBe(false);
     expect(validStatus({ ...baseline, approved: true })).toBe(false);
     for (const model of ['meta/muse-glimmer-30b','nvidia/nemotron-3.5-lightning-30b-a3b','muse-spark-1.3-standard']) expect(validStatus({ ...baseline, models: [{ id: model, label: 'Unsupported' }] })).toBe(false);
@@ -17,6 +17,9 @@ describe('protocol 4 renderer validation (T-055/T-061/T-080)', () => {
     expect(validStatus({ ...baseline, availability: 'ready', contributor: { ...baseline.contributor, eligible: false } })).toBe(false);
   });
   it('denies malformed financial metadata, unknown fields and duplicate pending identities', () => {
+    for (const value of [undefined, -1, 0, 0.5, '1796515200', Number.NaN, Number.MAX_SAFE_INTEGER]) expect(validStatus({ ...baseline, budget: { ...baseline.budget, configurationMaxUntil: value } })).toBe(false);
+    expect(validStatus({ ...baseline, budget: { ...baseline.budget, configurationMaxUntil: null } })).toBe(false);
+    expect(validStatus({ ...baseline, availability: 'needs_budget', budget: { ...baseline.budget, configured: false, configurationMaxUntil: null } })).toBe(true);
     for (const value of ['-1','1.2','1e3','00',42]) expect(validStatus({ ...baseline, budget: { ...baseline.budget, spentNanoGbp: value } })).toBe(false);
     expect(validStatus({ ...baseline, budget: { ...baseline.budget, limitNanoGbp: '90000000000' } })).toBe(false);
     expect(validStatus({ ...baseline, budget: { ...baseline.budget, accountId: 'personal email' } })).toBe(false);

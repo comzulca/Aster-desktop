@@ -1,14 +1,14 @@
 # Set up and use Aster v0.2.4
 
-This guide describes delivered engineering source `57339a6`, reconciled 5 November 2026. The Windows x64 installer is unsigned; automated qualification and the exact hashes are in the [engineering receipt](qa/FINAL-ENGINEERING-V024-20261105.md). The agent did not install or launch it on the owner's laptop.
+This guide includes the [5 November spending/Send correction](qa/SEND-READINESS-20261105.md), IPC protocol 5 and unchanged financial policy 4. The prior `57339a6` [engineering receipt](qa/FINAL-ENGINEERING-V024-20261105.md) describes earlier bytes only; the corrected unsigned Windows x64 installer requires fresh CI/package evidence. The agent does not launch the app on the owner's laptop.
 
 ## Configure before sending
 
 1. Close Aster normally and install the verified engineering setup. Restart Aster using the installed application.
 2. Open **Settings → Providers**. Configure/change the direct Meta Model API key only in the native Windows dialogue, then use **Validate key in Windows** as needed. Never paste a key in chat, a repository, a prompt or an ordinary settings text field. Successful model retrieval proves current-key authentication/model visibility, not billing, quota or territorial eligibility.
-3. In **Settings → Usage**, enter a current conservative spending configuration: account alias, integer GBP-per-USD rate, safety margin, tax/payment assumptions and a valid expiry. Review it in Windows. The maximum is 31 days and the configuration cannot exceed Aster's current policy deadline. Changing an account alias does not reset charges and may invalidate earlier eligibility; configure the budget before the final terms review.
+3. In **Settings → Usage**, enter explicit integer GBP-per-USD conversion, positive safety margin and tax/payment assumptions. Choose a future expiry within the displayed local host limit: at most 31 days and never past the policy deadline. Select **Review financial configuration in Windows**, confirm the exact native proposal and check **Policy status: Active** and its confirmed expiry. Filled fields or a cancelled review do not activate a policy. Account identity and earlier charges are retained, without reset. For the reported London setup, **30 November 2026 at 23:59** fits the November window; **6 December at 20:33** does not.
 4. Return to **Providers → Review terms and eligibility in Windows**. Read the complete native proposal and independently check account, territory and direct-API rights before confirming. Coding-harness subscription credentials restricted to that harness must not be reused in Aster.
-5. Use synthetic or eligible public content only. Classify the complete message and attachments, choose the required reasoning effort and send only after reading the separate complete native disclosure. Personalization is local-only; it is not sent as model instructions.
+5. Write a non-empty eligible message. Open the reasoning menu (initially **Medium**) → **Classify content** → **Synthetic** or **Eligible public**, choosing correctly for the complete message and attachments. Read the composer prerequisite notice if Send is disabled. Send opens a separate complete native disclosure review before dispatch. Personalization remains local-only.
 
 The terms button intentionally displays a host-authored JSON proposal in a native read-only reviewer. It is an eligibility/terms operation, not a Meta inference response. Review version 1 binds one exact native operation and is not model approval.
 

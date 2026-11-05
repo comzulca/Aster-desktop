@@ -18,6 +18,7 @@ const WARNING: u64 = 80_100_000_000;
 const MAX_RESERVE_USD: u64 = 106_496_000;
 const MAX_RECORDS: usize = 4096;
 const MAX_PENDING: usize = 1024;
+const MAX_CONFIGURATION_SECONDS: u64 = 31 * 86_400;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -113,6 +114,7 @@ pub struct BudgetStatus {
     pub warning: bool,
     pub requires_reconciliation: bool,
     pub configuration_expires_at: Option<u64>,
+    pub configuration_max_until: Option<u64>,
 }
 
 fn fail() -> StoreError {
@@ -155,7 +157,31 @@ fn configuration_valid(config: &Configuration, now: u64) -> bool {
         && config.payment_bps <= 10_000
         && config.valid_until_unix > now
         && config.valid_until_unix <= deadline
-        && config.valid_until_unix - now <= 31 * 86_400
+        && config.valid_until_unix - now <= MAX_CONFIGURATION_SECONDS
+}
+
+fn configuration_max_until(now: u64) -> Option<u64> {
+    let deadline = contributor_policy::spending_deadline(now)?;
+    Some(deadline.min(now.checked_add(MAX_CONFIGURATION_SECONDS)?))
+}
+
+/// Actionable proposal errors; the durable ledger independently revalidates.
+/// This never changes an expiry, approves a review or clears spending.
+pub fn validate_configuration_proposal(
+    config: &Configuration,
+    now: u64,
+) -> Result<(), &'static str> {
+    let maximum = configuration_max_until(now).ok_or("contributor_policy_expired")?;
+    if config.valid_until_unix <= now {
+        return Err("budget_expiry_not_future");
+    }
+    if config.valid_until_unix > maximum {
+        return Err("budget_expiry_out_of_range");
+    }
+    if !configuration_valid(config, now) {
+        return Err("budget_configuration_invalid");
+    }
+    Ok(())
 }
 
 /// Gregorian conversion and EU BST transitions used by Europe/London since
@@ -561,6 +587,7 @@ impl Budget {
                 .configuration
                 .as_ref()
                 .map(|c| c.valid_until_unix),
+            configuration_max_until: configuration_max_until(now),
         }
     }
     pub fn review_context(&self, request: Option<&str>) -> Result<serde_json::Value, StoreError> {
@@ -626,6 +653,71 @@ mod tests {
             cached_tokens: 30,
             reasoning_tokens: 10,
         }
+    }
+    #[test]
+    fn configuration_proposal_rejects_the_reported_expiry_and_accepts_valid_activation() {
+        let now = contributor_policy::REVIEWED_AT + 20 * 3600 + 33 * 60;
+        let mut proposed = config();
+        proposed.gbp_per_usd_ppm = 743_053;
+        proposed.margin_bps = 1000;
+        proposed.tax_bps = 2000;
+        proposed.payment_bps = 300;
+        proposed.valid_until_unix = contributor_policy::EXPIRES_AT + 20 * 3600 + 33 * 60;
+        assert_eq!(
+            validate_configuration_proposal(&proposed, now),
+            Err("budget_expiry_out_of_range")
+        );
+        let mut b = Budget::restore(PrivateStore::memory(Domain::Budget)).unwrap();
+        assert!(b.configure(proposed.clone(), now, now).is_err());
+        assert!(!b.status(now).configured);
+        assert_eq!(b.status(now).spent_nano_gbp, "0");
+        assert_eq!(
+            b.status(now).configuration_max_until,
+            Some(contributor_policy::EXPIRES_AT)
+        );
+        proposed.valid_until_unix = contributor_policy::EXPIRES_AT - 6 * 86_400 - 60;
+        assert_eq!(validate_configuration_proposal(&proposed, now), Ok(()));
+        b.configure(proposed.clone(), now, now).unwrap();
+        assert!(b.available(now));
+        let b = Budget::restore(b.store).unwrap();
+        assert!(b.available(now));
+        assert_eq!(
+            b.status(now).configuration_expires_at,
+            Some(proposed.valid_until_unix)
+        );
+    }
+    #[test]
+    fn configuration_proposal_enforces_exact_host_deadline_and_numeric_bounds() {
+        let now = contributor_policy::REVIEWED_AT + 3600;
+        let mut proposed = config();
+        proposed.valid_until_unix = contributor_policy::EXPIRES_AT;
+        assert_eq!(validate_configuration_proposal(&proposed, now), Ok(()));
+        proposed.valid_until_unix += 1;
+        assert_eq!(
+            validate_configuration_proposal(&proposed, now),
+            Err("budget_expiry_out_of_range")
+        );
+        proposed.valid_until_unix = now;
+        assert_eq!(
+            validate_configuration_proposal(&proposed, now),
+            Err("budget_expiry_not_future")
+        );
+        proposed.valid_until_unix = now + 1;
+        proposed.margin_bps = 0;
+        assert_eq!(
+            validate_configuration_proposal(&proposed, now),
+            Err("budget_configuration_invalid")
+        );
+        proposed.margin_bps = 1000;
+        proposed.gbp_per_usd_ppm = 10_000_001;
+        assert_eq!(
+            validate_configuration_proposal(&proposed, now),
+            Err("budget_configuration_invalid")
+        );
+        assert_eq!(
+            validate_configuration_proposal(&proposed, contributor_policy::EXPIRES_AT),
+            Err("contributor_policy_expired")
+        );
     }
     #[test]
     fn integer_cost_cache_and_reasoning_not_double_counted() {

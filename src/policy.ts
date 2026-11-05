@@ -18,7 +18,7 @@ export function validMessage(text: string): boolean {
 }
 export function validStatus(v: unknown): v is AppStatus {
   if (!record(v) || !exact(v, ['protocolVersion','policyVersion','configured','credentialAvailable','credentialValidation','defaultModel','models','activeRequest','projectSelected','projectLabel','capabilities','availability','contributor','historyAvailable','budget'])) return false;
-  if (v.protocolVersion !== 4 || v.policyVersion !== 4 || v.defaultModel !== DEFAULT_MODEL ||
+  if (v.protocolVersion !== 5 || v.policyVersion !== 4 || v.defaultModel !== DEFAULT_MODEL ||
       !['configured','credentialAvailable','activeRequest','historyAvailable'].every(k => typeof v[k] === 'boolean') ||
       !['missing','unverified','valid','invalid','unavailable'].includes(String(v.credentialValidation)) ||
       v.projectSelected !== false || v.projectLabel !== null || !Array.isArray(v.models) || v.models.length !== 1 ||
@@ -28,15 +28,16 @@ export function validStatus(v: unknown): v is AppStatus {
   const c = v.capabilities, t = v.contributor, b = v.budget;
   if (!record(c) || !exact(c, ['projectRead','proposals','applyNewFile','applyExistingFile','attachmentImport']) || typeof c.attachmentImport !== 'boolean' || ['projectRead','proposals','applyNewFile','applyExistingFile'].some(key => c[key] !== false) ||
       !record(t) || !exact(t, ['termsRevision','accepted','eligible']) || typeof t.termsRevision !== 'string' || t.termsRevision.length > 100 || typeof t.accepted !== 'boolean' || typeof t.eligible !== 'boolean' ||
-      !record(b) || !exact(b, ['accountId','pending','configured','period','limitNanoGbp','spentNanoGbp','reservedNanoGbp','remainingNanoGbp','warning','requiresReconciliation','configurationExpiresAt']) ||
+      !record(b) || !exact(b, ['accountId','pending','configured','period','limitNanoGbp','spentNanoGbp','reservedNanoGbp','remainingNanoGbp','warning','requiresReconciliation','configurationExpiresAt','configurationMaxUntil']) ||
       !(b.accountId === null || (typeof b.accountId === 'string' && /^[a-f0-9]{32}$/.test(b.accountId))) ||
       !['configured','warning','requiresReconciliation'].every(k => typeof b[k] === 'boolean') ||
       !(b.period === null || (typeof b.period === 'string' && /^\d{4}-\d{2}$/.test(b.period))) ||
       !['limitNanoGbp','spentNanoGbp','reservedNanoGbp','remainingNanoGbp'].every(k => integerString(b[k])) ||
-      b.limitNanoGbp !== '89000000000' || !(b.configurationExpiresAt === null || safeInteger(b.configurationExpiresAt))) return false;
+      b.limitNanoGbp !== '89000000000' || !(b.configurationExpiresAt === null || safeInteger(b.configurationExpiresAt)) ||
+      !(b.configurationMaxUntil === null || (safeInteger(b.configurationMaxUntil) && b.configurationMaxUntil > 0 && b.configurationMaxUntil <= 8_640_000_000_000))) return false;
   if (!Array.isArray(b.pending) || b.pending.length > 1024 || !b.pending.every(item => record(item) && exact(item, ['requestId','period','reservationNanoGbp','dispatched']) && validId(item.requestId) && typeof item.period === 'string' && /^\d{4}-\d{2}$/.test(item.period) && integerString(item.reservationNanoGbp) && typeof item.dispatched === 'boolean') || new Set(b.pending.map(item => item.requestId)).size !== b.pending.length) return false;
   if (v.credentialValidation === 'valid' && (!v.configured || !v.credentialAvailable)) return false;
-  if (v.availability === 'ready' && (v.credentialValidation !== 'valid' || !v.configured || !v.credentialAvailable || !v.historyAvailable || !t.accepted || !t.eligible || !b.configured || b.requiresReconciliation || v.activeRequest)) return false;
+  if (v.availability === 'ready' && (v.credentialValidation !== 'valid' || !v.configured || !v.credentialAvailable || !v.historyAvailable || !t.accepted || !t.eligible || !b.configured || b.configurationMaxUntil === null || b.requiresReconciliation || v.activeRequest)) return false;
   return true;
 }
 // Only inert metadata crosses this seam. A renderer path, original bytes or

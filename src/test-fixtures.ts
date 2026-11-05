@@ -4,13 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { DEFAULT_MODEL, type AppStatus, type Bridge, type Conversation, type StreamEvent } from './types';
 
 export const baseline: AppStatus = {
-  protocolVersion: 4, policyVersion: 4, configured: true, credentialAvailable: true,
+  protocolVersion: 5, policyVersion: 4, configured: true, credentialAvailable: true,
   credentialValidation: 'valid',
   defaultModel: DEFAULT_MODEL, models: [{ id: DEFAULT_MODEL, label: 'Muse Spark 1.3 · Contributor' }],
   activeRequest: false, projectSelected: false, projectLabel: null,
   capabilities: { projectRead: false, proposals: false, applyNewFile: false, applyExistingFile: false, attachmentImport: false },
   availability: 'ready', contributor: { termsRevision: '2026-10-09', accepted: true, eligible: true }, historyAvailable: true,
-  budget: { accountId: 'a'.repeat(32), pending: [], configured: true, period: '2026-10', limitNanoGbp: '89000000000', spentNanoGbp: '0', reservedNanoGbp: '0', remainingNanoGbp: '89000000000', warning: false, requiresReconciliation: false, configurationExpiresAt: 1790964000 },
+  budget: { accountId: 'a'.repeat(32), pending: [], configured: true, period: '2026-10', limitNanoGbp: '89000000000', spentNanoGbp: '0', reservedNanoGbp: '0', remainingNanoGbp: '89000000000', warning: false, requiresReconciliation: false, configurationExpiresAt: 1790964000, configurationMaxUntil: 1796515200 },
 };
 export async function selectClassification(value: 'synthetic' | 'public_eligible') {
   await userEvent.click(screen.getByRole('button', { name: 'Reasoning effort' }));

@@ -1,8 +1,14 @@
 # Aster v0.2.4 — engineering notes
 
-Current delivered software snapshot: main `57339a687125a0b1fd8d6cda787649b5a111fa65`, 5 November 2026. This identifies an unsigned engineering artifact, not a production release. [Exact receipt](qa/FINAL-ENGINEERING-V024-20261105.md) / [current status](ENGINEERING-STATUS.md).
+Current maintenance: [PR #70](https://github.com/comzulca/Aster-desktop/pull/70), implemented head `c6974cd`, initial complete candidate run `42109052799`, attempt 1. The PR delivery receipt separately records final main source and verified installer identity. The previous main `57339a6` [receipt](qa/FINAL-ENGINEERING-V024-20261105.md) remains unchanged historical evidence. Unsigned engineering is distinct from production. [Current status](ENGINEERING-STATUS.md).
 
-## 5 November maintenance
+## Spending activation and Send correction
+
+The host publishes its allowed expiry and validates the exact proposal before native review and again at commit. Settings shows the policy deadline in local Windows time, inline errors, declined review and confirmed active/inactive/expiry state. Filling fields alone does not activate a policy. The composer explains empty/invalid/unclassified drafts and links an unconfigured budget to Usage. Classification and separate native disclosure remain mandatory.
+
+IPC protocol changes to 5; financial policy 4, application version 0.2.4, stores, quote replay, reservations, £89 ceiling, dependencies and provider envelope remain unchanged. [SPEC-0008](specs/SPEC-0008.md), [ADR-0023](adr/ADR-0023.md), [threats](security/THREAT-MODEL-0008.md). For the reported London November setup, 30 November at 23:59 fits the host window; 6 December at 20:33 exceeds its 00:00 UTC policy deadline.
+
+## Earlier 5 November maintenance
 
 ### Renewed policy
 
@@ -22,7 +28,7 @@ Traceability: [PR #68](https://github.com/comzulca/Aster-desktop/pull/68), [SPEC
 
 ## Verified engineering evidence
 
-Main run `42081672227`, attempt 1: all five jobs PASS; frontend 178 PASS; default Rust suite 412 PASS / two ignored; the two ignored disposable Credential Manager cases passed separately. The actual packaged executable passed fifteen codec and six resource probes, with independent causal CPU validation. The unsigned installer and twelve resources were independently checked without launching the application/setup. See the [receipt](qa/FINAL-ENGINEERING-V024-20261105.md) for exact identities and limits.
+Initial complete maintenance run `42109052799`, attempt 1: all five jobs PASS; frontend 184 PASS; default Rust suite 414 PASS / two ignored, followed by two separate disposable Credential Manager PASS cases. The actual candidate executable passed fifteen codec/six resource probes and independent causal CPU validation; passive inspection checked twelve resources without launching app/setup. A separate natural-language synthetic Meta stream returned HTTP 200 with complete output and valid usage. The earlier exact-literal assertion failure is preserved as a distinct wording result. See [successor verification](qa/SEND-READINESS-20261105.md#observed-successor-verification) and the [PR delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) for candidate/final-main boundaries.
 
 ## Upgrade and retained limitations
 
@@ -32,4 +38,4 @@ Automatic full-window compaction, the 4-GiB transcript migration and runtime Git
 
 ## Documentation reconciliation
 
-The latest documentation separates current behaviour/evidence from historical preparation. It corrects protocol, attachment, policy-date, test and installer statements without changing runtime code or rebuilding/retagging the delivered file. Earlier candidate notes are preserved byte-for-byte in [RELEASE-NOTES-v0.2.4-history-57339a6.md](RELEASE-NOTES-v0.2.4-history-57339a6.md).
+The [current documentation reconciliation](qa/DOCUMENTATION-SEND-RECONCILIATION-20261105.md) cross-checks status, setup, protocol, expiry, test counts and service/package evidence against the spending/Send implementation. Its follow-up changes Markdown only, requires fresh source checks and does not retag an earlier installer. Earlier candidate notes are preserved byte-for-byte in [RELEASE-NOTES-v0.2.4-history-57339a6.md](RELEASE-NOTES-v0.2.4-history-57339a6.md).

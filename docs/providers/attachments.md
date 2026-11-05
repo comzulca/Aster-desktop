@@ -1,6 +1,6 @@
 # Current attachment contract — v0.2.4
 
-Source `57339a6`, policy/IPC protocol 4, reconciled 5 November 2026. [SPEC-0007](../specs/SPEC-0007.md), [ADR-0022](../adr/ADR-0022.md), [threat register](../security/THREAT-MODEL-0007.md), [operating guide](../SETUP-AND-USE.md).
+The attachment behaviour from `57339a6` is unchanged by the [spending/Send correction](../qa/SEND-READINESS-20261105.md). Current IPC protocol is 5; financial policy remains 4. The earlier receipt qualifies only its recorded source. [SPEC-0007](../specs/SPEC-0007.md), [ADR-0022](../adr/ADR-0022.md), [threat register](../security/THREAT-MODEL-0007.md), [operating guide](../SETUP-AND-USE.md).
 
 ## Selection and custody
 
@@ -41,6 +41,6 @@ Malformed, renamed, oversized or animated input is denied. Source reading/proces
 
 ## Evidence
 
-Host/Rust and frontend regressions cover additive selection, cancellation/rejection retention, aggregate source/text/count limits, duplicate IDs, cross-chat/stale snapshots, consumed deadlines and expiry. Main run `42081672227` passed the actual fifteen codec and six resource cases, including native two-page PDF and causal CPU evidence. [Exact receipt](../qa/FINAL-ENGINEERING-V024-20261105.md).
+Host/Rust and frontend regressions cover additive selection, cancellation/rejection retention, aggregate source/text/count limits, duplicate IDs, cross-chat/stale snapshots, consumed deadlines and expiry. Initial complete maintenance run `42109052799`, attempt 1, passed the actual fifteen codec/six resource cases, including native two-page PDF and independently validated CPU evidence. Passive candidate verification checked twelve exact resources. [Successor verification](../qa/SEND-READINESS-20261105.md#observed-successor-verification) / [final main delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70). The previous [57339a6 receipt](../qa/FINAL-ENGINEERING-V024-20261105.md) retains its original source scope.
 
 This is engineering automation, not owner/live multimodal, native GUI or all-compound qualification. Earlier v0.2.3 failures/contracts are preserved in [meta-attachments-v0.2.3.md](meta-attachments-v0.2.3.md); historical replacement-selection and NOT RUN statements are superseded only within the current explicitly verified scope.

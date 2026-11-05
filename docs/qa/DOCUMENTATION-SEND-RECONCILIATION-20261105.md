@@ -1,0 +1,19 @@
+# Spending/Send documentation reconciliation — 5 November 2026
+
+Before-change documentation scope under SPEC-0006 NFR-012 / AC-085 / T-095. The owner requests resuming engineering delivery and cross-reviewing documentation. Baseline PR #70 implementation head `c6974cdc61d4dd56864fa9076848f3c867e0fff9`, tree `5ba211528ff9532049e1fd91eef2ac8498208463`; observed tested merge `8e92ef76a4e7910ae2193e87e7085c4910b58d1e`, [run 42109052799](https://github.com/comzulca/Aster-desktop/actions/runs/42109052799), attempt 1.
+
+## Reconciliation
+
+The completed implementation uses IPC protocol 5 and financial policy 4. It displays the host's expiry boundary, rejects invalid proposals before native review and at commit, surfaces Settings notices, distinguishes declined review from host-confirmed activation and explains remaining Send prerequisites. First complete hosted verification: all five jobs PASS; frontend 184 PASS; Rust 414 PASS / two ignored, followed by two separate disposable credential PASS cases; actual fifteen codec/six resource probes and causal CPU receipt PASS. Passive PR-candidate verification checked the ZIP digest, manifest, x64 payload, twelve resources, notices and unsigned status without launching app/setup. The candidate is not a final main delivery alias.
+
+An authorised local synthetic text stream with the unchanged provider envelope returned HTTP 200, final stop, DONE and consistent usage. This is distinct from installed Windows/native review or live multimodal acceptance. Retain the earlier exact-literal assertion failure and separately record the successful natural-language probe; do not relabel model wording as deterministic. The optional synthetic browser visual check could not run because its browser download was invalid. DOM/host fixture PASS is not installed visual acceptance.
+
+Current README, status, setup, index, release notes, building, provider/transport and attachment entry pages are cross-checked against implementation and this observed evidence. Correct stale 4/4, 178/412 and current-57339a6 claims; preserve old artifact identities as explicitly previous delivery. Add the source-bound successor to the original pre-publication checkpoint rather than overwriting its failures or NOT RUN cutoff. Latest final main source/run/attempt/hash/delivery identity is recorded in the [PR #70 delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70), independently of the earlier candidate and historical main receipt.
+
+## Invariants and verification
+
+This follow-up changes first-party Markdown only. Preserve README's exact COMZULCA disclaimer/preview prefix, original archives, frozen ledgers, runtime, application version, dependencies/locks, workflows, licences, artwork and inert resources. Validate local links/anchors, archive/prefix identity, canonical current facts, documentation-only diff, secret checks and whitespace. New documentation source requires its own five-job CI before normal integration; the recorded previous PASS is source-bound evidence only. Final engineering delivery still needs verified actual-main provenance and byte-identical alias. No production/signing, app/setup launch, owner-store reset, automatic retries or security changes follow. All 42 compound obligations and unresolved GLib retain their separate status.
+
+## Observed local cross-review
+
+PASS before publication: 148 first-party Markdown pages / 2,127 relative references, zero missing paths or Markdown anchors; five historical archives byte-identical to baseline; exact README disclaimer/preview prefix; IPC/policy facts checked against host and types; Markdown-only tracked diff and whitespace checks. No runtime, locked dependency, workflow or resource changed. The follow-up's hosted checks remain pending at this local cutoff and cannot inherit the first candidate result.
