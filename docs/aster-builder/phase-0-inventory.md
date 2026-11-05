@@ -1,3 +1,11 @@
+# Current inventory navigation — 5 November 2026
+
+The delivered software snapshot is main `57339a6`: policy/IPC 4, sole Meta Contributor inference pair, additive temporary attachments, protected local domains and bounded inert catalogue. Use [ENGINEERING-STATUS.md](../ENGINEERING-STATUS.md), the [current version index](../V0.2.4-DOCUMENTATION-INDEX.md) and the [exact engineering receipt](../qa/FINAL-ENGINEERING-V024-20261105.md) for implemented/test-only/unqualified distinctions and current evidence.
+
+The complete original body below is retained dated inventory/provenance. Its old source baselines, provider roster and FAIL/NOT RUN/current labels are not a new inventory or qualification of `57339a6`. Frozen JSON control ledgers keep their original source identity; this documentation reconciliation does not rewrite them into a new PASS.
+
+---
+
 <!-- OCT9 FINAL ENGINEERING DELIVERY BEGIN -->
 > Final engineering evidence — 9 October 2026, 19:39:30 UTC: actual main `54c64e404b3147170bd5d1a320e11536e9e5406e`, [run 37974140580](https://github.com/comzulca/Aster-desktop/actions/runs/37974140580), attempt 1, passed all five mandatory jobs and the actual 15-codec/six-resource probes. The [final receipt](../qa/FINAL-ENGINEERING-V023-20261009.md) records passive local verification and the byte-identical unsigned `Aster_0.2.3_x64-setup.exe` delivery alias. Earlier dated failures/proposals below remain historical; `qualificationComplete=false`, all 42 compound cases NOT RUN, unresolved GLib and separate owner-installed/manual/live/signing/production obligations are preserved. This documentation follow-up does not change or rebuild the verified executable.
 <!-- OCT9 FINAL ENGINEERING DELIVERY END -->

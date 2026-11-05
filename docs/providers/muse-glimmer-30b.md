@@ -1,3 +1,7 @@
+**Retired provider — 5 November 2026 navigation:** this is a historical contract, not an active v0.2.4 route. The only current inference pair is [Meta Model API / Muse Spark 1.3 Contributor](meta-muse-spark-1.3-contributor.md). Original dated evidence below is preserved without reactivation or new-source qualification.
+
+---
+
 <!-- OCT9 FINAL ENGINEERING APPLICABILITY BEGIN -->
 > Final engineering applicability — 9 October 2026, 19:38:51 UTC: the [canonical receipt](../qa/FINAL-ENGINEERING-V023-20261009.md) records actual main `54c64e404b3147170bd5d1a320e11536e9e5406e`, push run `37974140580`, attempt 1: all five mandatory CI jobs PASS, fifteen codec/six resource probes PASS, and local passive package verification PASS (`VERIFIED_NOT_INSTALLED`). This is an unsigned engineering build, not installed or production acceptance. `qualificationComplete` remains false; previous FAILs are preserved. GLib remains OPEN and UNRESOLVED; all 42 compound protocols and manual/live/signing/production qualification remain NOT RUN. Earlier status paragraphs below are dated source-bound history; these results do not qualify later changed bytes.
 <!-- OCT9 FINAL ENGINEERING APPLICABILITY END -->

@@ -1,3 +1,7 @@
+**Historical v0.2.3 record — current navigation, 5 November 2026:** the complete original body below retains its dated source/failure scope. For current protocol 4, additive selection, aggregate/expiry limits and current executable evidence, read [attachments.md](attachments.md), [current status](../ENGINEERING-STATUS.md) and the [5 November engineering receipt](../qa/FINAL-ENGINEERING-V024-20261105.md). Earlier replacement-selection and NOT RUN statements do not describe the delivered v0.2.4 source.
+
+---
+
 <!-- OCT9 FINAL ENGINEERING APPLICABILITY BEGIN -->
 > Final engineering applicability — 9 October 2026, 19:38:51 UTC: the [canonical receipt](../qa/FINAL-ENGINEERING-V023-20261009.md) records actual main `54c64e404b3147170bd5d1a320e11536e9e5406e`, push run `37974140580`, attempt 1: all five mandatory CI jobs PASS, fifteen codec/six resource probes PASS, and local passive package verification PASS (`VERIFIED_NOT_INSTALLED`). This is an unsigned engineering build, not installed or production acceptance. `qualificationComplete` remains false; previous FAILs are preserved. GLib remains OPEN and UNRESOLVED; all 42 compound protocols and manual/live/signing/production qualification remain NOT RUN. Earlier status paragraphs below are dated source-bound history; these results do not qualify later changed bytes.
 <!-- OCT9 FINAL ENGINEERING APPLICABILITY END -->
