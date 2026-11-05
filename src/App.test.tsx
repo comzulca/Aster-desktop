@@ -254,6 +254,7 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     expect(fake.bridge.removeCredential).not.toHaveBeenCalled(); expect(fake.bridge.configureBudget).not.toHaveBeenCalled(); expect(fake.bridge.reconcileBudget).not.toHaveBeenCalled();
   });
   it('proposes explicit financial integers, preserves account identity and never accepts a key in the renderer', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-10T10:00:00Z'));
     const fake = fakeBridge(); render(<App bridge={fake.bridge}/>); await ready(); await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(document.querySelector('input[type="password"]')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Usage' }));
@@ -261,7 +262,7 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     fireEvent.change(screen.getByLabelText(/Valid until/), { target: { value: '2026-10-20T10:00' } }); await userEvent.click(screen.getByRole('button', { name: 'Review financial configuration in Windows' }));
     expect(fake.bridge.configureBudget).toHaveBeenCalledOnce(); const input = vi.mocked(fake.bridge.configureBudget).mock.calls[0][0];
     expect(input).toMatchObject({ accountId: 'a'.repeat(32), gbpPerUsdPpm: 765432, marginBps: 100, taxBps: 0, paymentBps: 0 }); expect(Number.isInteger(input.validUntilUnix)).toBe(true);
-    expect(JSON.stringify(input)).not.toMatch(/spent|reserved|reset/);
+    expect(JSON.stringify(input)).not.toMatch(/spent|reserved|reset/); clock.mockRestore();
   });
   it('proposes statement-confirmed pending charges with exact decimal arithmetic, not a reset', async () => {
     const status = { ...baseline, availability: 'attention_required' as const, budget: { ...baseline.budget, requiresReconciliation: true, pending: [{ requestId: 'pending_request', period: '2026-10', reservationNanoGbp: '100000000', dispatched: true }] } };

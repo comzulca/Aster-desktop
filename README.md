@@ -24,11 +24,11 @@ Full license: [Apache License, Version 2.0](https://www.apache.org/licenses/LICE
 
 A Windows 11 desktop assistant by Computación Zuliana C.A. (COMZULCA), built with Tauri, Rust, React and TypeScript. The trusted native host owns credentials, document custody, exact disclosure review and spending admission.
 
-**Current version: 0.2.4, unsigned engineering.** The delivered software snapshot is main [`57339a6`](https://github.com/comzulca/Aster-desktop/commit/57339a687125a0b1fd8d6cda787649b5a111fa65), verified on 5 November 2026. A later documentation commit does not retag or requalify those installer bytes.
+**Current version: 0.2.4, unsigned engineering.** The [spending activation and Send correction](docs/qa/SEND-READINESS-20261105.md) adds expiry guidance, visible Settings errors and composer prerequisites with IPC protocol 5. Fresh CI/package evidence must qualify changed source. The previous delivery was main [`57339a6`](https://github.com/comzulca/Aster-desktop/commit/57339a687125a0b1fd8d6cda787649b5a111fa65); its receipt does not qualify newer bytes.
 
 [Current engineering status](docs/ENGINEERING-STATUS.md) · [Setup and use](docs/SETUP-AND-USE.md) · [Version index](docs/V0.2.4-DOCUMENTATION-INDEX.md) · [Engineering notes](docs/RELEASE-NOTES-v0.2.4.md) · [Licence](LICENSE)
 
-## Current engineering build
+## Previous engineering delivery — 57339a6
 
 [Main CI run 42081672227](https://github.com/comzulca/Aster-desktop/actions/runs/42081672227), attempt 1, passed all five mandatory jobs, 178 frontend tests, the 412-PASS Rust suite and the actual fifteen codec/six resource probes. Two native credential cases excluded from the default suite passed separately against disposable hosted targets. This is automated engineering evidence, with owner-installed/live/production acceptance separate.
 

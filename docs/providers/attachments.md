@@ -1,6 +1,6 @@
 # Current attachment contract — v0.2.4
 
-Source `57339a6`, policy/IPC protocol 4, reconciled 5 November 2026. [SPEC-0007](../specs/SPEC-0007.md), [ADR-0022](../adr/ADR-0022.md), [threat register](../security/THREAT-MODEL-0007.md), [operating guide](../SETUP-AND-USE.md).
+The attachment behaviour from `57339a6` is unchanged by the [spending/Send correction](../qa/SEND-READINESS-20261105.md). Current IPC protocol is 5; financial policy remains 4. The earlier receipt qualifies only its recorded source. [SPEC-0007](../specs/SPEC-0007.md), [ADR-0022](../adr/ADR-0022.md), [threat register](../security/THREAT-MODEL-0007.md), [operating guide](../SETUP-AND-USE.md).
 
 ## Selection and custody
 

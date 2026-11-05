@@ -600,7 +600,7 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         "ready"
     };
     Ok(AppStatus {
-        protocol_version: 4,
+        protocol_version: 5,
         policy_version: POLICY_VERSION,
         configured,
         credential_available,
@@ -847,6 +847,7 @@ async fn configure_budget(
     if !contributor_policy::current(time) {
         return Err("contributor_policy_expired".into());
     }
+    budget::validate_configuration_proposal(&input, time).map_err(str::to_owned)?;
     let (status, period_review) = {
         let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
         let p = persistent(&mut state)?;
@@ -865,6 +866,7 @@ async fn configure_budget(
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
     let p = persistent(&mut state)?;
     let commit_time = now()?;
+    budget::validate_configuration_proposal(&input, commit_time).map_err(str::to_owned)?;
     // Bind the native review to its actual London period before any identity
     // mutation. The durable Configure transition checks it again at commit.
     p.budget
@@ -1405,7 +1407,7 @@ async fn send_message_for_origin(
         }
         let body=provider::exact_body_with_media(model,&admitted.messages,effort,&media).map_err(|e|e.code().to_owned())?;
         let sources:Vec<_> = files.iter().map(|file|serde_json::json!({"metadata":file.metadata,"sourceSha256":file.source_sha256,"egress":if file.metadata.kind==AttachmentKind::Pdf{"Exact native PDF inline"}else if file.metadata.kind==AttachmentKind::Image{"Complete normalised PNG inline"}else{"Complete processed text in newest prompt"}})).collect();
-        let metadata=serde_json::json!({"protocolVersion":4,"policyVersion":POLICY_VERSION,"requestId":input.request_id,"conversationId":input.conversation_id,"dataClass":class.as_str(),"reasoningEffort":input.reasoning_effort,"model":DEFAULT_MODEL,"maximumCompletionTokens":8192,"attachments":sources,"completeOriginalAttestation":"The selected classification applies to the complete original including PDF metadata, embedded or hidden objects, not just visible pages. I have established rights and eligibility. Meta may use inputs and outputs for training. Page preview cannot prove that hidden content is absent.","nativeAuthority":"One exact body only. Original allocations expire after five minutes; no tools, file or browser authority. Processed visual history is local only; reattach for another complete native reading."}).to_string();
+        let metadata=serde_json::json!({"protocolVersion":5,"policyVersion":POLICY_VERSION,"requestId":input.request_id,"conversationId":input.conversation_id,"dataClass":class.as_str(),"reasoningEffort":input.reasoning_effort,"model":DEFAULT_MODEL,"maximumCompletionTokens":8192,"attachments":sources,"completeOriginalAttestation":"The selected classification applies to the complete original including PDF metadata, embedded or hidden objects, not just visible pages. I have established rights and eligibility. Meta may use inputs and outputs for training. Page preview cannot prove that hidden content is absent.","nativeAuthority":"One exact body only. Original allocations expire after five minutes; no tools, file or browser authority. Processed visual history is local only; reattach for another complete native reading."}).to_string();
         let document=ReviewDocument::disclosure_with_context(&body,&metadata).map_err(|_|"native_review_unavailable".to_owned())?;
         let document=if previews.is_empty(){document}else{document.with_visuals(previews).map_err(|_|"native_review_unavailable".to_owned())?};
         let document=if let Some(deadline)=files.iter().map(AdmittedAttachment::deadline).min(){document.with_source_deadline(deadline)}else{document};

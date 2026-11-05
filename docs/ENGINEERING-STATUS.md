@@ -1,5 +1,7 @@
 # Current engineering status
 
+**Spending/Send maintenance:** the [5 November correction](qa/SEND-READINESS-20261105.md) supersedes the earlier form/readiness description with IPC protocol 5. The source-specific evidence below retains its original scope; corrected bytes need fresh CI/package evidence.
+
 Reconciled 5 November 2026. The delivered software snapshot is [`57339a687125a0b1fd8d6cda787649b5a111fa65`](https://github.com/comzulca/Aster-desktop/commit/57339a687125a0b1fd8d6cda787649b5a111fa65), after [PR #68](https://github.com/comzulca/Aster-desktop/pull/68), with [main CI 42081672227, attempt 1](https://github.com/comzulca/Aster-desktop/actions/runs/42081672227). These identities describe the software artifact; later documentation revisions are not a new installer qualification.
 
 ## Capability and evidence matrix
