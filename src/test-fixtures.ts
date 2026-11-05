@@ -9,7 +9,7 @@ export const baseline: AppStatus = {
   defaultModel: DEFAULT_MODEL, models: [{ id: DEFAULT_MODEL, label: 'Muse Spark 1.3 · Contributor' }],
   activeRequest: false, projectSelected: false, projectLabel: null,
   capabilities: { projectRead: false, proposals: false, applyNewFile: false, applyExistingFile: false, attachmentImport: false },
-  availability: 'ready', contributor: { termsRevision: '2026-10-02', accepted: true, eligible: true }, historyAvailable: true,
+  availability: 'ready', contributor: { termsRevision: '2026-10-09', accepted: true, eligible: true }, historyAvailable: true,
   budget: { accountId: 'a'.repeat(32), pending: [], configured: true, period: '2026-10', limitNanoGbp: '89000000000', spentNanoGbp: '0', reservedNanoGbp: '0', remainingNanoGbp: '89000000000', warning: false, requiresReconciliation: false, configurationExpiresAt: 1790964000 },
 };
 export async function selectClassification(value: 'synthetic' | 'public_eligible') {

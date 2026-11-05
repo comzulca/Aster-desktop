@@ -30,7 +30,7 @@ const requiredChecks = [
   'T-075-plus-uniform-surface-and-geometry',
   'T-076-independent-medium-and-child-classification',
   'T-075-complete-batch-metadata-draft-and-removal',
-  'T-075-selector-cancellation-replaces-batch-only',
+  'T-100-selector-cancellation-retains-current-batch',
   'T-075-malformed-receipt-fails-closed',
   'T-075-chat-switch-revokes-only-current-import-ids',
   'T-075-long-text-scroll-without-truncation',
@@ -156,7 +156,7 @@ function installFake({ slowHydration = false }) {
     defaultModel: 'muse-spark-1.3-contributor', models: [{ id: 'muse-spark-1.3-contributor', label: 'Muse Spark 1.3 · Contributor' }],
     activeRequest: Boolean(active), projectSelected: false, projectLabel: null,
     capabilities: { projectRead: false, proposals: false, applyNewFile: false, applyExistingFile: false, attachmentImport: true },
-    availability: active ? 'busy' : 'ready', contributor: { termsRevision: '2026-10-02', accepted: true, eligible: true }, historyAvailable: true,
+    availability: active ? 'busy' : 'ready', contributor: { termsRevision: '2026-10-09', accepted: true, eligible: true }, historyAvailable: true,
     budget: { accountId: 'e'.repeat(32), pending: [], configured: true, period: '2026-10', limitNanoGbp: '89000000000', spentNanoGbp: '0', reservedNanoGbp: '0', remainingNanoGbp: '89000000000', warning: false, requiresReconciliation: false, configurationExpiresAt: 1790964000 },
   });
   const copy = value => structuredClone(value);
@@ -201,11 +201,10 @@ function installFake({ slowHydration = false }) {
         case 'load_conversation': if (!exact(input, ['conversationId']) || !records.has(input.conversationId)) throw new Error('qa-conversation-denied'); return copy(records.get(input.conversationId));
         case 'select_attachments': {
           if (!exact(input, ['conversationId']) || !records.has(input.conversationId) || active) throw new Error('qa-selection-denied');
-          batch = [];
           await new Promise(resolve => setTimeout(resolve, 100));
           if (selection === 'deny') throw new Error('attachment_denied');
           if (selection === 'malformed') return [{ ...attachments[0], path: 'synthetic-forbidden-field' }];
-          batch = selection === 'cancel' ? [] : copy(attachments);
+          if (selection !== 'cancel') batch = copy(attachments);
           return copy(batch);
         }
         case 'remove_attachment': {
@@ -376,12 +375,12 @@ try {
     assert.equal(await page.getByLabel('Content classification', { exact: true }).textContent(), 'Not classified', 'removal-retained-classification');
     return { initialCount: 4, afterRemoval: 3, displayedMetadata: details, textDraftRetained: true };
   });
-  await check('T-075-selector-cancellation-replaces-batch-only', async () => {
+  await check('T-100-selector-cancellation-retains-current-batch', async () => {
     await page.evaluate(() => window.__ASTER_SYNTHETIC_QA__.setSelection('cancel'));
     await plus.click(); await waitEnabled(plus);
-    assert.equal(await page.getByRole('list', { name: 'Temporary attachments', exact: true }).count(), 0, 'cancel-restored-old-batch');
+    assert.equal(await page.getByRole('list', { name: 'Temporary attachments', exact: true }).locator('li').count(), 3, 'cancel-lost-old-batch');
     assert.equal(await draft.inputValue(), 'Synthetic draft retained through selection', 'cancel-lost-draft');
-    assert.ok(await page.getByText('No replacement attachments were selected.', { exact: false }).isVisible(), 'cancel-notice-missing');
+    assert.equal((await getTrace()).filter(item => item.command === 'send_message').length, 0, 'cancel-sent-without-review');
   });
   await check('T-075-malformed-receipt-fails-closed', async () => {
     await page.evaluate(() => window.__ASTER_SYNTHETIC_QA__.setSelection('malformed'));

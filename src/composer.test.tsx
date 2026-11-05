@@ -94,16 +94,18 @@ describe('explicit fake-host attachment intent/state denial fixtures (T-075/T-07
     expect(fake.bridge.sendMessage).not.toHaveBeenCalled(); expect(fake.bridge.configureCredential).not.toHaveBeenCalled();
   });
 
-  it('uses the complete host batch and removes only an opaque ID, with no filename/path authority', async () => {
+  it('adds successive selections using the complete host batch and removes only one opaque ID (T-100)', async () => {
     const fake = attachmentFixture(); render(<App bridge={fake.bridge}/>); await ready();
     await userEvent.click(screen.getByRole('button', { name: 'Add attachments' }));
     await screen.findByText(fake.item.label);
-    const replacement = { ...fake.item, id: 'c'.repeat(32), label: 'Complete replacement.pdf', kind: 'pdf' as const, pageCount: 2 };
-    vi.mocked(fake.bridge.selectAttachments!).mockResolvedValue([replacement]);
+    const replacement = { ...fake.item, id: 'c'.repeat(32), label: 'Additional complete document.pdf', kind: 'pdf' as const, pageCount: 2 };
+    vi.mocked(fake.bridge.selectAttachments!).mockResolvedValue([fake.item, replacement]);
     await userEvent.click(screen.getByRole('button', { name: 'Add attachments' })); await screen.findByText(replacement.label);
-    expect(screen.queryByText(fake.item.label)).toBeNull();
+    expect(screen.getByText(fake.item.label)).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: `Remove attachment ${replacement.label}` }));
-    await waitFor(() => expect(screen.queryByRole('list', { name: 'Temporary attachments' })).toBeNull());
+    await waitFor(() => expect(screen.queryByText(replacement.label)).toBeNull());
+    expect(within(screen.getByRole('list', { name: 'Temporary attachments' })).getAllByRole('listitem')).toHaveLength(1);
+    expect(screen.getByText(fake.item.label)).toBeTruthy();
     expect(fake.bridge.removeAttachment).toHaveBeenCalledExactlyOnceWith({ conversationId: 'a'.repeat(32), attachmentId: 'c'.repeat(32) });
     expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
   });
@@ -147,9 +149,7 @@ describe('explicit fake-host attachment intent/state denial fixtures (T-075/T-07
     await screen.findByText(/invalid attachment metadata/);
     expect(screen.queryByRole('list', { name: 'Temporary attachments' })).toBeNull(); expect(screen.queryByText(/C:\\private/)).toBeNull();
     expect(area.value).toBe('  Keep exact spacing  '); expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
-    // Complete replacement is host-owned; the previous batch was discarded
-    // before the second selector, not restored/revoked via old renderer IDs.
-    expect(fake.bridge.removeAttachment).not.toHaveBeenCalled();
+    expect(fake.bridge.removeAttachment).toHaveBeenCalledExactlyOnceWith({ conversationId: 'a'.repeat(32), attachmentId: fake.item.id });
   });
 
   it('locks import and effort while the native picker is outstanding and does not auto-send', async () => {
@@ -186,7 +186,7 @@ describe('explicit fake-host attachment intent/state denial fixtures (T-075/T-07
     expect(fake.bridge.selectAttachments).toHaveBeenCalledOnce(); expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
   });
 
-  it('clears the complete previous batch while replacement is pending and keeps it discarded after cancellation', async () => {
+  it('retains the previous selection during the picker and after cancellation, then sends its IDs (T-100)', async () => {
     const fake = attachmentFixture(); render(<App bridge={fake.bridge}/>); await ready();
     const area = screen.getByRole('textbox', { name: 'Message for Aster' }) as HTMLTextAreaElement;
     fireEvent.change(area, { target: { value: 'Keep this exact synthetic draft.' } });
@@ -195,30 +195,30 @@ describe('explicit fake-host attachment intent/state denial fixtures (T-075/T-07
     let finish: ((items: AttachmentSummary[]) => void) | undefined;
     vi.mocked(fake.bridge.selectAttachments!).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
     await userEvent.click(screen.getByRole('button', { name: 'Add attachments' }));
-    expect(screen.queryByRole('list', { name: 'Temporary attachments' })).toBeNull();
+    expect(screen.getByText(fake.item.label)).toBeTruthy();
     expect(screen.getByLabelText('Content classification').textContent).toBe('Not classified');
     expect((screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement).disabled).toBe(true);
-    await act(async () => finish!([]));
-    await screen.findByText('No replacement attachments were selected. The previous temporary attachments were discarded; your draft is unchanged and nothing was sent.');
-    expect(area.value).toBe('Keep this exact synthetic draft.'); expect(screen.queryByText(fake.item.label)).toBeNull();
+    await act(async () => finish!([fake.item]));
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Add attachments' }) as HTMLButtonElement).disabled).toBe(false));
+    expect(area.value).toBe('Keep this exact synthetic draft.'); expect(screen.getByText(fake.item.label)).toBeTruthy();
     expect(fake.bridge.removeAttachment).not.toHaveBeenCalled(); expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
     await selectClassification('synthetic'); await userEvent.click(screen.getByRole('button', { name: 'Send message' }));
     await waitFor(() => expect(fake.bridge.sendMessage).toHaveBeenCalledOnce());
-    expect(vi.mocked(fake.bridge.sendMessage).mock.calls[0][0].attachmentIds).toEqual([]);
+    expect(vi.mocked(fake.bridge.sendMessage).mock.calls[0][0].attachmentIds).toEqual([fake.item.id]);
   });
 
   it.each([
     ['attachment_capacity', 'The selected files or processed history exceed an Aster limit. No content was silently truncated; nothing was sent.'],
-    ['attachment_unavailable', 'Attachment processing is unavailable. Temporary attachment identifiers were discarded; nothing was sent.'],
+    ['attachment_unavailable', 'Attachment processing is unavailable. Nothing was sent.'],
     ['attachment_convert_to_pdf', 'DOCX, XLSX and PPTX require safe external conversion to PDF. Convert the complete document with your own trusted tool, check every page, sheet, slide and print range, then attach the PDF. Aster does not run or require an Office converter.'],
-  ])('uses safe British-English guidance for %s while retaining the draft and discarding prior IDs', async (code, text) => {
+  ])('retains prior IDs and the draft after atomic addition rejection %s (T-100)', async (code, text) => {
     const fake = attachmentFixture(); render(<App bridge={fake.bridge}/>); await ready();
     const area = screen.getByRole('textbox', { name: 'Message for Aster' }) as HTMLTextAreaElement;
     fireEvent.change(area, { target: { value: '  Keep exact spacing  ' } });
     await userEvent.click(screen.getByRole('button', { name: 'Add attachments' })); await screen.findByText(fake.item.label);
     await selectClassification('synthetic'); vi.mocked(fake.bridge.selectAttachments!).mockRejectedValue(code);
-    await userEvent.click(screen.getByRole('button', { name: 'Add attachments' })); await screen.findByText(text);
-    expect(area.value).toBe('  Keep exact spacing  '); expect(screen.queryByRole('list', { name: 'Temporary attachments' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Add attachments' })); await screen.findByText(text, { exact: false });
+    expect(area.value).toBe('  Keep exact spacing  '); expect(screen.getByText(fake.item.label)).toBeTruthy();
     expect(screen.getByLabelText('Content classification').textContent).toBe('Not classified');
     expect(fake.bridge.sendMessage).not.toHaveBeenCalled(); expect(fake.bridge.configureCredential).not.toHaveBeenCalled();
   });

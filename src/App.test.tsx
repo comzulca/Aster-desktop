@@ -13,6 +13,16 @@ async function prepare(text = 'A wholly synthetic example') {
   await waitFor(() => expect((screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement).disabled).toBe(false));
 }
 describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
+  it('explains expired policy without claiming a Windows or credential failure (T-097)', async () => {
+    const fake = fakeBridge();
+    vi.mocked(fake.bridge.acceptContributorTerms).mockRejectedValue('contributor_policy_expired');
+    render(<App bridge={fake.bridge}/>); await ready();
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Review terms and eligibility in Windows' }));
+    await screen.findByText("This build's Contributor policy review has expired. Install a reviewed engineering update; accepting again cannot extend it.");
+    expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
+    expect(fake.bridge.configureCredential).not.toHaveBeenCalled();
+  });
   it('describes current v0.2.4 boundaries in News and separates GitHub reading from disabled chat tools', async () => {
     const fake = fakeBridge(); fake.bridge.verifyCredential = vi.fn(async () => ({ state: 'valid' as const }));
     render(<App bridge={fake.bridge}/>); await ready();

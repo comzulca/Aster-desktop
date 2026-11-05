@@ -2,6 +2,7 @@
 //! Unknown spend retains its reservation across restarts and month changes.
 use crate::{
     admission::opaque_id,
+    contributor_policy,
     private_store::{new_id, Domain, PrivateStore, StoreError},
     provider::TokenUsage,
 };
@@ -15,8 +16,6 @@ use std::{
 pub const LIMIT: u64 = 89_000_000_000;
 const WARNING: u64 = 80_100_000_000;
 const MAX_RESERVE_USD: u64 = 106_496_000;
-const CONTRACT_START: u64 = 1_790_899_200;
-const CONTRACT_END: u64 = 1_793_577_600;
 const MAX_RECORDS: usize = 4096;
 const MAX_PENDING: usize = 1024;
 
@@ -145,15 +144,17 @@ fn convert(usd: u64, config: &Configuration) -> Result<u64, StoreError> {
     Ok(cost)
 }
 fn configuration_valid(config: &Configuration, now: u64) -> bool {
+    let Some(deadline) = contributor_policy::spending_deadline(now) else {
+        return false;
+    };
     config.account_id.len() == 32
         && opaque_id(&config.account_id)
         && (1..=10_000_000).contains(&config.gbp_per_usd_ppm)
         && (1..=10_000).contains(&config.margin_bps)
         && config.tax_bps <= 10_000
         && config.payment_bps <= 10_000
-        && (CONTRACT_START..CONTRACT_END).contains(&now)
         && config.valid_until_unix > now
-        && config.valid_until_unix <= CONTRACT_END
+        && config.valid_until_unix <= deadline
         && config.valid_until_unix - now <= 31 * 86_400
 }
 
@@ -600,6 +601,7 @@ impl Budget {
 #[cfg(test)]
 mod tests {
     use super::*;
+    const CONTRACT_END: u64 = contributor_policy::LEGACY_END;
     const NOW: u64 = 1_790_978_400;
     fn config() -> Configuration {
         Configuration {
@@ -632,6 +634,45 @@ mod tests {
         let mut bad = usage();
         bad.total_tokens += 1;
         assert!(usage_cost(&bad, &config()).is_err());
+    }
+    #[test]
+    fn policy_renewal_preserves_old_quotes_spend_and_unknown_reservations() {
+        let mut b = budget();
+        let paid = "7".repeat(32);
+        b.reserve(&paid, NOW).unwrap();
+        b.mark_dispatch(&paid, NOW).unwrap();
+        b.settle(&paid, usage(), NOW).unwrap();
+        let spent = b.ledger.spent.clone();
+        let pending = "8".repeat(32);
+        b.reserve(&pending, NOW).unwrap();
+        b.mark_dispatch(&pending, NOW).unwrap();
+        let original_quote = b.ledger.pending[&pending].clone();
+        let now = contributor_policy::REVIEWED_AT;
+        let mut b = Budget::restore(b.store).unwrap();
+        assert!(!b.available(now));
+        assert_eq!(b.ledger.spent, spent);
+        let mut renewed = config();
+        renewed.valid_until_unix = contributor_policy::EXPIRES_AT;
+        b.configure(renewed.clone(), now, now).unwrap();
+        assert!(!b.available(now));
+        assert_eq!(
+            b.ledger.pending[&pending].configuration,
+            original_quote.configuration
+        );
+        assert_eq!(b.ledger.pending[&pending].amount, original_quote.amount);
+        b.reconcile(&pending, 1, now).unwrap();
+        let b = Budget::restore(b.store).unwrap();
+        assert!(b.available(now));
+        assert_eq!(b.ledger.spent["2026-10"], spent["2026-10"] + 1);
+        assert!(!configuration_valid(
+            &renewed,
+            contributor_policy::EXPIRES_AT
+        ));
+        assert!(!configuration_valid(&config(), now));
+        assert!(!configuration_valid(
+            &renewed,
+            contributor_policy::LEGACY_END
+        ));
     }
     #[test]
     fn london_calendar_and_bst_boundaries() {

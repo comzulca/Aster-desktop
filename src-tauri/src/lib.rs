@@ -7,6 +7,7 @@ mod attachment_worker;
 mod attachments;
 mod budget;
 mod contributor;
+mod contributor_policy;
 #[cfg(all(test, windows))]
 mod creation_process_fixture;
 mod credential;
@@ -808,15 +809,23 @@ async fn accept_contributor_terms(
     trusted(&window)?;
     let guard = host.enter_native_dialog()?;
     host.idle()?;
+    if !contributor_policy::current(now()?) {
+        return Err("contributor_policy_expired".into());
+    }
     let document = operation(
         serde_json::json!({"operation":"Contributor owner attestation","termsRevision":contributor::TERMS_REVISION,
         "model":DEFAULT_MODEL,"destination":provider::ENDPOINT,"disclosure":"Meta Contributor may use prompts and answers for training. Personal, sensitive and confidential content, including private source code, must not be sent. Every complete request and prior answer needs fresh native review.",
         "ownerAttestation":"I have checked that my account, territory and intended use are eligible for this direct Meta API. I use a direct API key, not a coding-harness subscription key. Aster has not verified account entitlement.",
         "spending":"Cancelling, refusing or failing after dispatch does not establish zero cost. Missing usage requires statement-confirmed reconciliation. The £89 local limit does not cap other clients or guarantee Meta's invoice.",
-        "terms":"https://dev.meta.ai/legal/terms-of-service","geography":"https://dev.meta.ai/legal/geographic-use-policy","expiry":"2026-11-02T00:00:00Z"}),
+        "terms":"https://dev.meta.ai/legal/terms-of-service","geography":"https://dev.meta.ai/legal/geographic-use-policy",
+        "geographyRevision":contributor_policy::GEOGRAPHY_REVISION,"policyReviewedOn":contributor_policy::REVIEWED_ON,
+        "expiry":contributor_policy::EXPIRES_ISO,"expiryMeaning":"Aster policy review deadline; not Meta account, key or subscription expiry."}),
     )?;
     if !review(&window, document, &guard).await? {
         return Ok(TermsReceipt { accepted: false });
+    }
+    if !contributor_policy::current(now()?) {
+        return Err("contributor_policy_expired".into());
     }
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
     persistent(&mut state)?
@@ -835,6 +844,9 @@ async fn configure_budget(
     let guard = host.enter_native_dialog()?;
     host.idle()?;
     let time = now()?;
+    if !contributor_policy::current(time) {
+        return Err("contributor_policy_expired".into());
+    }
     let (status, period_review) = {
         let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
         let p = persistent(&mut state)?;
@@ -845,7 +857,7 @@ async fn configure_budget(
     };
     let document = operation(
         serde_json::json!({"operation":"Confirm bounded financial configuration and London calendar period","configuration":input,"currentLedger":status,"previousPeriodAndClock":period_review,
-        "period":budget::period(time).map_err(code)?,"statement":"I have checked the actual date and London calendar month. This explicitly activates the displayed period; changing the account alias does not reset charges. Earlier uncertain reservations remain. The declared GBP/USD rate, positive margin, tax and payment costs conservatively bound my invoice until the stated expiry. No exchange rate or tax exemption is verified by Aster.","limitNanoGbp":budget::LIMIT.to_string(),"noReset":true}),
+        "period":budget::period(time).map_err(code)?,"policyReviewedOn":contributor_policy::REVIEWED_ON,"policyExpiresAt":contributor_policy::EXPIRES_ISO,"statement":"I have checked the actual date and London calendar month. This explicitly activates the displayed period; changing the account alias does not reset charges. Earlier uncertain reservations remain. The declared GBP/USD rate, positive margin, tax and payment costs conservatively bound my invoice until the stated expiry. No exchange rate or tax exemption is verified by Aster.","limitNanoGbp":budget::LIMIT.to_string(),"noReset":true}),
     )?;
     if !review(&window, document, &guard).await? {
         return Ok(BudgetReceipt { configured: false });
@@ -1125,12 +1137,15 @@ async fn select_attachments(
         }
         checked_conversation(p, &input.conversation_id)?;
     }
-    // A new selection replaces the whole previous temporary batch. Cancellation
-    // returns the truthful empty batch; no stale original survives an error.
-    host.attachments
+    // Snapshot only host-owned metadata. The expiry monitor may invalidate it
+    // while the picker runs; append revalidates this exact selection atomically.
+    let previous = host
+        .attachments
         .lock()
         .map_err(|_| "state_unavailable")?
-        .invalidate();
+        .selection_metadata(&input.conversation_id)
+        .map_err(|e| e.code().to_owned())?;
+    let expected_ids: Vec<_> = previous.iter().map(|a| a.id.clone()).collect();
     owner(&window)?;
     let worker_lease = guard.worker_lease();
     let batch = tauri::async_runtime::spawn_blocking(move || {
@@ -1151,11 +1166,11 @@ async fn select_attachments(
         let Some(paths) = paths else {
             return Ok(Vec::new());
         };
-        if paths.is_empty() || paths.len() > attachments::MAX_FILES {
+        if paths.is_empty() || paths.len() + previous.len() > attachments::MAX_FILES {
             return Err("attachment_capacity".to_owned());
         }
         let mut originals = Vec::new();
-        let mut bytes = 0usize;
+        let mut bytes: usize = previous.iter().map(|a| a.source_bytes).sum();
         for path in paths {
             let selected =
                 attachments::read_selected_native(path.as_path().ok_or("attachment_denied")?)
@@ -1186,13 +1201,10 @@ async fn select_attachments(
     .await
     .map_err(|_| "attachment_unavailable".to_owned())??;
     host.idle()?;
-    if batch.is_empty() {
-        return Ok(Vec::new());
-    }
     host.attachments
         .lock()
         .map_err(|_| "state_unavailable")?
-        .insert_batch(&input.conversation_id, batch)
+        .append_batch(&input.conversation_id, &expected_ids, batch)
         .map_err(|e| e.code().to_owned())
 }
 

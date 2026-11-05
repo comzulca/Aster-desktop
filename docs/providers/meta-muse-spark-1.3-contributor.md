@@ -1,4 +1,6 @@
 <!-- V024 CURRENT APPLICABILITY BEGIN -->
+
+**5 November 2026 maintenance applicability:** [SPEC-0007](../specs/SPEC-0007.md) and the [primary-source review](META-POLICY-REVIEW-20261105.md) supersede earlier replacement-selection and 2 November review-deadline statements for this candidate only. The current host review ends 6 December 2026 at 00:00 UTC; legacy records retain their original bounds. Fresh native terms/budget review is required. Earlier source/build outcomes remain dated historical evidence, with independent owner/native/live obligations unchanged.
 ## v0.2.4 current model applicability — 10 October 2026
 
 The sole model remains Meta `muse-spark-1.3-contributor`; inference POST, immutable native body review, Contributor restrictions, usage/accounting and no retry/fallback remain unchanged. This partial candidate has no new live/provider/native or final-installer PASS. Read [SPEC-0006](../specs/SPEC-0006.md), [ADR-0021](../adr/ADR-0021.md) and the [local verification successor](../qa/V024-LOCAL-VERIFICATION-SUCCESSOR-20261010.md). Original dated evidence and retained text-only clauses below are historical where explicitly superseded by later attachment/current amendments, not new-source qualification.

@@ -1,4 +1,6 @@
 <!-- V024 CURRENT APPLICABILITY BEGIN -->
+
+**5 November 2026 maintenance applicability:** [SPEC-0007](../specs/SPEC-0007.md) and the [primary-source review](META-POLICY-REVIEW-20261105.md) supersede earlier replacement-selection and 2 November review-deadline statements for this candidate only. The current host review ends 6 December 2026 at 00:00 UTC; legacy records retain their original bounds. Fresh native terms/budget review is required. Earlier source/build outcomes remain dated historical evidence, with independent owner/native/live obligations unchanged.
 ## v0.2.4 current transport applicability — 10 October 2026
 
 This candidate is partial local engineering source, not a connected-account, live/native or final-installer receipt. [SPEC-0006](../specs/SPEC-0006.md), [ADR-0021](../adr/ADR-0021.md) and the [local verification successor](../qa/V024-LOCAL-VERIFICATION-SUCCESSOR-20261010.md) own current scope. All original dated contracts, D5 and other source-bound results below remain preserved; their PASS does not transfer to changed v0.2.4 bytes.
