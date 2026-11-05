@@ -1,11 +1,13 @@
 //! Native-confirmed, dated owner attestation; never proof of Meta entitlement.
-use crate::private_store::{new_id, Domain, PrivateStore, StoreError};
+use crate::{
+    contributor_policy,
+    private_store::{new_id, Domain, PrivateStore, StoreError},
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, path::Path};
 
-pub const TERMS_REVISION: &str = "2026-10-02";
-const EXPIRY: u64 = 1_793_577_600;
+pub(crate) use crate::contributor_policy::TERMS_REVISION;
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContributorStatus {
@@ -55,13 +57,16 @@ impl Contributor {
                 || r.sequence != sequence + 1
                 || r.previous != head
                 || r.timestamp < time
-                || r.revision != TERMS_REVISION
+                || ![TERMS_REVISION, contributor_policy::LEGACY_REVISION]
+                    .contains(&r.revision.as_str())
+                || (r.accepted
+                    && !contributor_policy::accepted_record_valid(&r.revision, r.timestamp))
             {
                 return Err(StoreError::Corrupt);
             }
             sequence += 1;
             head = hash(&bytes);
-            accepted = r.accepted;
+            accepted = r.accepted && r.revision == TERMS_REVISION;
             time = r.timestamp;
         }
         Ok((sequence, head, accepted, time))
@@ -85,7 +90,7 @@ impl Contributor {
     pub fn set(&mut self, accepted: bool, now: u64) -> Result<(), StoreError> {
         if !self.healthy()
             || now < self.maximum_time
-            || (accepted && !(1_790_899_200..EXPIRY).contains(&now))
+            || (accepted && !contributor_policy::current(now))
         {
             return Err(StoreError::Denied);
         }
@@ -109,7 +114,10 @@ impl Contributor {
         Ok(())
     }
     pub fn status(&self, now: u64) -> ContributorStatus {
-        let accepted = self.healthy() && self.accepted && now >= self.maximum_time && now < EXPIRY;
+        let accepted = self.healthy()
+            && self.accepted
+            && now >= self.maximum_time
+            && contributor_policy::current(now);
         ContributorStatus {
             terms_revision: TERMS_REVISION,
             accepted,
@@ -122,14 +130,64 @@ mod tests {
     use super::*;
     #[test]
     fn terms_restore_and_revocation_never_grant_live_entitlement() {
+        let now = contributor_policy::REVIEWED_AT + 100;
         let mut c = Contributor::restore(PrivateStore::memory(Domain::Terms)).unwrap();
-        assert!(!c.status(1_790_978_400).accepted);
-        c.set(true, 1_790_978_400).unwrap();
+        assert!(!c.status(now).accepted);
+        c.set(true, now).unwrap();
         let mut c = Contributor::restore(c.store).unwrap();
-        assert!(c.status(1_790_978_400).accepted);
-        assert!(!c.status(EXPIRY).accepted);
-        assert!(!c.status(1_790_978_399).accepted);
-        c.set(false, 1_790_978_400).unwrap();
-        assert!(!c.status(1_790_978_400).accepted);
+        assert!(c.status(now).accepted);
+        assert!(!c.status(contributor_policy::EXPIRES_AT).accepted);
+        assert!(!c.status(now - 1).accepted);
+        c.set(false, now).unwrap();
+        assert!(!c.status(now).accepted);
+        assert!(c.set(true, contributor_policy::EXPIRES_AT).is_err());
+    }
+    #[test]
+    fn legacy_acceptance_replays_without_reset_but_requires_fresh_review() {
+        let mut store = PrivateStore::memory(Domain::Terms);
+        let record = Record {
+            version: 1,
+            sequence: 1,
+            previous: String::new(),
+            revision: contributor_policy::LEGACY_REVISION.into(),
+            accepted: true,
+            timestamp: 1_790_978_400,
+        };
+        let bytes = serde_json::to_vec(&record).unwrap();
+        store.append(&new_id().unwrap(), &bytes).unwrap();
+        let mut c = Contributor::restore(store).unwrap();
+        let now = contributor_policy::REVIEWED_AT;
+        assert_eq!(c.sequence, 1);
+        assert!(!c.status(now).accepted);
+        c.set(true, now).unwrap();
+        assert_eq!(c.sequence, 2);
+        let mut restored = Contributor::restore(c.store).unwrap();
+        assert!(restored.status(now).accepted);
+        assert!(restored.set(true, now - 1).is_err());
+        assert_eq!(restored.sequence, 2);
+    }
+    #[test]
+    fn unknown_revision_or_out_of_window_legacy_record_denies_replay() {
+        for (revision, timestamp) in [
+            ("unknown", contributor_policy::REVIEWED_AT),
+            (
+                contributor_policy::LEGACY_REVISION,
+                contributor_policy::REVIEWED_AT,
+            ),
+        ] {
+            let mut store = PrivateStore::memory(Domain::Terms);
+            let record = Record {
+                version: 1,
+                sequence: 1,
+                previous: String::new(),
+                revision: revision.into(),
+                accepted: true,
+                timestamp,
+            };
+            store
+                .append(&new_id().unwrap(), &serde_json::to_vec(&record).unwrap())
+                .unwrap();
+            assert!(Contributor::restore(store).is_err());
+        }
     }
 }

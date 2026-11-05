@@ -26,6 +26,7 @@ pub(crate) enum AttachmentError {
     Capacity,
     Conflict,
     Unavailable,
+    Expired,
 }
 impl AttachmentError {
     pub(crate) fn code(self) -> &'static str {
@@ -35,6 +36,7 @@ impl AttachmentError {
             Self::Capacity => "attachment_capacity",
             Self::Conflict => "attachment_conflict",
             Self::Unavailable => "attachment_unavailable",
+            Self::Expired => "attachment_expired",
         }
     }
 }
@@ -279,13 +281,29 @@ impl AttachmentRegistry {
             false
         }
     }
-    pub(crate) fn insert_batch(
+    pub(crate) fn selection_metadata(
         &mut self,
         conversation_id: &str,
-        mut batch: Vec<AdmittedAttachment>,
     ) -> Result<Vec<AttachmentMetadata>, AttachmentError> {
-        if !valid_owner_id(conversation_id) || batch.is_empty() || batch.len() > MAX_FILES {
+        if !valid_owner_id(conversation_id) {
             return Err(AttachmentError::Denied);
+        }
+        self.prune_expired();
+        match &self.pending {
+            Some(pending) if pending.conversation_id != conversation_id => {
+                Err(AttachmentError::Conflict)
+            }
+            Some(pending) => Ok(pending
+                .allocations
+                .iter()
+                .map(|a| a.metadata.clone())
+                .collect()),
+            None => Ok(Vec::new()),
+        }
+    }
+    fn validate_batch(batch: &[&AdmittedAttachment]) -> Result<(), AttachmentError> {
+        if batch.len() > MAX_FILES {
+            return Err(AttachmentError::Capacity);
         }
         let mut ids = HashSet::new();
         let mut source = 0usize;
@@ -293,8 +311,11 @@ impl AttachmentRegistry {
         let mut rgba = 0usize;
         let mut pages = 0usize;
         let mut text = 0usize;
-        for file in &batch {
+        for file in batch {
             validate_metadata(&file.metadata)?;
+            if !file.still_valid() {
+                return Err(AttachmentError::Expired);
+            }
             if !ids.insert(file.metadata.id.as_str())
                 || file.original.len() != file.metadata.source_bytes
                 || sha256(&file.original) != file.source_sha256
@@ -334,17 +355,59 @@ impl AttachmentRegistry {
         {
             return Err(AttachmentError::Capacity);
         }
-        let deadline = Instant::now() + LIFETIME;
-        for allocation in &mut batch {
-            allocation.deadline = deadline;
+        Ok(())
+    }
+    /// Atomic, snapshot-bound union. Failure drops only the proposed additions;
+    /// every original deadline and the existing allocation remain unchanged.
+    pub(crate) fn append_batch(
+        &mut self,
+        conversation_id: &str,
+        expected_ids: &[String],
+        mut batch: Vec<AdmittedAttachment>,
+    ) -> Result<Vec<AttachmentMetadata>, AttachmentError> {
+        let previous = self.selection_metadata(conversation_id)?;
+        if previous.iter().map(|a| &a.id).ne(expected_ids.iter()) {
+            return Err(AttachmentError::Expired);
         }
-        let metadata = batch.iter().map(|a| a.metadata.clone()).collect();
-        self.pending = Some(Pending {
-            conversation_id: conversation_id.to_owned(),
-            deadline,
-            allocations: batch,
-        });
+        let existing = self
+            .pending
+            .as_ref()
+            .map(|p| p.allocations.as_slice())
+            .unwrap_or(&[]);
+        let all: Vec<_> = existing.iter().chain(batch.iter()).collect();
+        Self::validate_batch(&all)?;
+        let metadata = all.iter().map(|a| a.metadata.clone()).collect();
+        let Some(deadline) = all.iter().map(|a| a.deadline()).min() else {
+            return Ok(metadata);
+        };
+        // Removing an early allocation must not extend an existing batch.
+        let deadline = self
+            .pending
+            .as_ref()
+            .map_or(deadline, |p| p.deadline.min(deadline));
+        // Consuming the registry must not recover a later per-file deadline.
+        for allocation in &mut batch {
+            allocation.deadline = allocation.deadline.min(deadline);
+        }
+        if let Some(pending) = &mut self.pending {
+            pending.allocations.append(&mut batch);
+            pending.deadline = deadline;
+        } else {
+            self.pending = Some(Pending {
+                conversation_id: conversation_id.to_owned(),
+                deadline,
+                allocations: batch,
+            });
+        }
         Ok(metadata)
+    }
+    #[cfg(test)]
+    pub(crate) fn insert_batch(
+        &mut self,
+        conversation_id: &str,
+        batch: Vec<AdmittedAttachment>,
+    ) -> Result<Vec<AttachmentMetadata>, AttachmentError> {
+        self.append_batch(conversation_id, &[], batch)
     }
     pub(crate) fn remove(
         &mut self,
@@ -365,11 +428,15 @@ impl AttachmentRegistry {
             .position(|a| a.metadata.id == id)
             .ok_or(AttachmentError::Denied)?;
         pending.allocations.remove(index);
-        Ok(pending
+        let metadata = pending
             .allocations
             .iter()
             .map(|a| a.metadata.clone())
-            .collect())
+            .collect();
+        if pending.allocations.is_empty() {
+            self.pending = None;
+        }
+        Ok(metadata)
     }
     /// Move all originals once, before review. A denied/malformed selection
     /// cannot retain original allocations for later replay.
@@ -429,6 +496,103 @@ mod tests {
             },
         )
         .unwrap()
+    }
+    #[test]
+    fn successive_additions_and_cancel_preserve_exact_ids_and_earliest_deadline() {
+        let mut registry = AttachmentRegistry::default();
+        let mut first = fixture();
+        first.deadline = Instant::now() + Duration::from_secs(20);
+        let deadline = first.deadline();
+        let first_meta = registry.append_batch("chat", &[], vec![first]).unwrap();
+        let first_ids: Vec<_> = first_meta.iter().map(|a| a.id.clone()).collect();
+        assert_eq!(
+            registry.append_batch("chat", &first_ids, vec![]).unwrap(),
+            first_meta
+        );
+        let union = registry
+            .append_batch("chat", &first_ids, vec![fixture()])
+            .unwrap();
+        assert_eq!(union.len(), 2);
+        assert_eq!(union[0], first_meta[0]);
+        assert_eq!(registry.pending.as_ref().unwrap().deadline, deadline);
+        assert_eq!(
+            registry.pending.as_ref().unwrap().allocations[0].deadline(),
+            deadline
+        );
+        registry.remove("chat", &first_ids[0]).unwrap();
+        assert_eq!(registry.pending.as_ref().unwrap().deadline, deadline);
+        let remaining = registry.selection_metadata("chat").unwrap();
+        let ids: Vec<_> = remaining.iter().map(|a| a.id.clone()).collect();
+        let consumed = registry.consume("chat", "request", &ids).unwrap();
+        assert_eq!(consumed.len(), 1);
+        assert_eq!(consumed[0].deadline(), deadline);
+        assert!(registry.consume("chat", "request", &ids).is_err());
+    }
+    #[test]
+    fn rejected_union_is_atomic_for_count_duplicate_ids_and_total_text() {
+        let mut registry = AttachmentRegistry::default();
+        let before = registry.append_batch("chat", &[], vec![fixture()]).unwrap();
+        let ids: Vec<_> = before.iter().map(|a| a.id.clone()).collect();
+        assert!(matches!(
+            registry.append_batch("chat", &ids, (0..4).map(|_| fixture()).collect()),
+            Err(AttachmentError::Capacity)
+        ));
+        let mut duplicate = fixture();
+        duplicate.metadata.id = before[0].id.clone();
+        assert!(matches!(
+            registry.append_batch("chat", &ids, vec![duplicate]),
+            Err(AttachmentError::Conflict)
+        ));
+        let large: Vec<_> = (0..3)
+            .map(|_| {
+                let mut item = fixture();
+                item.processed = ProcessedContent::Text("x".repeat(128 * 1024));
+                item.metadata.processed_bytes = 128 * 1024;
+                item
+            })
+            .collect();
+        assert!(matches!(
+            registry.append_batch("chat", &ids, large),
+            Err(AttachmentError::Capacity)
+        ));
+        assert_eq!(registry.selection_metadata("chat").unwrap(), before);
+    }
+    #[test]
+    fn aggregate_source_limit_counts_previous_selections_without_partial_append() {
+        let mut registry = AttachmentRegistry::default();
+        let before = registry.append_batch("chat", &[], vec![fixture()]).unwrap();
+        let ids: Vec<_> = before.iter().map(|a| a.id.clone()).collect();
+        let additions: Vec<_> = (0..2)
+            .map(|_| {
+                let mut item = fixture();
+                item.original = Zeroizing::new(vec![b'x'; MAX_SOURCE]);
+                item.source_sha256 = sha256(&item.original);
+                item.metadata.source_bytes = MAX_SOURCE;
+                item
+            })
+            .collect();
+        assert!(matches!(
+            registry.append_batch("chat", &ids, additions),
+            Err(AttachmentError::Capacity)
+        ));
+        assert_eq!(registry.selection_metadata("chat").unwrap(), before);
+    }
+    #[test]
+    fn stale_snapshot_cross_chat_and_expiry_cannot_resurrect_originals() {
+        let mut registry = AttachmentRegistry::default();
+        let before = registry.append_batch("chat", &[], vec![fixture()]).unwrap();
+        let ids: Vec<_> = before.iter().map(|a| a.id.clone()).collect();
+        assert!(registry
+            .append_batch("other", &ids, vec![fixture()])
+            .is_err());
+        assert!(registry.append_batch("chat", &[], vec![fixture()]).is_err());
+        assert_eq!(registry.selection_metadata("chat").unwrap(), before);
+        registry.pending.as_mut().unwrap().deadline = Instant::now() - Duration::from_secs(1);
+        assert!(matches!(
+            registry.append_batch("chat", &ids, vec![fixture()]),
+            Err(AttachmentError::Expired)
+        ));
+        assert!(registry.pending.is_none());
     }
     #[test]
     fn one_use_restart_cross_chat_and_duplicate_ids_deny() {
