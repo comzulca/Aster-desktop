@@ -1,6 +1,6 @@
 # Meta Model API / Muse Spark 1.3 Contributor
 
-Current delivered pair: `meta_model_api` / **`muse-spark-1.3-contributor`**, source `57339a6`, reconciled 5 November 2026. This is the default and only inference model; Standard tier, other model versions, retired providers, arbitrary endpoints and fallback remain unavailable.
+Current implemented pair: `meta_model_api` / **`muse-spark-1.3-contributor`**, reviewed against PR #70 head `c6974cd`, 5 November 2026. IPC protocol 5 / financial policy 4. [Maintenance and final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70). This is the default and only inference model; Standard tier, other model versions, retired providers, arbitrary endpoints and fallback remain unavailable.
 
 ## Source-pinned access contract
 
@@ -26,6 +26,6 @@ The current local policy expires at **2026-12-06T00:00:00Z**. Budget configurati
 
 ## Verification and historical records
 
-The [5 November main receipt](../qa/FINAL-ENGINEERING-V024-20261105.md) records source/package automation, actual codec/resource probes and unsigned artifact identity. It does not establish real-key inference, legal/account clearance, owner-native GUI, installed behaviour or production. All 42 compound obligations and unresolved GLib remain separate.
+Initial complete maintenance run `42109052799` passed all five jobs and actual package probes. A separately authorised local synthetic text stream returned HTTP 200, final stop, DONE and consistent usage with the fixed Aster-compatible envelope. This is narrow real-key service evidence, not installed Aster/native review, legal/account clearance, live multimodal entitlement or production. [Successor verification](../qa/SEND-READINESS-20261105.md#observed-successor-verification) and the [PR #70 delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) bind candidate and final main evidence independently. The earlier [57339a6 main receipt](../qa/FINAL-ENGINEERING-V024-20261105.md), all 42 compound obligations and unresolved GLib retain their own scope.
 
 The complete previous text-only and intermediate development contracts, D5 evidence, original model catalogue diagnostic and earlier prices/quotas/statuses are preserved in [meta-muse-spark-1.3-contributor-history-57339a6.md](meta-muse-spark-1.3-contributor-history-57339a6.md). They retain their original dates and source scope; their old NOT RUN/PASS statements do not replace current evidence.

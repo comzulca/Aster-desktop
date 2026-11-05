@@ -1,6 +1,6 @@
 # Source checks and Windows engineering builds
 
-Reconciled 5 November 2026 against software source `57339a6`. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. The pinned declarations and frozen locks are authoritative; these procedures are instructions, not proof they ran in an owner's session.
+Cross-checked 5 November 2026 against the spending/Send implementation in PR #70 head `c6974cd`; IPC protocol 5 / financial policy 4. [Maintenance and final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70). The earlier `57339a6` receipt remains an example for those earlier bytes only. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. The pinned declarations and frozen locks are authoritative; these procedures are instructions, not proof they ran in an owner's session.
 
 ## Build cohort
 

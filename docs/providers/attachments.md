@@ -41,6 +41,6 @@ Malformed, renamed, oversized or animated input is denied. Source reading/proces
 
 ## Evidence
 
-Host/Rust and frontend regressions cover additive selection, cancellation/rejection retention, aggregate source/text/count limits, duplicate IDs, cross-chat/stale snapshots, consumed deadlines and expiry. Main run `42081672227` passed the actual fifteen codec and six resource cases, including native two-page PDF and causal CPU evidence. [Exact receipt](../qa/FINAL-ENGINEERING-V024-20261105.md).
+Host/Rust and frontend regressions cover additive selection, cancellation/rejection retention, aggregate source/text/count limits, duplicate IDs, cross-chat/stale snapshots, consumed deadlines and expiry. Initial complete maintenance run `42109052799`, attempt 1, passed the actual fifteen codec/six resource cases, including native two-page PDF and independently validated CPU evidence. Passive candidate verification checked twelve exact resources. [Successor verification](../qa/SEND-READINESS-20261105.md#observed-successor-verification) / [final main delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70). The previous [57339a6 receipt](../qa/FINAL-ENGINEERING-V024-20261105.md) retains its original source scope.
 
 This is engineering automation, not owner/live multimodal, native GUI or all-compound qualification. Earlier v0.2.3 failures/contracts are preserved in [meta-attachments-v0.2.3.md](meta-attachments-v0.2.3.md); historical replacement-selection and NOT RUN statements are superseded only within the current explicitly verified scope.

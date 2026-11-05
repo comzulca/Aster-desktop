@@ -1,6 +1,6 @@
 # Current host transport — v0.2.4
 
-Source-pinned contract for delivered software `57339a6`, reconciled 5 November 2026. Policy/IPC protocol: **4**. [Current status](../ENGINEERING-STATUS.md), [engineering receipt](../qa/FINAL-ENGINEERING-V024-20261105.md), [provider pair](meta-muse-spark-1.3-contributor.md), [attachments](attachments.md).
+Current implementation reviewed against PR #70 head `c6974cd`, 5 November 2026. Financial policy: **4**; IPC protocol: **5**. [Maintenance and final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70). The previous `57339a6` receipt describes its original bytes only. [Current status](../ENGINEERING-STATUS.md), [engineering receipt](../qa/FINAL-ENGINEERING-V024-20261105.md), [provider pair](meta-muse-spark-1.3-contributor.md), [attachments](attachments.md).
 
 ## Fixed routes and authority
 
@@ -45,7 +45,7 @@ The protected journal reserves conservatively before networking and marks possib
 
 [contributor_policy.rs](../../src-tauri/src/contributor_policy.rs) centralises terms 2026-10-09, geography 2026-10-12, review 2026-11-05 and local deadline 2026-12-06T00:00:00Z. Legacy acceptance/financial events retain their original window; current acceptance/configuration needs fresh review. This is Aster's review boundary, not Meta key/service/subscription expiry.
 
-Main run `42081672227` passed all five jobs and native package probes. That proves its automated engineering scope; owner-native review, actual Meta account/inference/usage, installed UI, the 42 compound obligations and production remain separately unqualified. The exact [receipt](../qa/FINAL-ENGINEERING-V024-20261105.md) preserves those limits.
+Initial complete maintenance run `42109052799`, attempt 1, tested merge `8e92ef7`: all five jobs, 184 frontend/414 Rust cases and the actual fifteen codec/six resource probes PASS. A separately authorised local synthetic stream using the unchanged request envelope returned HTTP 200, final stop, DONE and consistent usage. It did not run Aster's installed native review or qualify account/territorial rights, other modalities, invoice limits, all 42 compound obligations or production. [Observed successor evidence](../qa/SEND-READINESS-20261105.md#observed-successor-verification) and the [PR delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) distinguish candidate and final main bytes. The previous [57339a6 receipt](../qa/FINAL-ENGINEERING-V024-20261105.md) remains source-bound history.
 
 ## Retired v0.1.0 transport evidence
 

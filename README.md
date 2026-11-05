@@ -24,9 +24,13 @@ Full license: [Apache License, Version 2.0](https://www.apache.org/licenses/LICE
 
 A Windows 11 desktop assistant by Computación Zuliana C.A. (COMZULCA), built with Tauri, Rust, React and TypeScript. The trusted native host owns credentials, document custody, exact disclosure review and spending admission.
 
-**Current version: 0.2.4, unsigned engineering.** The [spending activation and Send correction](docs/qa/SEND-READINESS-20261105.md) adds expiry guidance, visible Settings errors and composer prerequisites with IPC protocol 5. Fresh CI/package evidence must qualify changed source. The previous delivery was main [`57339a6`](https://github.com/comzulca/Aster-desktop/commit/57339a687125a0b1fd8d6cda787649b5a111fa65); its receipt does not qualify newer bytes.
+**Current version: 0.2.4, unsigned engineering.** The [spending activation and Send correction](docs/qa/SEND-READINESS-20261105.md) adds expiry guidance, visible Settings errors and composer prerequisites with IPC protocol 5. The [maintenance verification](docs/qa/SEND-READINESS-20261105.md#observed-successor-verification) records the completed candidate checks; the [final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) binds the independently verified main installer. The previous delivery was main [`57339a6`](https://github.com/comzulca/Aster-desktop/commit/57339a687125a0b1fd8d6cda787649b5a111fa65); its receipt does not qualify newer bytes.
 
 [Current engineering status](docs/ENGINEERING-STATUS.md) · [Setup and use](docs/SETUP-AND-USE.md) · [Version index](docs/V0.2.4-DOCUMENTATION-INDEX.md) · [Engineering notes](docs/RELEASE-NOTES-v0.2.4.md) · [Licence](LICENSE)
+
+## Current maintenance verification
+
+[PR #70](https://github.com/comzulca/Aster-desktop/pull/70) corrects spending activation and Send readiness. Initial complete [run 42109052799](https://github.com/comzulca/Aster-desktop/actions/runs/42109052799), attempt 1, passed all five jobs: 184 frontend tests, 414 default Rust tests, two separate disposable credential cases and the actual fifteen codec/six resource probes. This qualifies its exact PR candidate, not arbitrary later source. A separately authorised synthetic Meta stream returned HTTP 200 with complete output and validated usage; installed native GUI/account clearance remains separate. The PR delivery receipt records final main source, run, installer identity and hashes after independent verification.
 
 ## Previous engineering delivery — 57339a6
 
