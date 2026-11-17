@@ -28,7 +28,11 @@ A Windows 11 desktop assistant by Computación Zuliana C.A. (COMZULCA), built wi
 
 [Current engineering status](docs/ENGINEERING-STATUS.md) · [Setup and use](docs/SETUP-AND-USE.md) · [Version index](docs/V0.2.4-DOCUMENTATION-INDEX.md) · [Engineering notes](docs/RELEASE-NOTES-v0.2.4.md) · [Licence](LICENSE)
 
-## Current maintenance verification
+## Frontend dependency maintenance — 17 November 2026
+
+The current source declares **jsdom 31.0.0, Vitest 5.1.0 and Vite 8.3.6** with a regenerated frozen lockfile. Layout tests accept equivalent CSSOM zero-length/spacing serialisation; the zoom fixture tracks the actual 1,000-ms timer handles through replacement and unmount. Application version 0.2.4, IPC 5, policy 4 and runtime safeguards remain unchanged. See the [maintenance and documentation cross-review](docs/qa/DEPENDENCY-MAINTENANCE-20261117.md) for baseline, acceptance and source-bound evidence. Prior installer receipts qualify their original bytes only. **Integration is blocked by the high picomatch advisory; a corrected upstream release is not yet available.**
+
+## Earlier spending/Send verification
 
 [PR #70](https://github.com/comzulca/Aster-desktop/pull/70) corrects spending activation and Send readiness. Initial complete [run 42109052799](https://github.com/comzulca/Aster-desktop/actions/runs/42109052799), attempt 1, passed all five jobs: 184 frontend tests, 414 default Rust tests, two separate disposable credential cases and the actual fifteen codec/six resource probes. This qualifies its exact PR candidate, not arbitrary later source. A separately authorised synthetic Meta stream returned HTTP 200 with complete output and validated usage; installed native GUI/account clearance remains separate. The PR delivery receipt records final main source, run, installer identity and hashes after independent verification.
 
@@ -68,7 +72,7 @@ The local £89 calendar-month admission ceiling uses `Europe/London`, warns at �
 
 ## Resource and authority limits
 
-Policy and IPC protocol are **4**. Runtime text context remains at most 20 completed continuation turns / 512 KiB, with 32-KiB user input and 8,192 output tokens. The 512-KiB text bound and separate 24-MiB complete media-request bound are distinct. The model's larger documented window does not enable the unfinished full-window migration.
+Financial policy is **4** and IPC protocol is **5**. Runtime text context remains at most 20 completed continuation turns / 512 KiB, with 32-KiB user input and 8,192 output tokens. The 512-KiB text bound and separate 24-MiB complete media-request bound are distinct. The model's larger documented window does not enable the unfinished full-window migration.
 
 Main-chat model tools, arbitrary shell/browser/MCP, voice and image generation are unavailable. Processed attachments and explicit local UI actions do not confer those privileges. See the [current status and limits](docs/ENGINEERING-STATUS.md) for implemented, test-only and unqualified capabilities.
 
