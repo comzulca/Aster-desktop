@@ -4,7 +4,8 @@ import { App } from './App';
 import { baseline, fakeBridge } from './test-fixtures';
 import { shortcutAction } from './local-ui';
 
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
+// Restore spies on fake timer functions before switching back to real timers.
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 async function ready() { await screen.findByText('Ready for separately reviewed requests.'); }
 function wheel(init: WheelEventInit = {}) {
   // Web IDL rejects non-finite doubles; deliberately forge them after construction
@@ -58,16 +59,27 @@ describe('v0.2.2 single zoom and transient status (T-071/T-072/T-074)', () => {
   it('shows actual percent for 1000 ms from the latest action, keeps focus and cancels its sole timer on unmount', async () => {
     const fake = fakeBridge(); const view = render(<App bridge={fake.bridge}/>); await ready(); vi.useFakeTimers();
     const input = screen.getByRole('textbox', { name: 'Message for Aster' }); input.focus();
+    const schedule = vi.spyOn(window, 'setTimeout');
+    const cancel = vi.spyOn(window, 'clearTimeout');
+    // Track Aster's actual 1,000-ms timer handles. DOM focus/selection can own
+    // other fake timers; their presence must not hide a missing zoom cleanup.
+    const zoomTimers = () => schedule.mock.calls.flatMap(([, delay], index) => delay === 1000 ? [schedule.mock.results[index].value] : []);
     wheel({ ctrlKey: true, deltaY: -100 }); expect(status()?.textContent).toBe('110%'); expect(document.activeElement).toBe(input);
+    expect(zoomTimers()).toHaveLength(1);
     act(() => vi.advanceTimersByTime(999)); expect(status()).toBeTruthy();
     wheel({ ctrlKey: true, deltaY: -100 }); expect(status()?.textContent).toBe('120%');
+    expect(zoomTimers()).toHaveLength(2); expect(cancel).toHaveBeenCalledWith(zoomTimers()[0]);
     act(() => vi.advanceTimersByTime(1)); expect(status()).toBeTruthy();
     act(() => vi.advanceTimersByTime(998)); expect(status()).toBeTruthy();
     act(() => vi.advanceTimersByTime(1)); expect(status()).toBeNull();
     fireEvent.keyDown(window, { key: '0', ctrlKey: true }); expect(status()?.textContent).toBe('100%');
     act(() => vi.advanceTimersByTime(999)); fireEvent.keyDown(window, { key: '0', ctrlKey: true });
     act(() => vi.advanceTimersByTime(1)); expect(status()?.textContent).toBe('100%');
-    expect(vi.getTimerCount()).toBe(1); view.unmount(); expect(vi.getTimerCount()).toBe(0);
+    expect(zoomTimers()).toHaveLength(4);
+    expect(cancel).toHaveBeenCalledWith(zoomTimers()[2]);
+    const pendingZoomTimer = zoomTimers()[3];
+    expect(cancel).not.toHaveBeenCalledWith(pendingZoomTimer);
+    view.unmount(); expect(cancel).toHaveBeenCalledWith(pendingZoomTimer);
     expect(wheel({ ctrlKey: true, deltaY: -10 }).defaultPrevented).toBe(false);
     noPresentationAuthority(fake);
   });

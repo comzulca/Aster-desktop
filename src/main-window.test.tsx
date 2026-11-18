@@ -80,7 +80,9 @@ describe('v0.2.4 single menu/caption row and transparent attachment glyph (UX-01
   it('uses one 44 px shell row and a white glowing plus on the transparent composer surface', async () => {
     applyRendererStyles();
     render(<App bridge={fakeBridge().bridge}/>); await ready();
-    expect(getComputedStyle(document.querySelector('.app-shell')!).gridTemplateRows).toBe('44px minmax(0,1fr)');
+    // CSSOM may canonicalise zero lengths and comma spacing. Admit only the
+    // same two tracks; extra tracks or different dimensions must still fail.
+    expect(getComputedStyle(document.querySelector('.app-shell')!).gridTemplateRows).toMatch(/^44px minmax\(0(?:px)?,\s*1fr\)$/);
     expect(getComputedStyle(document.querySelector('.titlebar')!).gridRow).toBe('1');
     for (const panel of document.querySelectorAll('.sidebar, .main-panel')) expect(getComputedStyle(panel).gridRow).toBe('2');
     const add = screen.getByRole('button', { name: 'Add attachments' });
