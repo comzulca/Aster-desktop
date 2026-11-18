@@ -1,3 +1,7 @@
+## 18 November dependency integration
+
+Main includes the three frontend dependency updates and the authorised Quinn lockfile corrections. See the [integration outcome](docs/qa/DEPENDENCY-MAINTENANCE-20261117.md#integration-outcome--18-november-2026) for commits, validation and the earlier investigation.
+
 ## 17 November frontend maintenance and documentation
 
 The owner requests necessary adjustments to the three pending frontend dependency updates, followed by a documentation cross-review. Follow [the maintenance contract](docs/qa/DEPENDENCY-MAINTENANCE-20261117.md). Consolidate jsdom 31.0.0, Vitest 5.1.0 and Vite 8.3.6, preserving CSS layout and exact zoom timer cleanup assertions. Scoped publication and validation are part of this maintenance; integrate only after all five fresh current-source jobs pass. Preserve runtime authority, application version, policy 4 / IPC 5, native cohorts, workflow/probes, immutable resources, original receipts and unresolved GLib. Historical task-specific scopes below do not override this current maintenance scope. No production release, signing, app/setup launch or live provider/owner-store changes are included.

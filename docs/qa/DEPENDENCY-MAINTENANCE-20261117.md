@@ -1,5 +1,11 @@
 # Frontend dependency maintenance — 17 November 2026
 
+## Integration outcome — 18 November 2026
+
+[PR #75](https://github.com/comzulca/Aster-desktop/pull/75) reached main at `430a07c`, updating quinn-proto to 0.11.19 and quinn-udp to 0.5.16. This resolved the RustSec audit failures RUSTSEC-2026-0523, RUSTSEC-2026-0524 and RUSTSEC-2026-0538. GitHub withdrew the [picomatch advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) on 18 November. The frontend lock retains picomatch 4.0.7 and the standard pnpm audit passed.
+
+[PR #71](https://github.com/comzulca/Aster-desktop/pull/71) incorporated the original [Vitest](https://github.com/comzulca/Aster-desktop/pull/72) and [Vite](https://github.com/comzulca/Aster-desktop/pull/73) commits alongside jsdom and its two compatibility fixes. [Candidate run 44371814391](https://github.com/comzulca/Aster-desktop/actions/runs/44371814391) passed source policy, codec fixtures, frontend, Windows host and engineering installer on head `ef138e5`. The merge reached main at `c0c15e5`. The entries below record the earlier 17 November investigation.
+
 ## Before-change scope and acceptance
 
 The owner requests the necessary repository adjustments followed by a documentation cross-review. Baseline is main `c70126d27fab5134d83ddb9610be063e9975321e`, clean Linux checkout, Node 24.22.1 and the declared Corepack pnpm 11.19.0. The Windows target remains Windows 11 x64; this environment has no Rust toolchain. Existing requirements apply: SPEC-0001 NFR-003 / SEC-009 / AC-019 and SPEC-0006 NFR-012 / AC-085 / T-095. No new runtime behaviour or authority crossing is intended, so no new product requirement, IPC or threat model is introduced.

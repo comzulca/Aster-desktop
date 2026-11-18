@@ -2,9 +2,9 @@
 
 Earlier spending/Send maintenance: [PR #70](https://github.com/comzulca/Aster-desktop/pull/70), implemented head `c6974cd`, initial complete candidate run `42109052799`, attempt 1. The PR delivery receipt separately records final main source and verified installer identity. The previous main `57339a6` [receipt](qa/FINAL-ENGINEERING-V024-20261105.md) remains unchanged historical evidence. Unsigned engineering is distinct from production. [Current status](ENGINEERING-STATUS.md).
 
-## Frontend maintenance — 17 November 2026
+## Frontend maintenance — 18 November 2026
 
-Updates jsdom 30.1.3 → 31.0.0, Vitest 5.0.5 → 5.1.0 and Vite 8.3.5 → 8.3.6 together with their resolved lockfile graph. The layout test still requires exactly one 44-px shell row and the remaining flexible track, accepting equivalent CSSOM serialisation. Zoom tests verify the scheduled 1,000-ms handles, replacement, expiry, focus and unmount cancellation without counting unrelated DOM tasks. No production UI/host code or native dependency changes are needed. Application version remains 0.2.4; financial policy 4 / IPC 5 are unchanged. The [maintenance record](qa/DEPENDENCY-MAINTENANCE-20261117.md) identifies the original failures, current verification and documentation cross-review; previous installer identities remain historical. **Integration is blocked by the high picomatch advisory; a corrected upstream release is not yet available.**
+Updates jsdom 30.1.3 → 31.0.0, Vitest 5.0.5 → 5.1.0 and Vite 8.3.5 → 8.3.6 together with their resolved lockfile graph. The layout test still requires exactly one 44-px shell row and the remaining flexible track, accepting equivalent CSSOM serialisation. Zoom tests verify the scheduled 1,000-ms handles, replacement, expiry, focus and unmount cancellation without counting unrelated DOM tasks. Application version remains 0.2.4; financial policy 4 / IPC 5 are unchanged. The [maintenance record](qa/DEPENDENCY-MAINTENANCE-20261117.md) identifies the original failures, current verification and documentation cross-review; previous installer identities remain historical. [PR #75](https://github.com/comzulca/Aster-desktop/pull/75) updated quinn-proto 0.11.18 → 0.11.19 and quinn-udp 0.5.15 → 0.5.16. The combined changes reached main at `c0c15e5`.
 
 ## Spending activation and Send correction
 

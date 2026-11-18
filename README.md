@@ -28,9 +28,9 @@ A Windows 11 desktop assistant by Computación Zuliana C.A. (COMZULCA), built wi
 
 [Current engineering status](docs/ENGINEERING-STATUS.md) · [Setup and use](docs/SETUP-AND-USE.md) · [Version index](docs/V0.2.4-DOCUMENTATION-INDEX.md) · [Engineering notes](docs/RELEASE-NOTES-v0.2.4.md) · [Licence](LICENSE)
 
-## Frontend dependency maintenance — 17 November 2026
+## Frontend dependency maintenance — 18 November 2026
 
-The current source declares **jsdom 31.0.0, Vitest 5.1.0 and Vite 8.3.6** with a regenerated frozen lockfile. Layout tests accept equivalent CSSOM zero-length/spacing serialisation; the zoom fixture tracks the actual 1,000-ms timer handles through replacement and unmount. Application version 0.2.4, IPC 5, policy 4 and runtime safeguards remain unchanged. See the [maintenance and documentation cross-review](docs/qa/DEPENDENCY-MAINTENANCE-20261117.md) for baseline, acceptance and source-bound evidence. Prior installer receipts qualify their original bytes only. **Integration is blocked by the high picomatch advisory; a corrected upstream release is not yet available.**
+The current source declares **jsdom 31.0.0, Vitest 5.1.0 and Vite 8.3.6** with a regenerated frozen lockfile. Layout tests accept equivalent CSSOM zero-length/spacing serialisation; the zoom fixture tracks the actual 1,000-ms timer handles through replacement and unmount. Application version 0.2.4, IPC 5, policy 4 and runtime safeguards remain unchanged. See the [maintenance and documentation cross-review](docs/qa/DEPENDENCY-MAINTENANCE-20261117.md) for baseline, acceptance and source-bound evidence. Prior installer receipts qualify their original bytes only. The [three Dependabot updates](https://github.com/comzulca/Aster-desktop/pull/71) reached main on 18 November after all five candidate checks passed.
 
 ## Earlier spending/Send verification
 
