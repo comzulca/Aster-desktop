@@ -18,6 +18,8 @@ jobs:
         run: |
           corepack enable
           corepack pnpm update @tauri-apps/api@^2.12.5 @tauri-apps/cli@^2.12.5 @testing-library/user-event@^14.6.12 jsdom@^31.0.1 vite@^8.3.8 vitest@^5.1.1 --lockfile-only
+          corepack pnpm update --depth Infinity --lockfile-only
+          sed -i -e 's/=0.22.1/=0.23.1/' -e 's/=0.11.0/=0.11.1/' scripts/qa/codec-fixtures/Cargo.toml
           for manifest in src-tauri/Cargo.toml scripts/qa/codec-fixtures/Cargo.toml scripts/qa/zune-unit-fixtures/Cargo.toml; do
             cargo update --manifest-path "$manifest" --verbose
           done
