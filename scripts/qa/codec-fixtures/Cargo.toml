@@ -11,11 +11,11 @@ license = "Apache-2.0"
 image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg", "gif"] }
 png = { version = "=0.18.1", default-features = false }
 gif = { version = "=0.14.2", default-features = false, features = ["std"] }
-sha2 = "=0.11.0"
+sha2 = "=0.11.1"
 zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-base64 = "=0.22.1"
+base64 = "=0.23.1"
 
 [patch.crates-io]
 zune-jpeg = { path = "../../../src-tauri/vendor/zune-jpeg-0.5.15" }
