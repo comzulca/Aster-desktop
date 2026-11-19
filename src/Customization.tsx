@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Bridge, CustomizationDraft, CustomizationEntry, CustomizationSnapshot, GenerationBinding, GenerationFinished, PackageKind } from './types';
 import { validCustomization, validCustomizationDraft, validCustomizationPackage } from './customization-ui';
 import { scalarCount } from './personalization-ui';
@@ -23,6 +23,12 @@ export function Customization({ bridge, locked, credentialValidated = false, onG
   const mounted = useRef(false);
   const available = Boolean(bridge.getCustomization && bridge.getCustomizationPackage && bridge.saveCustomization && bridge.setCustomizationEnabled && bridge.importCustomization);
   const navigationBlocked = busy || generationOpen || accountOpen || Boolean(draft && !readOnly);
+  useLayoutEffect(() => {
+    if (accountOpen) return;
+    const opener = accountOpener.current;
+    accountOpener.current = null;
+    if (opener?.isConnected && !opener.disabled) opener.focus();
+  }, [accountOpen]);
   useEffect(() => { onNavigationBlockedChange?.(navigationBlocked); }, [navigationBlocked, onNavigationBlockedChange]);
   useEffect(() => () => { onNavigationBlockedChange?.(false); }, [onNavigationBlockedChange]);
   useEffect(() => {
@@ -82,7 +88,7 @@ export function Customization({ bridge, locked, credentialValidated = false, onG
         {entry.availability === 'built-in-connector' && <button className="secondary-action" disabled={disabled || !bridge.getGitHubStatus} title={bridge.getGitHubStatus ? 'Manage the dedicated Aster GitHub App account in Windows.' : 'A qualified host account-management route is not available yet.'} onClick={event => { accountOpener.current = event.currentTarget; setAccountOpen(true); }}>Manage account</button>}
       </li>)}</ul> : <p>{snapshot ? search ? 'No matching packages.' : 'No packages in this category.' : 'Catalogue not available.'}</p>}</div>}
       {message && <p className="inline-state" role="status">{message}</p>}
-      {accountOpen && <GitHubAccount bridge={bridge} locked={locked} onClose={() => { setAccountOpen(false); requestAnimationFrame(() => { const opener = accountOpener.current; if (mounted.current && opener?.isConnected && !opener.disabled) opener.focus(); }); }}/>}
+      {accountOpen && <GitHubAccount bridge={bridge} locked={locked} onClose={() => setAccountOpen(false)}/>}
     </div>
   </section>;
 }

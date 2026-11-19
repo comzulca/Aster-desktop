@@ -14,3 +14,5 @@ The review started at main commit `d03189e`. Its [main workflow](https://github.
 | sha2 (codec fixtures) | 0.11.0 | 0.11.1 |
 
 The production Cargo graph and the two QA graphs were resolved separately. Cargo retained generic-array 0.14.7, toml 0.8.2, toml_datetime 0.6.3 and toml_edit 0.20.2 in the transitive graph. The Windows ABI guard requires windows-future 0.3.2 alongside windows 0.62.2. The patched zune-jpeg source remains at its reviewed 0.5.15 revision. The checkout, setup-node and upload-artifact actions matched the latest stable upstream releases at the review date.
+
+The first candidate exposed a focus restoration failure when closing the GitHub account popup. The workspace now restores focus after React commits the close and enables the opener. The existing regression test checks that focus returns to Manage account and that the pending operation is cancelled.
