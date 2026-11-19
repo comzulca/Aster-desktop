@@ -1,0 +1,27 @@
+name: Dependency inventory
+on:
+  push:
+    branches: [maintenance/dependency-review-20261119]
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - name: Compare locked npm and Cargo versions
+        run: |
+          corepack enable
+          corepack pnpm install --frozen-lockfile --ignore-scripts
+          corepack pnpm outdated --format json > "$RUNNER_TEMP/outdated.json" || test "$?" -eq 1
+          cat "$RUNNER_TEMP/outdated.json"
+          corepack pnpm audit --audit-level moderate
+          for manifest in src-tauri/Cargo.toml scripts/qa/codec-fixtures/Cargo.toml scripts/qa/zune-unit-fixtures/Cargo.toml; do
+            echo "$manifest"
+            cargo update --manifest-path "$manifest" --dry-run
+          done
