@@ -17,7 +17,7 @@ A Linux frontend build is not a Windows native/package result. Keep Windows, GPU
 
 ## Frontend maintenance cohort
 
-The frontend lockfile pins jsdom 31.0.0, Vitest 5.1.0 and Vite 8.3.6. Use the unchanged declared Node/pnpm cohort above and the frozen lockfile; do not install an unconstrained latest version. [Maintenance scope and evidence](qa/DEPENDENCY-MAINTENANCE-20261117.md). CSSOM serialisation is not native geometry evidence, and global fake-timer counts include DOM-owned tasks; the zoom fixture asserts the actual application timer handles. The native lockfile also pins quinn-proto 0.11.19 and quinn-udp 0.5.16. The locked pnpm and RustSec audits passed in the [combined validation](https://github.com/comzulca/Aster-desktop/actions/runs/44371814391).
+The frontend lockfile pins jsdom 31.0.1, Vitest 5.1.1 and Vite 8.3.8. Use the unchanged declared Node/pnpm cohort above and the frozen lockfile; do not install an unconstrained latest version. [Maintenance scope and evidence](qa/DEPENDENCY-MAINTENANCE-20261117.md). CSSOM serialisation is not native geometry evidence, and global fake-timer counts include DOM-owned tasks; the zoom fixture asserts the actual application timer handles. The native lockfile also pins quinn-proto 0.11.19 and quinn-udp 0.5.16. The locked pnpm and RustSec audits passed in the [combined validation](https://github.com/comzulca/Aster-desktop/actions/runs/44371814391). See the [19 November registry comparison and lockfile updates](qa/DEPENDENCY-REVIEW-20261119.md).
 
 ## Source validation
 
