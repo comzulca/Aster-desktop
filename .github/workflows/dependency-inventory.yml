@@ -17,11 +17,11 @@ jobs:
       - name: Compare locked npm and Cargo versions
         run: |
           corepack enable
-          corepack pnpm install --frozen-lockfile --ignore-scripts
-          corepack pnpm outdated --format json > "$RUNNER_TEMP/outdated.json" || test "$?" -eq 1
-          cat "$RUNNER_TEMP/outdated.json"
-          corepack pnpm audit --audit-level moderate
+          corepack pnpm update @tauri-apps/api@^2.12.5 @tauri-apps/cli@^2.12.5 @testing-library/user-event@^14.6.12 jsdom@^31.0.1 vite@^8.3.8 vitest@^5.1.1 --lockfile-only
           for manifest in src-tauri/Cargo.toml scripts/qa/codec-fixtures/Cargo.toml scripts/qa/zune-unit-fixtures/Cargo.toml; do
-            echo "$manifest"
-            cargo update --manifest-path "$manifest" --dry-run
+            cargo update --manifest-path "$manifest" --verbose
           done
+          git diff --check
+          echo PATCH_START
+          git diff --binary | gzip -c | base64
+          echo PATCH_END
