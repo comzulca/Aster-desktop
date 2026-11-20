@@ -1,6 +1,6 @@
 # Set up and use Aster v0.2.4
 
-This guide includes the [5 November spending/Send correction](qa/SEND-READINESS-20261105.md), IPC protocol 5 and unchanged financial policy 4. The prior `57339a6` [engineering receipt](qa/FINAL-ENGINEERING-V024-20261105.md) describes earlier bytes only; the corrected unsigned Windows x64 installer requires fresh CI/package evidence. The agent does not launch the app on the owner's laptop.
+These instructions apply to Aster v0.2.4 with IPC protocol 5 and financial policy 4. The [spending/Send delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) identifies the unsigned Windows x64 installer for the spending/Send correction. For builds incorporating the 20 November dependency updates, use the [revision and workflow listed in the engineering notes](RELEASE-NOTES-v0.2.4.md#dependency-maintenance--20-november-2026).
 
 ## Configure before sending
 

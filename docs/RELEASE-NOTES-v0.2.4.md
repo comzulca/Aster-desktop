@@ -4,6 +4,8 @@ Earlier spending/Send maintenance: [PR #70](https://github.com/comzulca/Aster-de
 
 ## Dependency maintenance — 20 November 2026
 
+[PR #81](https://github.com/comzulca/Aster-desktop/pull/81) reached main in [`0766478`](https://github.com/comzulca/Aster-desktop/commit/07664782b5d55b489fd422a53781709337af4333). All five [PR checks](https://github.com/comzulca/Aster-desktop/actions/runs/44816152298) passed, including the Windows host and unsigned installer jobs. The [main workflow for `0766478`](https://github.com/comzulca/Aster-desktop/actions/runs/44820206942) tracks validation of the integrated revision.
+
 The Tauri CLI moves from 2.12.5 to 2.12.6 and Testing Library user-event from 14.6.12 to 14.6.13. The JavaScript API remains at 2.12.5. Cargo updated cc to 1.11.3, pin-project-lite to 0.2.18 and serde_with and its macros to 3.25.0. The serde_with update adds the Jiff 1.x family alongside 0.x. Both QA lockfiles already resolved to the latest compatible versions.
 
 ## Dependency maintenance — 19 November 2026
