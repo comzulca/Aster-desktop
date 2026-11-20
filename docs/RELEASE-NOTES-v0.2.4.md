@@ -2,6 +2,10 @@
 
 Earlier spending/Send maintenance: [PR #70](https://github.com/comzulca/Aster-desktop/pull/70), implemented head `c6974cd`, initial complete candidate run `42109052799`, attempt 1. The PR delivery receipt separately records final main source and verified installer identity. The previous main `57339a6` [receipt](qa/FINAL-ENGINEERING-V024-20261105.md) remains unchanged historical evidence. Unsigned engineering is distinct from production. [Current status](ENGINEERING-STATUS.md).
 
+## Dependency maintenance — 20 November 2026
+
+The Tauri CLI moves from 2.12.5 to 2.12.6 and Testing Library user-event from 14.6.12 to 14.6.13. The JavaScript API remains at 2.12.5. Cargo updated cc to 1.11.3, pin-project-lite to 0.2.18 and serde_with and its macros to 3.25.0. The serde_with update adds the Jiff 1.x family alongside 0.x. Both QA lockfiles already resolved to the latest compatible versions.
+
 ## Dependency maintenance — 19 November 2026
 
 The npm lock updates the Tauri API and CLI to 2.12.5, user-event to 14.6.12, jsdom to 31.0.1, Vite to 8.3.8 and Vitest to 5.1.1. The native and QA lockfiles incorporate compatible Cargo updates. Application version 0.2.4, IPC 5 and financial policy 4 are unchanged. [Dependency review](qa/DEPENDENCY-REVIEW-20261119.md).

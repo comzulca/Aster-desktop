@@ -1,3 +1,7 @@
+## Current dependency baseline
+
+Use the manifests and lockfiles for resolved versions. The [maintenance notes](docs/RELEASE-NOTES-v0.2.4.md#dependency-maintenance--20-november-2026) record the latest changes. The dated instructions below document earlier maintenance.
+
 ## 18 November dependency integration
 
 Main includes the three frontend dependency updates and the authorised Quinn lockfile corrections. See the [integration outcome](docs/qa/DEPENDENCY-MAINTENANCE-20261117.md#integration-outcome--18-november-2026) for commits, validation and the earlier investigation.
