@@ -30,7 +30,7 @@ A Windows 11 desktop assistant by Computación Zuliana C.A. (COMZULCA), built wi
 
 ## Frontend dependency maintenance — 20 November 2026
 
-The frontend lockfile pins jsdom 31.0.1, Vitest 5.1.1, Vite 8.3.8, user-event 14.6.13, Tauri API 2.12.5 and Tauri CLI 2.12.6. See the [20 November Cargo updates](docs/RELEASE-NOTES-v0.2.4.md#dependency-maintenance--20-november-2026) and the [19 November dependency review](docs/qa/DEPENDENCY-REVIEW-20261119.md) for the retained constraints and registry comparison.
+The frontend lockfile pins jsdom 31.0.1, Vitest 5.1.1, Vite 8.3.8, user-event 14.6.13, Tauri API 2.12.5 and Tauri CLI 2.12.6. For the merged revision, Windows checks and Rust changes, see the [20 November maintenance notes](docs/RELEASE-NOTES-v0.2.4.md#dependency-maintenance--20-november-2026) and the [19 November dependency review](docs/qa/DEPENDENCY-REVIEW-20261119.md) for the retained constraints and registry comparison.
 
 ## Earlier spending/Send verification
 

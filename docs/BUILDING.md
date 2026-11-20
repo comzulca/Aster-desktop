@@ -1,6 +1,6 @@
 # Source checks and Windows engineering builds
 
-Cross-checked 5 November 2026 against the spending/Send implementation in PR #70 head `c6974cd`; IPC protocol 5 / financial policy 4. [Maintenance and final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70). The earlier `57339a6` receipt remains an example for those earlier bytes only. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. The pinned declarations and frozen locks are authoritative; these procedures are instructions, not proof they ran in an owner's session.
+The build inputs below were checked against main `0766478` on 20 November 2026. The spending/Send implementation uses IPC protocol 5 and financial policy 4. [Maintenance and final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70). The earlier `57339a6` receipt remains an example for those earlier bytes only. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. The pinned declarations and frozen locks are authoritative; these procedures are instructions, not proof they ran in an owner's session.
 
 ## Build cohort
 
@@ -17,7 +17,9 @@ A Linux frontend build is not a Windows native/package result. Keep Windows, GPU
 
 ## Frontend maintenance cohort
 
-The frontend lockfile pins jsdom 31.0.1, Vitest 5.1.1 and Vite 8.3.8. Use the unchanged declared Node/pnpm cohort above and the frozen lockfile; do not install an unconstrained latest version. [Maintenance scope and evidence](qa/DEPENDENCY-MAINTENANCE-20261117.md). CSSOM serialisation is not native geometry evidence, and global fake-timer counts include DOM-owned tasks; the zoom fixture asserts the actual application timer handles. The native lockfile also pins quinn-proto 0.11.19 and quinn-udp 0.5.16. The locked pnpm and RustSec audits passed in the [combined validation](https://github.com/comzulca/Aster-desktop/actions/runs/44371814391). See the [19 November registry comparison and lockfile updates](qa/DEPENDENCY-REVIEW-20261119.md).
+Use the declared Node and pnpm versions with the frozen lockfile. The frontend resolves Tauri API 2.12.5, Tauri CLI 2.12.6, user-event 14.6.13, jsdom 31.0.1, Vitest 5.1.1 and Vite 8.3.8.
+
+The application Cargo lock resolves cc 1.11.3, pin-project-lite 0.2.18, serde_with 3.25.0 and serde_with_macros 3.25.0. The two QA harnesses keep separate locks. The [maintenance notes](RELEASE-NOTES-v0.2.4.md#dependency-maintenance--20-november-2026) link the candidate checks and main workflow. The [19 November review](qa/DEPENDENCY-REVIEW-20261119.md) explains the retained Windows ABI and vendored JPEG constraints.
 
 ## Source validation
 
