@@ -1,6 +1,6 @@
 # Current engineering status
 
-Dependency maintenance, 19 November 2026. The source locks the Tauri Rust crate at 2.12.7 and its JavaScript API and CLI at 2.12.5. The frontend uses jsdom 31.0.1, Vite 8.3.8 and Vitest 5.1.1. [Dependency review and remaining constraints](qa/DEPENDENCY-REVIEW-20261119.md).
+Dependency maintenance, 20 November 2026. The source locks the Tauri Rust crate at 2.12.7, the JavaScript API at 2.12.5 and the CLI at 2.12.6. The test suite uses user-event 14.6.13. The frontend uses jsdom 31.0.1, Vite 8.3.8 and Vitest 5.1.1. [Dependency review and remaining constraints](qa/DEPENDENCY-REVIEW-20261119.md).
 
 **Earlier spending/Send maintenance:** [PR #70](https://github.com/comzulca/Aster-desktop/pull/70) implements the [spending/Send correction](qa/SEND-READINESS-20261105.md), IPC protocol 5 and unchanged financial policy 4. Its initial completed candidate run is `42109052799`, attempt 1, tested merge `8e92ef76a4e7910ae2193e87e7085c4910b58d1e` from head `c6974cd`. All five jobs and packaged probes passed. The PR delivery receipt separately binds final main source, run and installer hashes.
 
