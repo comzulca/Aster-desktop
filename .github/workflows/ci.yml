@@ -292,12 +292,15 @@ jobs:
           python scripts/ci/cargo_sbom.py reports/rust-metadata.json reports/rust.cdx.json reports/rust-licenses.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Remove-Item reports/rust-metadata.json
-          Get-FileHash reports/* -Algorithm SHA256 | Format-Table Path,Hash -AutoSize
+          Get-ChildItem -LiteralPath reports -Recurse -File | Get-FileHash -Algorithm SHA256 | Format-Table Path,Hash -AutoSize
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() && hashFiles('reports/windows-execution-context.json') != '' }}
         with:
           name: windows-host-evidence-${{ github.run_id }}-${{ github.run_attempt }}
-          path: reports/
+          path: |
+            reports/
+            !reports/speech/**
+            !reports/speech-fixture.wav
           retention-days: 14
           if-no-files-found: error
 
