@@ -40,6 +40,9 @@ fn main() {
             "select_attachments",
             "remove_attachment",
             "review_processed_attachment",
+            "start_speech_capture",
+            "finish_speech_capture",
+            "cancel_speech_capture",
         ]),
     ))
     .expect("Tauri capability generation must succeed");

@@ -23,12 +23,12 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
     expect(fake.bridge.configureCredential).not.toHaveBeenCalled();
   });
-  it('describes current v0.2.4 boundaries in News and separates GitHub reading from disabled chat tools', async () => {
+  it('describes current v0.2.5 boundaries in News and separates GitHub reading from disabled chat tools', async () => {
     const fake = fakeBridge(); fake.bridge.verifyCredential = vi.fn(async () => ({ state: 'valid' as const }));
     render(<App bridge={fake.bridge}/>); await ready();
     await userEvent.click(screen.getByRole('button', { name: 'Help' })); await userEvent.click(screen.getByRole('menuitem', { name: "What's New" }));
     const news = screen.getByRole('dialog', { name: "What's New" });
-    for (const text of [/v0\.2\.4: the owner-supplied interface/, /current-key authentication proof/, /Personalization is exclusively local/, /fresh ordinary local conversation retains the description, prompt and response/, /Save and enable remain separate/, /Enable its catalogue preference before Connect/, /Expiry or restart requires deliberate reconnect, not automatic refresh/, /File changes, issues, pull requests and merges remain unavailable/, /Automatic context compaction is unfinished/, /do not establish compositor completeness or a flicker cure/]) expect(within(news).getByText(text)).toBeTruthy();
+    for (const text of [/v0\.2\.5 adds local whisper\.cpp dictation/, /current-key authentication proof/, /Personalization is exclusively local/, /fresh ordinary local conversation retains the description, prompt and response/, /Save and enable remain separate/, /Enable its catalogue preference before Connect/, /Expiry or restart requires deliberate reconnect, not automatic refresh/, /File changes, issues, pull requests and merges remain unavailable/, /Automatic context compaction is unfinished/, /do not establish compositor completeness or a flicker cure/]) expect(within(news).getByText(text)).toBeTruthy();
     expect(news.textContent).not.toContain('Branding, caption, send/stop geometry and sky-blue colours are unchanged.');
     await userEvent.click(within(news).getByRole('button', { name: 'Close dialogue' }));
     await userEvent.click(screen.getByRole('button', { name: 'Help' })); await userEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));

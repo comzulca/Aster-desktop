@@ -3,6 +3,7 @@
 //! It contains only a digest; no key, model response, URL override or authority.
 
 use crate::private_store::{Domain, PrivateStore, StoreError};
+use crate::provider::ProviderFailure;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -184,6 +185,32 @@ impl CredentialValidation {
         )
     }
 
+    /// The caller revoked the previous proof before starting the GET. Only an
+    /// exact-model success or an authentication rejection establishes key state.
+    pub(crate) fn finish_verification(
+        &mut self,
+        sent_key: &str,
+        current_key: &str,
+        result: Result<(), ProviderFailure>,
+    ) -> Result<ValidationState, &'static str> {
+        if current_key != sent_key {
+            return Err("credential_validation_stale");
+        }
+        match result {
+            Ok(()) => {
+                self.record_result(sent_key, true)
+                    .map_err(StoreError::code)?;
+                Ok(ValidationState::Valid)
+            }
+            Err(ProviderFailure::Authentication) => {
+                self.record_result(sent_key, false)
+                    .map_err(StoreError::code)?;
+                Err(ProviderFailure::Authentication.code())
+            }
+            Err(failure) => Err(failure.code()),
+        }
+    }
+
     pub(crate) fn can_verify(&self) -> Result<bool, StoreError> {
         if !self.healthy() {
             return Err(StoreError::Corrupt);
@@ -191,6 +218,17 @@ impl CredentialValidation {
         // Two records for revocation/result and one reserved deletion tombstone.
         self.store
             .has_capacity(Domain::CredentialProof, 3 * 1024, 3)
+    }
+
+    pub(crate) fn begin_verification(&mut self, key: &str) -> Result<bool, &'static str> {
+        if !self.can_verify().map_err(StoreError::code)? {
+            return Err("credential_proof_capacity");
+        }
+        // An external Windows edit bypasses the configure dialog. An unknown
+        // identity must not inherit contributor consent or prior continuation.
+        let previous_identity_known = self.fingerprint.as_ref() == Some(&fingerprint(key));
+        self.revoke().map_err(StoreError::code)?;
+        Ok(previous_identity_known)
     }
 }
 
@@ -207,6 +245,60 @@ mod tests {
         assert_eq!(proof.state(None), ValidationState::Missing);
         assert_eq!(proof.state(Some(KEY)), ValidationState::Unverified);
         assert!(proof.require(KEY).is_err());
+    }
+    #[test]
+    fn verification_reports_service_errors_without_authenticating_or_rejecting_the_key() {
+        let mut proof = empty();
+        proof.finish_verification(KEY, KEY, Ok(())).unwrap();
+        proof.revoke().unwrap();
+        for failure in [
+            ProviderFailure::Forbidden,
+            ProviderFailure::ModelUnavailable,
+            ProviderFailure::RateLimited,
+            ProviderFailure::ProviderUnavailable,
+            ProviderFailure::Network,
+            ProviderFailure::Timeout,
+            ProviderFailure::InvalidContract,
+        ] {
+            assert_eq!(
+                proof.finish_verification(KEY, KEY, Err(failure)),
+                Err(failure.code())
+            );
+            assert_eq!(proof.state(Some(KEY)), ValidationState::Unverified);
+        }
+        assert_eq!(
+            proof.finish_verification(KEY, KEY, Err(ProviderFailure::Authentication)),
+            Err("meta_authentication_failed")
+        );
+        assert_eq!(proof.state(Some(KEY)), ValidationState::Invalid);
+    }
+    #[test]
+    fn a_changed_key_or_uncertain_write_cannot_return_an_authenticated_receipt() {
+        let mut proof = empty();
+        for result in [Ok(()), Err(ProviderFailure::Authentication)] {
+            assert_eq!(
+                proof.finish_verification(KEY, "different-synthetic-key", result),
+                Err("credential_validation_stale")
+            );
+            assert_eq!(proof.state(Some(KEY)), ValidationState::Unverified);
+            assert!(proof.require("different-synthetic-key").is_err());
+        }
+        proof.store.fail_next_append_for_test(true);
+        assert!(proof.finish_verification(KEY, KEY, Ok(())).is_err());
+        assert!(proof.require(KEY).is_err());
+    }
+
+    #[test]
+    fn external_rotation_requires_new_identity_review_before_proof() {
+        let mut proof = empty();
+        assert_eq!(proof.begin_verification(KEY), Ok(false));
+        proof.finish_verification(KEY, KEY, Ok(())).unwrap();
+        assert_eq!(proof.begin_verification(KEY), Ok(true));
+        assert!(proof.require(KEY).is_err());
+        proof.finish_verification(KEY, KEY, Ok(())).unwrap();
+        assert_eq!(proof.begin_verification("other-synthetic-key"), Ok(false));
+        assert!(proof.require(KEY).is_err());
+        assert!(proof.require("other-synthetic-key").is_err());
     }
     #[test]
     fn proof_is_exact_key_bound_and_replacement_deletion_revoke_it() {

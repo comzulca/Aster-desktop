@@ -2,6 +2,10 @@
 
 The build inputs below were checked against main `0766478` on 20 November 2026. The spending/Send implementation uses IPC protocol 5 and financial policy 4. [Maintenance and final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70). The earlier `57339a6` receipt remains an example for those earlier bytes only. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. The pinned declarations and frozen locks are authoritative; these procedures are instructions, not proof they ran in an owner's session.
 
+## Preparing the v0.2.5 speech resources
+
+Run `python scripts/prepare-speech.py` before building the native host or NSIS installer. This stages the pinned CPU decoder, model and licenses in `reports/speech`. On Windows, `python scripts/prepare-speech.py --test-dir reports/speech` checks the resource identities and transcribes a known public recording. The installer's CI repeats that probe on the extracted package.
+
 ## Build cohort
 
 | Input | Current declaration |
@@ -42,7 +46,7 @@ The [source guard scripts](../scripts/ci) additionally check probable secrets, v
 
 The exact implementation is in [ci.yml](../.github/workflows/ci.yml). Preserve all five jobs: `source-policy`, `frontend`, `codec-source-fixtures`, `windows-host` and `engineering-installer`. A documentation change still needs its own current-source checks before normal integration; an earlier green run does not qualify changed source.
 
-The workflow generates target-filtered Cargo metadata, schema-2 third-party notices, licence inventories and frontend/Rust SBOM evidence before packaging. It requires the unchanged locked inputs, twelve resources including the ten byte-identified inert Aster Builder files, complete Windows Rust suite, strict Clippy and advisory checks. The default suite excludes two native Credential Manager cases; the workflow separately executes the exact two authorised disposable cases and records their scope.
+The workflow generates target-filtered Cargo metadata, schema-2 third-party notices, licence inventories and frontend/Rust SBOM evidence before packaging. It requires the unchanged locked inputs, the original twelve resources plus the pinned speech assets, including their licenses, complete Windows Rust suite, strict Clippy and advisory checks. The default suite excludes two native Credential Manager cases; the workflow separately executes the exact two authorised disposable cases and records their scope.
 
 After building the unsigned NSIS package, the actual release executable must pass all fifteen codec and six resource probes. Validate causal CPU evidence independently with [verify_cpu_receipt.py](../scripts/ci/verify_cpu_receipt.py). A diagnostic running after full-suite failure cannot turn the failed job into PASS. A compiled setup without the mandatory probes is not a qualified delivery.
 

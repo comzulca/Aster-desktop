@@ -14,6 +14,7 @@ param(
 # Verifies and materializes, but never executes/installs the downloaded artifact.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Get-SpeechResourceInventory.ps1')
 function Assert-InstallerProvenance($Manifest, [string]$SourceRevision, [string]$RunId, [string]$RunAttempt, [string]$DiagnosticPrNumber) {
     if ($Manifest -isnot [pscustomobject]) { throw 'Installer provenance must be a JSON object.' }
     foreach ($field in @('source_revision', 'workflow_run_id', 'workflow_run_attempt', 'classification', 'workflow_ref', 'workflow_event')) {
@@ -62,7 +63,7 @@ function Assert-RequiredResourceMembers([object[]]$Members, $ExpectedSizes) {
         $parts = @($path.Split('/'))
         $leaf = $parts[$parts.Count - 1]
         $isBuilder = @($parts | Where-Object { [string]::Equals($_.TrimEnd(' ', '.'), 'aster-builder', [System.StringComparison]::OrdinalIgnoreCase) }).Count -gt 0
-        $isResource = $isBuilder -or $leaf.TrimEnd(' ', '.') -in @('THIRD-PARTY-NOTICES.txt', 'LICENSE.txt')
+        $isResource = $isBuilder -or (@($parts | Where-Object { $_.TrimEnd(' ', '.') -ieq 'speech' }).Count -gt 0) -or $leaf.TrimEnd(' ', '.') -in @('THIRD-PARTY-NOTICES.txt', 'LICENSE.txt')
         if (-not $isResource) { continue }
         if ($names -cnotcontains $path -or -not $seen.Add($path)) { throw 'Installer resource namespace contains an unknown, aliased or duplicate member.' }
         if ([long]$member.Size -ne [long]$ExpectedSizes[$path]) { throw 'Installer resource member length differs from the fixed inventory.' }
@@ -71,7 +72,8 @@ function Assert-RequiredResourceMembers([object[]]$Members, $ExpectedSizes) {
 }
 function Assert-RequiredResourceEvidence($Manifest, [string]$PayloadList) {
     $builderInventory = Get-AsterBuilderResourceInventory
-    $names = @('THIRD-PARTY-NOTICES.txt', 'LICENSE.txt') + @($builderInventory.Keys)
+    $speechInventory = Get-SpeechResourceInventory
+    $names = @('THIRD-PARTY-NOTICES.txt', 'LICENSE.txt') + @($builderInventory.Keys) + @($speechInventory.Keys)
     $hashProperties = @($Manifest.bundle_resource_sha256.PSObject.Properties)
     $sizeProperties = @($Manifest.bundle_resource_byte_count.PSObject.Properties)
     if ($hashProperties.Count -ne $names.Count -or $sizeProperties.Count -ne $names.Count -or
@@ -81,9 +83,9 @@ function Assert-RequiredResourceEvidence($Manifest, [string]$PayloadList) {
     $headerEnd = $PayloadList.IndexOf($separator, [System.StringComparison]::Ordinal)
     if ($headerEnd -le 0) { throw 'Installer payload evidence lacks its exact listing separator.' }
     $headerLines = @($PayloadList.Substring(0, $headerEnd).Split("`n"))
-    if ($headerLines.Count -ne 30 -or
+    if ($headerLines.Count -ne (6 + 2 * $names.Count) -or
         @($headerLines | Where-Object { $_ -ceq 'classification=verified-extracted-nsis-payload' }).Count -ne 1 -or
-        @($headerLines | Where-Object { $_ -ceq 'required_resource_count=12' }).Count -ne 1 -or
+        @($headerLines | Where-Object { $_ -ceq "required_resource_count=$($names.Count)" }).Count -ne 1 -or
         @($headerLines | Where-Object { $_ -ceq 'aster_builder_resource_count=10' }).Count -ne 1 -or
         @($headerLines | Where-Object { $_ -cmatch '^preflight_entry_count=[1-9][0-9]*$' }).Count -ne 1 -or
         @($headerLines | Where-Object { $_ -cmatch '^preflight_total_bytes=[0-9]+$' }).Count -ne 1 -or
@@ -98,6 +100,7 @@ function Assert-RequiredResourceEvidence($Manifest, [string]$PayloadList) {
             @($headerLines | Where-Object { $_ -ceq "$name.byte_count=$size" }).Count -ne 1) { throw 'Installer payload evidence is not bound to the exact manifest resource identity.' }
         if ($builderInventory.Contains($name) -and
             ($hash -cne $builderInventory[$name].sha256 -or [long]$size -ne [long]$builderInventory[$name].byte_count)) { throw 'Manifest replaced an original inert Aster Builder resource identity.' }
+        if ($speechInventory.Contains($name) -and ($hash -cne $speechInventory[$name].sha256 -or [long]$size -ne $speechInventory[$name].byte_count)) { throw 'Manifest replaced pinned speech resource bytes.' }
         $sizes[$name] = [long]$size
     }
     return $sizes
@@ -158,14 +161,14 @@ try {
     if ($actualZipSha256 -cne $ExpectedZipSha256) { throw 'GitHub artifact ZIP digest mismatch.' }
     $zipStream.Position = 0
     $archive = [System.IO.Compression.ZipArchive]::new($zipStream, [System.IO.Compression.ZipArchiveMode]::Read, $false)
-    $expectedNames = @('manifest.json', 'Aster Desktop_0.2.4_x64-setup.exe', 'THIRD-PARTY-NOTICES.txt', 'third-party-notice-inventory.json', 'installer-payload-list.txt')
+    $expectedNames = @('manifest.json', 'Aster Desktop_0.2.5_x64-setup.exe', 'THIRD-PARTY-NOTICES.txt', 'third-party-notice-inventory.json', 'installer-payload-list.txt')
     if ($archive.Entries.Count -ne 5) { throw 'Artifact must have exactly five entries.' }
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($entry in $archive.Entries) {
         if ($expectedNames -cnotcontains $entry.FullName -or -not $seen.Add($entry.FullName)) { throw 'Artifact contains an unexpected or duplicate entry.' }
         $attributeBits = [System.BitConverter]::ToUInt32([System.BitConverter]::GetBytes([int]$entry.ExternalAttributes), 0)
         if ((($attributeBits -shr 16) -band 0xF000) -eq 0xA000 -or ($attributeBits -band 0x400) -ne 0) { throw 'Artifact contains a link or reparse entry.' }
-        $limit = switch ($entry.FullName) { 'manifest.json' { 16384 }; 'Aster Desktop_0.2.4_x64-setup.exe' { 67108864 }; 'THIRD-PARTY-NOTICES.txt' { 33554432 }; default { 4194304 } }
+        $limit = switch ($entry.FullName) { 'manifest.json' { 16384 }; 'Aster Desktop_0.2.5_x64-setup.exe' { 134217728 }; 'THIRD-PARTY-NOTICES.txt' { 33554432 }; default { 4194304 } }
         if ($entry.Length -le 0 -or $entry.Length -gt $limit) { throw 'Artifact entry exceeds its size limit or is empty.' }
         $stream = $entry.Open()
         $memory = [System.IO.MemoryStream]::new()
@@ -180,13 +183,13 @@ try {
             $bytes=$memory.ToArray()
         } finally { $stream.Dispose(); $memory.Dispose() }
         if ($bytes.LongLength -ne $entry.Length) { throw 'Artifact entry length mismatch.' }
-        if ($entry.FullName -ceq 'manifest.json') { $manifestBytes=$bytes } elseif ($entry.FullName -ceq 'Aster Desktop_0.2.4_x64-setup.exe') { $installerBytes=$bytes } else { $evidenceBytes[$entry.FullName]=$bytes }
+        if ($entry.FullName -ceq 'manifest.json') { $manifestBytes=$bytes } elseif ($entry.FullName -ceq 'Aster Desktop_0.2.5_x64-setup.exe') { $installerBytes=$bytes } else { $evidenceBytes[$entry.FullName]=$bytes }
     }
 } finally { if ($null -ne $archive) { $archive.Dispose() } else { $zipStream.Dispose() } }
 $strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
 $manifest = $strictUtf8.GetString($manifestBytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
 $provenanceMode = Assert-InstallerProvenance $manifest $ExpectedSourceRevision $ExpectedRunId $ExpectedRunAttempt $DiagnosticPullRequestNumber
-if ($manifest.filename -cne 'Aster Desktop_0.2.4_x64-setup.exe' -or
+if ($manifest.filename -cne 'Aster Desktop_0.2.5_x64-setup.exe' -or
     [long]$manifest.byte_count -ne $installerBytes.LongLength -or
     $manifest.authenticode_status -cne 'NotSigned' -or $manifest.runner -cne 'Windows' -or
     $manifest.sha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Installer manifest byte/signature binding does not match the expected CI artifact.' }

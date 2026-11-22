@@ -151,6 +151,9 @@ jobs:
             os_version = [System.Environment]::OSVersion.VersionString
             recorded_at_utc = (Get-Date).ToUniversalTime().ToString('o')
           } | ConvertTo-Json | Tee-Object -FilePath reports/windows-execution-context.json
+      - name: Prepare pinned local speech resources
+        shell: pwsh
+        run: python scripts/prepare-speech.py
       - name: Generate locked source notices for bundle resources
         shell: pwsh
         run: |
@@ -336,6 +339,9 @@ jobs:
             os_version = [System.Environment]::OSVersion.VersionString
             recorded_at_utc = (Get-Date).ToUniversalTime().ToString('o')
           } | ConvertTo-Json | Tee-Object -FilePath reports/installer-execution-context.json
+      - name: Prepare pinned local speech resources
+        shell: pwsh
+        run: python scripts/prepare-speech.py
       - name: Build unsigned NSIS engineering package
         shell: pwsh
         run: |
@@ -377,7 +383,7 @@ jobs:
           $candidates = @(Get-ChildItem -LiteralPath src-tauri/target/release/bundle/nsis -File -Filter '*-setup.exe' -ErrorAction Stop)
           if ($candidates.Count -ne 1 -or $candidates[0].Length -le 0) { throw 'Expected exactly one nonempty NSIS setup executable.' }
           $installer = $candidates[0]
-          if ($installer.Name -cne 'Aster Desktop_0.2.4_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
+          if ($installer.Name -cne 'Aster Desktop_0.2.5_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
           function Get-AsterBuilderResourceInventory {
             # Exact original inert ZIP-member identities; no manifest-defined replacements.
             return [ordered]@{
@@ -401,19 +407,22 @@ jobs:
               $parts = @($path.Split('/'))
               $leaf = $parts[$parts.Count - 1]
               $isBuilder = @($parts | Where-Object { [string]::Equals($_.TrimEnd(' ', '.'), 'aster-builder', [System.StringComparison]::OrdinalIgnoreCase) }).Count -gt 0
-              $isResource = $isBuilder -or $leaf.TrimEnd(' ', '.') -in @('THIRD-PARTY-NOTICES.txt', 'LICENSE.txt')
+              $isResource = $isBuilder -or (@($parts | Where-Object { $_.TrimEnd(' ', '.') -ieq 'speech' }).Count -gt 0) -or $leaf.TrimEnd(' ', '.') -in @('THIRD-PARTY-NOTICES.txt', 'LICENSE.txt')
               if (-not $isResource) { continue }
               if ($names -cnotcontains $path -or -not $seen.Add($path)) { throw 'Installer resource namespace contains an unknown, aliased or duplicate member.' }
               if ([long]$member.Size -ne [long]$ExpectedSizes[$path]) { throw 'Installer resource member length differs from the fixed inventory.' }
             }
             if ($seen.Count -ne $names.Count) { throw 'Installer resource inventory is incomplete.' }
           }
+          . ./scripts/qa/Get-SpeechResourceInventory.ps1
+          $speechInventory = Get-SpeechResourceInventory
           $builderInventory = Get-AsterBuilderResourceInventory
           $expectedMappings = [ordered]@{
             '../reports/THIRD-PARTY-NOTICES.txt' = 'THIRD-PARTY-NOTICES.txt'
             '../LICENSE' = 'LICENSE.txt'
           }
           foreach ($name in $builderInventory.Keys) { $expectedMappings['resources/' + $name] = $name }
+          foreach ($name in $speechInventory.Keys) { $expectedMappings['../reports/' + $name] = $name }
           $configMappings = @((Get-Content -LiteralPath src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).bundle.resources.PSObject.Properties)
           if ($configMappings.Count -ne $expectedMappings.Count) { throw 'Bundle resource config mapping set is not exact.' }
           foreach ($mapping in $configMappings) {
@@ -428,6 +437,7 @@ jobs:
             if ($sourceItem.PSIsContainer -or ($sourceItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or $sourceItem.Length -le 0 -or $sourceItem.Length -gt 268435456) { throw 'Bundle resource source is not a normal bounded nonempty file.' }
             $hash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
             if ($builderInventory.Contains($name) -and ($sourceItem.Length -ne $builderInventory[$name].byte_count -or $hash -cne $builderInventory[$name].sha256)) { throw 'Original inert Aster Builder source byte identity changed.' }
+            if ($speechInventory.Contains($name) -and ($sourceItem.Length -ne $speechInventory[$name].byte_count -or $hash -cne $speechInventory[$name].sha256)) { throw 'Speech source differs from the pinned upstream bytes.' }
             $resourceHashes[$name] = $hash
             $resourceByteCounts[$name] = [long]$sourceItem.Length
           }
@@ -484,9 +494,11 @@ jobs:
             $resourcePath = Join-Path $payloadRoot $name
             if ((Get-FileHash -LiteralPath $resourcePath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $resourceHashes[$name]) { throw 'Extracted bundle resource hash differs from the exact reviewed source.' }
           }
+          python scripts/prepare-speech.py --test-dir (Join-Path $payloadRoot 'speech')
+          if ($LASTEXITCODE -ne 0) { throw 'Extracted speech decoder failed the public audio fixture.' }
           $payloadHeader = @(
             'classification=verified-extracted-nsis-payload'
-            'required_resource_count=12'
+            "required_resource_count=$($resourceHashes.Count)"
             'aster_builder_resource_count=10'
             "preflight_entry_count=$entryCount"
             "preflight_total_bytes=$preflightBytes"

@@ -43,6 +43,9 @@
     "allow-startup-shell-ready",
     "allow-select-attachments",
     "allow-remove-attachment",
-    "allow-review-processed-attachment"
+    "allow-review-processed-attachment",
+    "allow-start-speech-capture",
+    "allow-finish-speech-capture",
+    "allow-cancel-speech-capture"
   ]
 }

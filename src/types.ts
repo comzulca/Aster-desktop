@@ -136,6 +136,10 @@ export interface RenderTraceSnapshot {
   webview2DetailEventsAvailable: boolean;
 }
 export interface Bridge {
+  subscribeSpeechPhase?(callback: (phase: { sessionId: string; phase: 'recording' | 'transcribing' }) => void): Promise<() => void>;
+  startSpeechCapture?(sessionId: string): Promise<string>;
+  finishSpeechCapture?(sessionId: string): Promise<void>;
+  cancelSpeechCapture?(sessionId: string): Promise<void>;
   shellReady?(input: { protocolVersion: 1 }): Promise<{ accepted: boolean; visible: boolean }>;
   recordRenderEvent?(input: { protocolVersion: 1; phase: RendererTracePhase }): Promise<boolean>;
   getRenderTrace?(): Promise<RenderTraceSnapshot>;

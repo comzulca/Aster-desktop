@@ -24,7 +24,9 @@ Full license: [Apache License, Version 2.0](https://www.apache.org/licenses/LICE
 
 A Windows 11 desktop assistant by Computación Zuliana C.A. (COMZULCA), built with Tauri, Rust, React and TypeScript. The trusted native host owns credentials, document custody, exact disclosure review and spending admission.
 
-**Current version: 0.2.4, unsigned engineering.** The [spending activation and Send correction](docs/qa/SEND-READINESS-20261105.md) adds expiry guidance, visible Settings errors and composer prerequisites with IPC protocol 5. The [maintenance verification](docs/qa/SEND-READINESS-20261105.md#observed-successor-verification) records the completed candidate checks; the [final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) binds the independently verified main installer. The previous delivery was main [`57339a6`](https://github.com/comzulca/Aster-desktop/commit/57339a687125a0b1fd8d6cda787649b5a111fa65); its receipt does not qualify newer bytes.
+**Current source candidate: 0.2.5.** The composer includes local Windows dictation with whisper.cpp. The provider setup refreshes the state of the stored credential and reports the next required action. [Candidate specification](docs/specs/SPEC-0009.md).
+
+**Earlier v0.2.4 engineering delivery.** The [spending activation and Send correction](docs/qa/SEND-READINESS-20261105.md) adds expiry guidance, visible Settings errors and composer prerequisites with IPC protocol 5. The [maintenance verification](docs/qa/SEND-READINESS-20261105.md#observed-successor-verification) records the completed candidate checks; the [final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) binds the independently verified main installer. The previous delivery was main [`57339a6`](https://github.com/comzulca/Aster-desktop/commit/57339a687125a0b1fd8d6cda787649b5a111fa65); its receipt does not qualify newer bytes.
 
 [Current engineering status](docs/ENGINEERING-STATUS.md) · [Setup and use](docs/SETUP-AND-USE.md) · [Version index](docs/V0.2.4-DOCUMENTATION-INDEX.md) · [Engineering notes](docs/RELEASE-NOTES-v0.2.4.md) · [Licence](LICENSE)
 
@@ -74,7 +76,7 @@ The local £89 calendar-month admission ceiling uses `Europe/London`, warns at �
 
 Financial policy is **4** and IPC protocol is **5**. Runtime text context remains at most 20 completed continuation turns / 512 KiB, with 32-KiB user input and 8,192 output tokens. The 512-KiB text bound and separate 24-MiB complete media-request bound are distinct. The model's larger documented window does not enable the unfinished full-window migration.
 
-Main-chat model tools, arbitrary shell/browser/MCP, voice and image generation are unavailable. Processed attachments and explicit local UI actions do not confer those privileges. See the [current status and limits](docs/ENGINEERING-STATUS.md) for implemented, test-only and unqualified capabilities.
+The microphone adds locally transcribed speech to the editable draft. Sending it to Meta requires the same classification and native disclosure review as typed text. Main-chat model tools, arbitrary shell/browser/MCP and image generation are unavailable. Processed attachments and explicit local UI actions do not confer those privileges. See the [current status and limits](docs/ENGINEERING-STATUS.md) for implemented, test-only and unqualified capabilities.
 
 ## Source checks and Windows build
 

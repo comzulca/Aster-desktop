@@ -102,6 +102,18 @@ where
     Ok(true)
 }
 
+#[cfg(any(windows, test))]
+fn prompted_key_changed(
+    existing: Result<Zeroizing<String>, CredentialError>,
+    supplied: &str,
+) -> Result<bool, CredentialError> {
+    match existing {
+        Ok(previous) => Ok(previous.as_str() != supplied),
+        Err(CredentialError::Rejected) => Ok(true), // Absent or malformed existing blob.
+        Err(error) => Err(error),
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CredentialError {
     Cancelled,
@@ -220,8 +232,8 @@ mod native {
 #[cfg(windows)]
 mod native {
     use super::{
-        admit_fixture_password, decode_blob, decode_native_password, save_prompt_after, valid_key,
-        CredentialError, Zeroizing, TARGET,
+        admit_fixture_password, decode_blob, decode_native_password, prompted_key_changed,
+        save_prompt_after, valid_key, CredentialError, Zeroizing, TARGET,
     };
     use std::{ffi::c_void, iter, mem, ptr};
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_NOT_FOUND};
@@ -263,6 +275,11 @@ mod native {
             "Aster Desktop: Meta Model API key",
             owner,
         )?;
+        if !prompted_key_changed(read_at(TARGET), &supplied)? {
+            // Verification still runs for the saved key. Merely re-entering
+            // the same bytes does not replace an identity or clear its terms.
+            return Ok(false);
+        }
         save_prompt_after(Ok(supplied), before_write, |key| {
             // A lost/foreign native owner cannot complete the write. A prior
             // successful revocation remains conservative if this check fails.
@@ -1073,6 +1090,22 @@ mod representation_tests {
         assert_eq!(
             *events.borrow(),
             ["durable_revocation", "fixed_target_write"],
+        );
+    }
+
+    #[test]
+    fn reentering_the_exact_key_does_not_require_an_identity_write() {
+        let key = crate::credential_fixture::SYNTHETIC_KEY;
+        let existing = || Ok(Zeroizing::new(key.to_owned()));
+        assert_eq!(prompted_key_changed(existing(), key), Ok(false));
+        assert_eq!(prompted_key_changed(existing(), "another-key"), Ok(true));
+        assert_eq!(
+            prompted_key_changed(Err(CredentialError::Rejected), key),
+            Ok(true)
+        );
+        assert_eq!(
+            prompted_key_changed(Err(CredentialError::System), key),
+            Err(CredentialError::System)
         );
     }
 

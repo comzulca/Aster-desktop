@@ -9,6 +9,7 @@ import packageInfo from '../package.json';
 import { Personalization } from './Personalization';
 import { Customization } from './Customization';
 import { RenderingDiagnostics } from './RenderingDiagnostics';
+import { SpeechControl } from './SpeechControl';
 
 type DisplayEntry = Omit<ConversationEntry, 'state'> & { state: ConversationEntry['state'] | 'streaming' };
 const uuid = () => crypto.randomUUID();
@@ -82,6 +83,10 @@ const errorText: Record<string, string> = {
   credential_unavailable: 'The native Windows credential dialogue is unavailable. No key is accepted in this interface.',
   credential_rejected: 'The Meta credential format was not accepted. Check it only in the native Windows dialogue; do not paste it here.',
   credential_error: 'Windows could not validate the credential operation. Check the native dialogue; no key is exposed here.',
+  credential_validation_required: 'Validate the current Windows credential before starting a conversation.',
+  credential_validation_stale: 'The Windows credential changed during validation. Validate the current key.',
+  credential_review_cancelled: 'Key validation was cancelled in Windows. Select Validate key in Windows when you are ready.',
+  credential_proof_capacity: 'The local key verification record is full. Key validation needs attention.',
   invalid_reconciliation: 'The reconciliation proposal is invalid. Enter the final statement-confirmed GBP charge for one pending request.',
   request_not_pending: 'This request no longer has a pending reservation. Refresh Settings; no balance reset is available.',
   private_store_unavailable: 'The protected local store is unavailable. Saved history and spending records will not be reset or repaired automatically.',
@@ -119,7 +124,7 @@ const errorText: Record<string, string> = {
 };
 function safeError(error: unknown, fallback: string): string {
   const code = typeof error === 'string' ? error : error instanceof Error ? error.message : '';
-  return errorText[code] ?? fallback; // Never render provider bodies or arbitrary host error text.
+  return Object.prototype.hasOwnProperty.call(errorText, code) ? errorText[code] : fallback;
 }
 function Icon({ name, size = 20 }: { name: 'new' | 'search' | 'settings' | 'send' | 'stop' | 'close' | 'menu' | 'trash' | 'plus'; size?: number }) {
   const paths: Record<typeof name, ReactNode> = {
@@ -285,6 +290,12 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const settingsButton = useRef<HTMLButtonElement>(null);
   const draftRef = useRef<HTMLTextAreaElement>(null);
   const draftValue = useRef('');
+  const dictating = useRef(false);
+  const [speechActive, setSpeechActive] = useState(false);
+  const speechActivity = useCallback((active: boolean) => {
+    dictating.current = active;
+    setSpeechActive(active);
+  }, []);
   const drafts = useRef(new DraftMemory());
   const localEdits = useRef(new DraftMemory());
   const editTarget = useRef<{ element: HTMLInputElement | HTMLTextAreaElement; start: number; end: number; text: string } | null>(null);
@@ -303,7 +314,25 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const locked = busy || Boolean(activeRequest) || Boolean(status?.activeRequest);
 
   function draftKey() { return conversationRef.current ?? '$unsaved'; }
-  function changeDraft(value: string) { drafts.current.write(draftKey(), value); draftValue.current = value; setDraft(value); }
+  function displayDraft(value: string) {
+    if (value !== draftValue.current) setDataClass('');
+    draftValue.current = value;
+    setDraft(value);
+  }
+  function changeDraft(value: string) { drafts.current.write(draftKey(), value); displayDraft(value); }
+  function insertTranscript(transcript: string) {
+    if (!dictating.current || isLocked() || dialogStateRef.current || workspaceRef.current !== 'chat' || conversationRef.current !== (conversation?.id ?? null)) return;
+    if (typeof transcript !== 'string' || transcript.length > MAX_MESSAGE_BYTES || !validMessage(transcript)) {
+      setNotice('Local dictation returned no usable text. Your existing draft is available to edit.'); return;
+    }
+    const current = draftValue.current;
+    const updated = current + (current && !/\s$/u.test(current) ? ' ' : '') + transcript.trim();
+    if (!validMessage(updated)) {
+      setNotice('The complete dictation would exceed the draft limit. Shorten the draft and dictate a smaller passage.'); return;
+    }
+    changeDraft(updated);
+    draftRef.current?.focus();
+  }
   function preserveDraft() {
     if (!drafts.current.write(draftKey(), draftValue.current)) { setNotice('Reduce the draft to 32,768 UTF-8 bytes before navigating. No text was discarded.'); return false; }
     return true;
@@ -432,6 +461,24 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   useEffect(() => {
     let disposed = false;
     let unsubscribe: (() => void) | undefined;
+    let initialised = false;
+    let refreshing = false;
+    async function syncOnFocus() {
+      if (!initialised || refreshing || isLocked() || dictating.current) return;
+      const previous = statusRef.current;
+      refreshing = true;
+      try {
+        const value: unknown = await bridge.getStatus();
+        if (disposed || isLocked() || statusRef.current !== previous) return;
+        if (!validStatus(value)) throw new Error('incompatible_host');
+        statusRef.current = value; setStatus(value); setHostState('ready');
+      } catch (error) {
+        if (!disposed && !isLocked() && statusRef.current === previous) {
+          statusRef.current = null; setStatus(null); setHostState('unavailable');
+          setNotice(safeError(error, 'The current Windows host status could not be verified.'));
+        }
+      } finally { refreshing = false; }
+    }
     async function initialize() {
       markRender('hydration_started');
       markBusy(true);
@@ -473,13 +520,15 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
           const list = await refreshList();
           if (list.length) { const saved = await readConversation(list[0].id); if (!disposed) adopt(saved); }
         }
+        initialised = true;
       } catch (error) {
         if (!disposed) { discardAttachments(); statusRef.current = null; setStatus(null); setHostState('unavailable'); setNotice(safeError(error, 'The native host or its saved-history contract is unavailable or incompatible. Privileged actions are disabled.')); }
       }
       finally { if (!disposed) { markRender('hydration_finished'); markBusy(false); } }
     }
     void initialize();
-    return () => { disposed = true; unsubscribe?.(); };
+    window.addEventListener('focus', syncOnFocus);
+    return () => { disposed = true; window.removeEventListener('focus', syncOnFocus); unsubscribe?.(); };
   }, [bridge]);
   useEffect(() => {
     let disposed = false; let unsubscribe: (() => void) | undefined;
@@ -583,8 +632,18 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   async function nativeAction(action: () => Promise<unknown>, fallback: string, completed?: (latest: AppStatus) => string) {
     if (isLocked() || !statusRef.current) return;
     markBusy(true); setNotice(null);
-    try { await action(); const latest = await refreshStatus(); if (completed) setNotice(completed(latest)); }
-    catch (error) { setNotice(safeError(error, fallback)); }
+    let failed = false;
+    try {
+      try { await action(); }
+      catch (error) { failed = true; setNotice(safeError(error, fallback)); }
+      // Saving or revoking a key can succeed before verification fails.
+      // Always reflect the committed state, including on partial failure.
+      const latest = await refreshStatus();
+      if (!failed && completed) setNotice(completed(latest));
+    } catch (error) {
+      statusRef.current = null; setStatus(null); setHostState('unavailable');
+      if (!failed) setNotice(safeError(error, 'The current Windows host status could not be verified.'));
+    }
     finally { markBusy(false); }
   }
   async function addAttachments() {
@@ -647,7 +706,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   }
   async function send() {
     const currentStatus = statusRef.current;
-    if (workspaceRef.current !== 'chat' || dialogStateRef.current || isLocked() || !currentStatus || currentStatus.credentialValidation !== 'valid' || currentStatus.availability !== 'ready' || !validMessage(draft) || !dataClass || !['synthetic', 'public_eligible'].includes(dataClass) || !REASONING_EFFORTS.includes(reasoningEffort)) return;
+    if (workspaceRef.current !== 'chat' || dialogStateRef.current || dictating.current || isLocked() || !currentStatus || currentStatus.credentialValidation !== 'valid' || currentStatus.availability !== 'ready' || !validMessage(draft) || !dataClass || !['synthetic', 'public_eligible'].includes(dataClass) || !REASONING_EFFORTS.includes(reasoningEffort)) return;
     const message = draft;
     const classification = dataClass;
     const selectedAttachments = attachmentState.current;
@@ -789,7 +848,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       if (!target || !key || !(action === 'undo' ? history.canUndo(key) : history.canRedo(key))) return;
       const text = action === 'undo' ? history.undo(key) : history.redo(key);
       // applyEdit must not append the undo result as a fresh edit.
-      if (current) { draftValue.current = text; setDraft(text); }
+      if (current) { displayDraft(text); }
       else {
         applyEdit(text, text.length);
       }
@@ -906,15 +965,16 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     void nativeAction(() => bridge.reconcileBudget({ requestId, confirmedChargeNanoGbp }), 'The pending charge was not reconciled. Existing reservations remain unchanged.');
   }
 
-  const canSend = workspace === 'chat' && !locked && status?.credentialValidation === 'valid' && status.availability === 'ready' && validMessage(draft) && ['synthetic', 'public_eligible'].includes(dataClass) && REASONING_EFFORTS.includes(reasoningEffort) && (!attachments.length || Boolean(status.capabilities.attachmentImport && attachmentState.current.conversationId === conversation?.id));
+  const canSend = workspace === 'chat' && !locked && !speechActive && status?.credentialValidation === 'valid' && status.availability === 'ready' && validMessage(draft) && ['synthetic', 'public_eligible'].includes(dataClass) && REASONING_EFFORTS.includes(reasoningEffort) && (!attachments.length || Boolean(status.capabilities.attachmentImport && attachmentState.current.conversationId === conversation?.id));
   const filteredSummaries = summaries.filter(item => item.title.toLocaleLowerCase('en-GB').includes(search.toLocaleLowerCase('en-GB')));
   const bytes = utf8Bytes(draft);
   const availability = hostState === 'checking' ? 'Checking the native host…' : hostState === 'unavailable' ? 'Native host unavailable or incompatible.' : status ? availabilityText[status.availability] : 'Unavailable';
   const sendGuidance = hostState === 'ready' && status?.availability === 'ready'
-    ? locked ? 'Finish the current operation before sending.'
+    ? speechActive ? 'Finish or cancel dictation before sending.'
+      : locked ? 'Finish the current operation before sending.'
       : !draft.trim() ? 'Write a message to enable Send.'
       : !validMessage(draft) ? 'Use a valid message within the 32,768-byte limit before sending.'
-      : !dataClass ? 'Open the reasoning menu and choose Classify content, then Synthetic or Eligible public, to enable Send.'
+      : !dataClass ? 'Classify the complete draft before sending.'
       : !canSend ? 'The selected attachments or request settings need attention before sending.'
       : 'Message ready. Send opens a separate Windows disclosure review.'
     : null;
@@ -965,7 +1025,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
                 </li>)}</ul>
                 <p>Original files and disclosure permissions are not retained. {entry.processedAttachments!.some(item => item.kind === 'pdf') ? 'Reattach the original PDF for another complete native reading. ' : ''}{entry.processedAttachments!.some(item => item.kind !== 'text') ? 'Opening this local view sends nothing to Meta.' : 'Processed text is already included in the message; no original is restored.'}</p>
               </section>}
-              {entry.role === 'assistant' && <p className={entry.state === 'completed' || entry.state === 'streaming' ? 'visually-hidden' : 'inline-state'} role="status">{entry.state === 'streaming' ? 'Receiving response' : entry.state === 'completed' ? 'Response completed' : entry.state === 'interrupted' ? 'Interrupted before restart. This incomplete response is not reused as context.' : entry.state === 'refused' ? 'Response refused. Not reused as context.' : entry.state === 'truncated' ? 'Response truncated. Not reused as context.' : entry.state === 'cancelled' ? 'Response stopped. Displayed text may be incomplete; spending may remain unresolved.' : 'Response failed. Displayed text may be incomplete; spending may remain unresolved.'}</p>}
+              {entry.role === 'assistant' && <p className={entry.state === 'completed' || entry.state === 'streaming' ? 'visually-hidden' : 'inline-state'} role="status">{entry.state === 'streaming' ? 'Receiving response' : entry.state === 'completed' ? 'Response completed' : entry.state === 'interrupted' ? 'Interrupted before restart. This incomplete response is not reused as context.' : entry.state === 'refused' ? 'Response refused. Not reused as context.' : entry.state === 'truncated' ? (entry.content.trim() ? 'Response truncated. Not reused as context.' : 'Meta reached the output limit before returning visible text. Try a shorter request or a lower reasoning effort.') : entry.state === 'cancelled' ? 'Response stopped. Displayed text may be incomplete; spending may remain unresolved.' : 'Response failed. Displayed text may be incomplete; spending may remain unresolved.'}</p>}
             </div>
           </article>)}<div ref={endRef}/>
         </section>}
@@ -975,12 +1035,21 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
         {!dialog && notice && <div className="notice" role="status"><span>{notice}</span><button className="icon-button" aria-label="Dismiss notice" onClick={() => setNotice(null)}><Icon name="close" size={16}/></button></div>}
         <div className="composer"><label className="visually-hidden" htmlFor="message-input">Message for Aster</label><textarea ref={draftRef} id="message-input" placeholder="Ask Aster" value={draft} onChange={event => changeDraft(event.target.value)} disabled={locked || Boolean(dialog)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} rows={2} aria-describedby="composer-guidance message-limit"/>
           {Boolean(attachments.length) && <ul className="attachment-list" aria-label="Temporary attachments">{attachments.map(item => <li key={item.id}><span className="attachment-label">{item.label}</span><span className="attachment-details">{item.kind === 'pdf' ? `${item.pageCount} ${item.pageCount === 1 ? 'page' : 'pages'}` : item.kind === 'image' ? 'Image' : 'Text'} · {item.processedBytes.toLocaleString('en-GB')} bytes</span><button className="icon-button" aria-label={`Remove attachment ${item.label}`} disabled={locked || Boolean(dialog)} onClick={() => void removeAttachment(item.id)}><Icon name="close" size={14}/></button></li>)}</ul>}
-          <div className="composer-controls"><button className="attachment-button" aria-label="Add attachments" disabled={!canImport} title={status?.capabilities.attachmentImport ? 'Add eligible public or synthetic files in Windows. Previous selections are retained, including when you cancel. The combined batch is limited to four files and the original five-minute lifetime. Convert DOCX, XLSX or PPTX to a complete PDF externally first.' : 'Attachment import is unavailable in this host.'} onClick={() => void addAttachments()}><Icon name="plus" size={22}/></button><span className="fixed-model">{MODEL_LABEL}</span><div className="composer-options"><EffortControl effort={reasoningEffort} classification={dataClass} disabled={locked || Boolean(dialog)} onEffort={setReasoningEffort} onClassify={setDataClass}/></div>{activeRequest || status?.activeRequest ? <button className="send-button" aria-label="Stop response" title="Stop does not erase unresolved charges" onClick={() => void cancel()} disabled={!activeRequest || cancelling}><Icon name="stop"/></button> : <button className="send-button" aria-label="Send message" title={sendGuidance ?? availability} aria-describedby={sendGuidance ? 'composer-guidance send-prerequisite' : 'composer-guidance'} onClick={() => void send()} disabled={!canSend || Boolean(dialog)}><Icon name="send"/></button>}</div>
+          <div className="composer-controls"><button className="attachment-button" aria-label="Add attachments" disabled={!canImport} title={status?.capabilities.attachmentImport ? 'Add eligible public or synthetic files in Windows. Previous selections are retained, including when you cancel. The combined batch is limited to four files and the original five-minute lifetime. Convert DOCX, XLSX or PPTX to a complete PDF externally first.' : 'Attachment import is unavailable in this host.'} onClick={() => void addAttachments()}><Icon name="plus" size={22}/></button><span className="fixed-model">{MODEL_LABEL}</span><div className="composer-options"><EffortControl effort={reasoningEffort} classification={dataClass} disabled={locked || Boolean(dialog)} onEffort={setReasoningEffort} onClassify={setDataClass}/>
+            <SpeechControl key={conversation?.id ?? '$unsaved'} bridge={bridge} disabled={workspace !== 'chat' || hostState !== 'ready' || locked || Boolean(dialog)}
+              onActive={speechActivity} onTranscript={insertTranscript} onNotice={setNotice}/>
+          </div>{activeRequest || status?.activeRequest ? <button className="send-button" aria-label="Stop response" title="Stop does not erase unresolved charges" onClick={() => void cancel()} disabled={!activeRequest || cancelling}><Icon name="stop"/></button> : <button className="send-button" aria-label="Send message" title={sendGuidance ?? availability} aria-describedby={sendGuidance ? 'composer-guidance send-prerequisite' : 'composer-guidance'} onClick={() => void send()} disabled={!canSend || Boolean(dialog)}><Icon name="send"/></button>}</div>
         </div>
         <p id="message-limit" className={`message-limit ${bytes > MAX_MESSAGE_BYTES ? 'over-limit' : ''}`}>{bytes.toLocaleString('en-GB')} / {MAX_MESSAGE_BYTES.toLocaleString('en-GB')} UTF-8 bytes{bytes > MAX_MESSAGE_BYTES ? ' — message too long' : ''}</p>
         <p id="composer-guidance" className="composer-hint">Enter sends · Shift+Enter adds a line · Classify the complete message and attachments. Only eligible public or synthetic content; Meta may use inputs and responses for training.</p>
-        <p className="availability" role="status">{availability}</p>
+        <p className="availability" role="status">{status?.availability === 'needs_terms' && status.credentialValidation === 'valid'
+          ? <button type="button" className="availability-action" disabled={locked || Boolean(dialog)} onClick={event => { setSettingsTab('providers'); openDialog('settings', event.currentTarget); }}>{availability}</button>
+          : availability}</p>
         {sendGuidance && <p id="send-prerequisite" className="composer-hint" role="status">{sendGuidance}</p>}
+        {!locked && !speechActive && status?.availability === 'ready' && validMessage(draft) && !dataClass && <div className="classification-actions" role="group" aria-label="Classify this draft">
+          <button type="button" disabled={Boolean(dialog)} onClick={() => setDataClass('synthetic')}>Synthetic</button>
+          <button type="button" disabled={Boolean(dialog)} onClick={() => setDataClass('public_eligible')}>Eligible public</button>
+        </div>}
         {status?.availability === 'needs_budget' && <button className="secondary-action budget-setup-action" disabled={locked || Boolean(dialog)} onClick={event => { setSettingsTab('usage'); openDialog('settings', event.currentTarget); }}>Review spending policy</button>}
       </div>
     </main>
@@ -996,7 +1065,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
         {helpPage === 'documentation' && <><p>Aster uses one model: {MODEL_LABEL}. Responses are generated externally, not on this laptop.</p><p>Use only synthetic examples or public material whose rights and eligibility are established. Personal, confidential, sensitive and unknown content is prohibited. A public source can still contain personal information. Each full outgoing conversation needs fresh native disclosure review.</p><p>Ctrl+N creates a conversation; Ctrl+K searches saved conversation titles. Enter sends and Shift+Enter adds a line. Stop ends the visible request, not a possible charge. Failed, stopped, refused, truncated and interrupted responses are not automatically reused as context.</p><p>Saved history is encrypted for this Windows account. Other processes under the same account remain a risk. Removing a conversation hides it from history; encrypted recovery records remain and disk capacity is not reclaimed. Credentials, spending and file-recovery records are not removed.</p><p>Use + for a native Windows file selection only when the host admits attachment import. Direct formats are TXT, MD, JSON, XML, YAML, CSV, TSV, PNG, JPG, JPEG, static GIF and PDF; no more than four temporary attachments are admitted. Adding a file does not send it, approve it or grant project access.</p><p>Each original is limited to 8 MiB and the current batch to 16 MiB. PDFs are limited to 20 pages per batch; every admitted page is processed for local preview at 150 DPI. Images are limited to 4,096 pixels per dimension and 4,194,304 decoded pixels; GIF must have one frame. A file's processed image output must fit 4 MiB. The complete prompt and text attachment context must fit the 32,768-byte message limit.</p><p>DOCX, XLSX and PPTX are not imported directly. Convert the complete document to PDF externally with your own trusted tool, such as your own LibreOffice installation, and check every page, sheet, print range and visual before attaching it. Aster does not invoke or require an Office converter. Unsupported, excessive or unsafe files are refused rather than silently truncated.</p><p>A PDF is sent natively to Meta from its immutable temporary copy, only after the complete native disclosure review. Processed page-images are a local preview/history representation, not a replacement for that native PDF request. The full original can contain metadata and hidden content that the page preview does not show; confirm eligibility of the complete source, not just its visible pages.</p><p>Originals are temporary and are not restored after restart. Removing an attachment or switching chats discards its temporary identifier. Encrypted history retains only processed content, all processed PDF pages and responses. View processed pages opens a local native view without a Meta request. These pages are not automatically resent, and no original, file-read permission or disclosure approval is reconstructed. Reattach the original PDF for another complete native reading.</p><p>Main-chat/model tools, local project reads and file writes, voice, browser, shell and general web access remain disabled. The separate GitHub popup supports explicit native-reviewed account/repository selection and bounded file reading only; it grants no write, merge or Meta disclosure permission. The £89 monthly admission ceiling is not a provider billing balance and does not cover activity outside Aster.</p><p>Unsent text drafts stay in memory while switching chats. They are not saved between restarts. Quit reviews unsent draft and temporary attachment loss with Keep working selected by default.</p><p>Find counts literal case-insensitive matches in the visible conversation. At most the first 512 matches in each message are highlighted; no protected-store or network search occurs.</p></>}
         {helpPage === 'shortcuts' && <><p>Shortcuts apply to the active Aster field or local view. Busy actions and behind-dialogue shortcuts remain unavailable. Clipboard access can be refused by the WebView; no background clipboard reader is used.</p><p>Ctrl + mouse wheel zooms the local interface. Ctrl++ (including Ctrl+= or keypad plus), Ctrl+- and Ctrl+0 use the same 80–150% range. The current percentage appears for one second after each admitted zoom action.</p><dl className="shortcut-list">{Object.values(menuGroups).flat(2).filter(item => item.shortcut).map(item => <div key={item.action}><dt>{item.label}</dt><dd>{item.shortcut}</dd></div>)}<div><dt>Send / add a line</dt><dd>Enter / Shift+Enter</dd></div><div><dt>Menu navigation</dt><dd>Arrow keys, Home, End, Escape</dd></div></dl></>}
         {helpPage === 'news' && <>
-          <p>v{packageInfo.version}: the owner-supplied interface governs the adaptive conversation rail, composer and welcome artwork, with one caption/menu row and a full-page Skills and Plugins workspace. Installed layout and accessibility acceptance remain separate.</p>
+          <p>Aster Desktop v{packageInfo.version} adds local whisper.cpp dictation to the composer. Select the microphone, confirm in Windows, then finish dictation to edit the text before classifying and sending it.</p>
           <p>New conversations, attachment import and sends require current-key authentication proof. A configured key alone is not proof; successful validation does not establish inference, billing, quota or capacity. Saved history remains locally viewable.</p>
           <p>Personalization is exclusively local and never becomes provider, summary, package, GitHub or diagnostic context. The local catalogue supports bounded inert editors, JSON import and enable preferences, including the read-only Aster Builder instructions; scripts, hooks and third-party MCP execution remain unavailable.</p>
           <p>Muse Spark generation uses only an explicitly classified eligible description and a separate native review. Its fresh ordinary local conversation retains the description, prompt and response. Only a completed valid result opens an unsaved draft; Save and enable remain separate.</p>
@@ -1017,7 +1086,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
         <section hidden={settingsTab !== 'about'} className="settings-section"><h3>About Aster</h3><p>Aster Desktop v{packageInfo.version}. Unsigned engineering development; native, installed and live acceptance remain separate.</p><p>Personalization is exclusively local. Skills and imported plugins are inert instructions, not permissions. Context compaction is not available until its provider accounting and migration are qualified.</p><p>The owner-reported flicker remains under investigation. Startup delays are not evidence of a cure.</p><RenderingDiagnostics bridge={bridge}/></section>
         <div hidden={settingsTab !== 'providers'}>
         <section className="settings-section"><h3>Contributor terms and eligibility</h3><p>Terms revision: {status?.contributor.termsRevision ?? 'Unavailable'}. {status?.contributor.accepted ? 'Reviewed locally.' : 'Not yet reviewed.'} {status?.contributor.eligible ? 'Owner eligibility declaration recorded.' : 'Eligibility unconfirmed.'}</p><p>Contributor permits training on inputs and responses. Sensitive, personal and confidential content is prohibited; consent cannot make prohibited content admissible.</p><button className="primary-action" disabled={locked || !status} onClick={() => void nativeAction(() => bridge.acceptContributorTerms(), 'The Contributor terms or eligibility review was not accepted.')}>Review terms and eligibility in Windows</button></section>
-        <section className="settings-section"><h3>Meta credential</h3><p>{status ? credentialText[status.credentialValidation] : 'The native credential status is unavailable.'}</p><p>Enter the key only in the native Windows dialogue. Authentication does not prove billing, quota or capacity.</p><div className="settings-actions"><button className="primary-action" disabled={locked || !status?.credentialAvailable} onClick={() => void nativeAction(() => bridge.configureCredential(), 'The credential could not be configured. Check the native Windows dialogue.')}>{status?.configured ? 'Change key in Windows' : 'Set up key in Windows'}</button><button className="secondary-action" disabled={locked || !status?.configured || !bridge.verifyCredential} onClick={() => void nativeAction(() => bridge.verifyCredential!(), 'Key validation could not be completed. The existing key was not labelled invalid.')}>Validate key in Windows</button><button className="secondary-action" disabled={locked || !status?.configured} onClick={() => void nativeAction(() => bridge.removeCredential(), 'The credential was not removed. Check the native confirmation.')}>Remove key…</button></div></section>
+        <section className="settings-section"><h3>Meta credential</h3><p>{status ? credentialText[status.credentialValidation] : 'The native credential status is unavailable.'}</p><p>Use the Windows dialogue below, or save a generic credential named <code>AsterDesktop/MetaModelAPI/v1</code> in Windows Credential Manager and select Validate key in Windows.</p><div className="settings-actions"><button className="primary-action" disabled={locked || !status?.credentialAvailable} onClick={() => void nativeAction(() => bridge.configureCredential(), 'The credential could not be configured. Check the native Windows dialogue.')}>{status?.configured ? 'Change key in Windows' : 'Set up key in Windows'}</button><button className="secondary-action" disabled={locked || !status?.configured || !bridge.verifyCredential} onClick={() => void nativeAction(() => bridge.verifyCredential!(), 'Key validation could not be completed. The existing key was not labelled invalid.')}>Validate key in Windows</button><button className="secondary-action" disabled={locked || !status?.configured} onClick={() => void nativeAction(() => bridge.removeCredential(), 'The credential was not removed. Check the native confirmation.')}>Remove key…</button></div></section>
         </div><div hidden={settingsTab !== 'usage'}>
         <section className="settings-section"><h3>Monthly spending policy</h3><dl className="budget-summary"><dt>Policy status</dt><dd>{status?.budget.configured ? 'Active' : 'Not active — complete and confirm the financial review.'}</dd>{status?.budget.configurationExpiresAt != null && <><dt>Confirmed expiry (local Windows time)</dt><dd>{displayLocalTime(status.budget.configurationExpiresAt)}</dd></>}<dt>Period (Edinburgh / London)</dt><dd>{status?.budget.period ?? 'Not configured'}</dd><dt>Admission ceiling</dt><dd>£89.00</dd><dt>Recorded spending</dt><dd>{status ? formatGbp(status.budget.spentNanoGbp) : 'Unavailable'}</dd><dt>Pending reservations</dt><dd>{status ? formatGbp(status.budget.reservedNanoGbp) : 'Unavailable'}</dd><dt>Remaining admission amount</dt><dd>{status ? formatGbp(status.budget.remainingNanoGbp) : 'Unavailable'}</dd></dl>{status?.budget.warning && <p className="inline-state">The 90% spending warning has been reached.</p>}{status?.budget.requiresReconciliation && <p className="inline-state">Reconciliation required. Sending remains blocked; restarting or removing conversations does not free reservations.</p>}<p>Enter conservative values explicitly. One part per million represents 0.000001 GBP per USD; 100 basis points represents 1%. There is no automatic FX estimate or reset.</p><p id="budget-expiry-guidance">{status?.budget.configurationMaxUntil != null ? `Choose a future expiry no later than ${displayLocalTime(status.budget.configurationMaxUntil)} (local Windows time). This host limit includes the policy review deadline and the 31-day maximum.` : 'No current financial review window is available. Install a reviewed engineering update.'} Entered fields take effect only after native confirmation.</p><div className="financial-fields">{([['rate','GBP per USD (integer parts per million)'],['margin','Safety margin (basis points)'],['tax','Tax (basis points)'],['payment','Payment charges (basis points)']] as const).map(([field,label]) => <label key={field}>{label}<input inputMode="numeric" value={budgetFields[field]} onChange={event => setBudgetFields(current => ({ ...current, [field]: event.target.value }))} disabled={locked}/></label>)}<label>Valid until (local Windows time; maximum 31 days)<input type="datetime-local" min={localDateTime(Math.floor(Date.now() / 1000) + 60)} max={localDateTime(status?.budget.configurationMaxUntil)} aria-describedby="budget-expiry-guidance" value={budgetFields.validUntil} onChange={event => setBudgetFields(current => ({ ...current, validUntil: event.target.value }))} disabled={locked}/></label></div><button className="secondary-action" disabled={locked || !status || status.budget.configurationMaxUntil === null} onClick={submitBudget}>Review financial configuration in Windows</button></section>
         {Boolean(status?.budget.pending.length) && <section className="settings-section"><h3>Pending request charges</h3><p>Use your Meta statement or dashboard to confirm each charge. This is owner-confirmed reconciliation, not API-measured usage. Each proposal needs a separate native confirmation; no balance reset is available.</p>{status?.budget.pending.map(item => <div className="pending-charge" key={item.requestId}><p>Request: {item.requestId}<br/>Period: {item.period} · Reserved: {formatGbp(item.reservationNanoGbp)} · {item.dispatched ? 'Dispatch may have occurred' : 'Not marked dispatched'}</p><label>Statement-confirmed charge in GBP for {item.requestId}<input inputMode="decimal" value={reconciliationCharges[item.requestId] ?? ''} onChange={event => setReconciliationCharges(current => ({ ...current, [item.requestId]: event.target.value }))} disabled={locked}/></label><button className="secondary-action" disabled={locked} onClick={() => reconcile(item.requestId)}>Review this charge in Windows</button></div>)}</section>}
