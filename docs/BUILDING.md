@@ -1,10 +1,12 @@
 # Source checks and Windows engineering builds
 
-The build inputs below were checked against main `0766478` on 20 November 2026. The spending/Send implementation uses IPC protocol 5 and financial policy 4. [Maintenance and final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70). The earlier `57339a6` receipt remains an example for those earlier bytes only. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. The pinned declarations and frozen locks are authoritative; these procedures are instructions, not proof they ran in an owner's session.
+For v0.2.5, the [main build and security review](qa/SECURITY-REVIEW-V025-20261123.md) records the source, run, installer hash and outstanding tests for `a8d6123`. The host uses IPC protocol 5 and financial policy 4. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. Resolve build inputs from the pinned declarations and frozen locks.
 
 ## Preparing the v0.2.5 speech resources
 
 Run `python scripts/prepare-speech.py` before building the native host or NSIS installer. This stages the pinned CPU decoder, model and licenses in `reports/speech`. On Windows, `python scripts/prepare-speech.py --test-dir reports/speech` checks the resource identities and transcribes a known public recording. The installer's CI repeats that probe on the extracted package.
+
+The release archive, model and licenses have separate upstream identities in [the preparation script](../scripts/prepare-speech.py). The pnpm and Cargo inventories cover their respective dependency graphs. Review whisper.cpp and GGML advisories separately when evaluating the native speech distribution.
 
 ## Build cohort
 

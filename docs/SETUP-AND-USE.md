@@ -4,9 +4,13 @@ This guide covers the v0.2.5 source integrated in [PR #83](https://github.com/co
 
 ## Dictate a draft
 
-Select the microphone beside the reasoning selector and approve the native microphone prompt. Speak into the default Windows input device. Select Finish to transcribe, or Cancel to discard the recording. Capture is limited to 30 seconds. Review the text in the composer before classifying and sending it. Dictation uses the bundled multilingual CPU model and works independently of Meta authentication.
+Select the microphone beside the reasoning selector and approve the native microphone prompt. Speak into the default Windows input device. Select **Finish dictation** to transcribe. Capture is limited to 30 seconds. Review the text in the composer before classifying and sending it. Dictation uses the bundled multilingual CPU model and works independently of Meta authentication.
 
 Windows desktop microphone access and the x64 Microsoft Visual C++ runtime, including VCOMP140.dll, are required.
+
+### After cancelling dictation
+
+**Cancel dictation** discards the pending transcript. Aster hides its listening indicator immediately, before Windows confirms that it has released the microphone. If the cancellation request fails to reach the host, capture can continue for the rest of the 30-second limit. Check the Windows microphone indicator before speaking again.
 
 ## Configure before sending
 
@@ -17,6 +21,12 @@ Windows desktop microphone access and the x64 Microsoft Visual C++ runtime, incl
 5. Write a non-empty eligible message. Open the reasoning menu (initially **Medium**) → **Classify content** → **Synthetic** or **Eligible public**, choosing correctly for the complete message and attachments. Read the composer prerequisite notice if Send is disabled. Send opens a separate complete native disclosure review before dispatch. Personalization remains local-only.
 
 The terms button intentionally displays a host-authored JSON proposal in a native read-only reviewer. It is an eligibility/terms operation, not a Meta inference response. Review version 1 binds one exact native operation and is not model approval.
+
+### If a previously configured key needs attention
+
+If Aster reports a previously configured key as missing, first check that Windows Credential Manager opens under the same Windows account and that the generic credential `AsterDesktop/MetaModelAPI/v1` is listed. Aster can show the same message when Windows cannot read the credential store.
+
+**Validate key in Windows** checks model access with one request. A network interruption can leave a previously accepted key unverified. Retrying with the same key can then clear Contributor consent, discard temporary attachments and start a new conversation context. Your saved conversations remain available for local viewing. Spending records and pending charges are preserved. After validation succeeds, review the terms again if prompted and reattach any files you want to send.
 
 ## Current review dates
 
