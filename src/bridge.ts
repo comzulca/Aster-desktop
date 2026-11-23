@@ -7,6 +7,19 @@ async function callHost<T>(command: string, args?: Record<string, unknown>): Pro
   return invoke<T>(command, args);
 }
 export const nativeBridge: Bridge = {
+  async subscribeSpeechPhase(callback) {
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) throw new Error('host_unavailable');
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<{ sessionId: string; phase: 'recording' | 'transcribing' }>('aster://speech-phase', event => {
+      const value = event.payload;
+      if (value && Object.keys(value).sort().join('|') === 'phase|sessionId' && typeof value.sessionId === 'string'
+          && (value.phase === 'recording' || value.phase === 'transcribing')) callback(value);
+    }, { target: 'main' });
+    return () => { void Promise.resolve(unlisten()).catch(() => {}); };
+  },
+  startSpeechCapture: sessionId => callHost('start_speech_capture', { sessionId }),
+  finishSpeechCapture: sessionId => callHost('finish_speech_capture', { sessionId }),
+  cancelSpeechCapture: sessionId => callHost('cancel_speech_capture', { sessionId }),
   shellReady: input => callHost('startup_shell_ready', { input }),
   recordRenderEvent: input => callHost('record_render_event', { input }),
   getRenderTrace: () => callHost('get_render_trace'),

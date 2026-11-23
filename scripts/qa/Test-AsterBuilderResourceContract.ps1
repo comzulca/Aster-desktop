@@ -34,6 +34,8 @@ if (@($workflowErrors).Count -ne 0) { throw 'CI packaging block has PowerShell p
 $ciGetter = Get-ReviewedFunction $workflowAst 'Get-AsterBuilderResourceInventory'
 $ciInventory = & ([scriptblock]::Create($ciGetter + "`nGet-AsterBuilderResourceInventory"))
 $fixedInventory = Get-AsterBuilderResourceInventory
+. (Join-Path $PSScriptRoot 'Get-SpeechResourceInventory.ps1')
+$speechInventory = Get-SpeechResourceInventory
 if (($ciInventory | ConvertTo-Json -Depth 4 -Compress) -cne ($fixedInventory | ConvertTo-Json -Depth 4 -Compress)) { throw 'CI and independent passive inventory differ.' }
 $ciMembers = (Get-ReviewedFunction $workflowAst 'Assert-RequiredResourceMembers') -replace '\s+', ' '
 $passiveMembers = (Get-ReviewedFunction $verifierAst 'Assert-RequiredResourceMembers') -replace '\s+', ' '
@@ -46,8 +48,9 @@ foreach ($name in $fixedInventory.Keys) {
         $file.Length -ne $fixedInventory[$name].byte_count -or
         (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -cne $fixedInventory[$name].sha256) { throw 'Original inert source bytes differ from the fixed inventory.' }
 }
+foreach ($name in $speechInventory.Keys) { $expectedMappings['../reports/' + $name] = $name }
 $configMappings = @((Get-Content -LiteralPath (Join-Path $sourceRoot 'src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json).bundle.resources.PSObject.Properties)
-if ($configMappings.Count -ne 12) { throw 'Expected exactly twelve config mappings.' }
+if ($configMappings.Count -ne (12 + $speechInventory.Count)) { throw 'Expected exact core and speech config mappings.' }
 foreach ($mapping in $configMappings) {
     if (@($expectedMappings.Keys) -cnotcontains $mapping.Name -or [string]$mapping.Value -cne [string]$expectedMappings[$mapping.Name]) { throw 'Config mapping differs from the reviewed exact source/destination pair.' }
 }
@@ -55,8 +58,9 @@ function New-SyntheticResourceFixture {
     $hashes = [ordered]@{ 'THIRD-PARTY-NOTICES.txt'=('a' * 64); 'LICENSE.txt'=('b' * 64) }
     $sizes = [ordered]@{ 'THIRD-PARTY-NOTICES.txt'=11; 'LICENSE.txt'=13 }
     foreach ($name in $fixedInventory.Keys) { $hashes[$name]=$fixedInventory[$name].sha256; $sizes[$name]=[int]$fixedInventory[$name].byte_count }
+    foreach ($name in $speechInventory.Keys) { $hashes[$name]=$speechInventory[$name].sha256; $sizes[$name]=$speechInventory[$name].byte_count }
     $manifest = [pscustomobject]@{ bundle_resource_sha256=[pscustomobject]$hashes; bundle_resource_byte_count=[pscustomobject]$sizes }
-    $lines = @('classification=verified-extracted-nsis-payload', 'required_resource_count=12', 'aster_builder_resource_count=10', 'preflight_entry_count=13', 'preflight_total_bytes=12345', 'extracted_file_bytes=12345')
+    $lines = @('classification=verified-extracted-nsis-payload', "required_resource_count=$($hashes.Count)", 'aster_builder_resource_count=10', 'preflight_entry_count=13', 'preflight_total_bytes=12345', 'extracted_file_bytes=12345')
     foreach ($name in $hashes.Keys) { $lines += "$name.sha256=$($hashes[$name])"; $lines += "$name.byte_count=$($sizes[$name])" }
     $lines += '--- 7z listing follows ---'
     $lines += 'Path = synthetic-non-resource.txt'
@@ -74,7 +78,7 @@ function Assert-Denial([string]$Name, [scriptblock]$Action) {
 $fixture = New-SyntheticResourceFixture
 $validatedSizes = Assert-RequiredResourceEvidence $fixture.Manifest $fixture.Header
 Assert-RequiredResourceMembers $fixture.Members $validatedSizes
-$passedCases.Add('exact-twelve-resource-evidence-and-members')
+$passedCases.Add('exact-core-and-speech-resource-evidence-and-members')
 $fixture.Manifest = $fixture.Manifest | ConvertTo-Json -Depth 3 | ConvertFrom-Json
 $roundtripSizes = Assert-RequiredResourceEvidence $fixture.Manifest $fixture.Header
 Assert-RequiredResourceMembers $fixture.Members $roundtripSizes
@@ -82,11 +86,12 @@ $passedCases.Add('json-roundtrip-resource-length-types')
 $fixture.Members | ForEach-Object { $_.Path=$_.Path.Replace('/', '\') }
 Assert-RequiredResourceMembers $fixture.Members $validatedSizes
 $passedCases.Add('canonical-backslash-listing-members')
-foreach ($missing in $fixedInventory.Keys) {
+foreach ($missing in (@($fixedInventory.Keys) + @($speechInventory.Keys))) {
     $fixture = New-SyntheticResourceFixture
     Assert-Denial ('missing:' + $missing) { Assert-RequiredResourceMembers @($fixture.Members | Where-Object { $_.Path -cne $missing }) $fixture.Sizes }
 }
 $fixture = New-SyntheticResourceFixture
+Assert-Denial 'unexpected-speech-dll' { Assert-RequiredResourceMembers ($fixture.Members + [pscustomobject]@{ Path='speech/extra.dll'; Size=1 }) $fixture.Sizes }
 Assert-Denial 'duplicate-member' { Assert-RequiredResourceMembers ($fixture.Members + $fixture.Members[2]) $fixture.Sizes }
 $fixture = New-SyntheticResourceFixture
 $fixture.Members[2].Path='ASTER-BUILDER/SKILL.md'
@@ -112,6 +117,11 @@ $fixture.Members[0].Path='third-party-notices.txt'
 Assert-Denial 'case-aliased-existing-notice' { Assert-RequiredResourceMembers $fixture.Members $fixture.Sizes }
 $fixture = New-SyntheticResourceFixture
 Assert-Denial 'nested-existing-license' { Assert-RequiredResourceMembers ($fixture.Members + [pscustomobject]@{ Path='other/LICENSE.txt'; Size=13 }) $fixture.Sizes }
+$fixture = New-SyntheticResourceFixture
+$model = 'speech/ggml-base-q5_1.bin'
+$fixture.Header = $fixture.Header.Replace($speechInventory[$model].sha256, ('c' * 64))
+$fixture.Manifest.bundle_resource_sha256.PSObject.Properties[$model].Value = 'c' * 64
+Assert-Denial 'substituted-speech-model' { Assert-RequiredResourceEvidence $fixture.Manifest $fixture.Header }
 $fixture = New-SyntheticResourceFixture
 $fixture.Manifest.bundle_resource_sha256.'aster-builder/SKILL.md'='c' * 64
 $fixture.Header=$fixture.Header.Replace($fixedInventory['aster-builder/SKILL.md'].sha256, ('c' * 64))
@@ -142,7 +152,7 @@ Assert-Denial 'string-manifest-length' { Assert-RequiredResourceEvidence $fixtur
 $fixture = New-SyntheticResourceFixture
 Assert-Denial 'duplicated-header-line' { Assert-RequiredResourceEvidence $fixture.Manifest ("required_resource_count=12`n" + $fixture.Header) }
 $fixture = New-SyntheticResourceFixture
-Assert-Denial 'incorrect-header-count' { Assert-RequiredResourceEvidence $fixture.Manifest $fixture.Header.Replace('required_resource_count=12', 'required_resource_count=2') }
+Assert-Denial 'incorrect-header-count' { Assert-RequiredResourceEvidence $fixture.Manifest $fixture.Header.Replace("required_resource_count=$($fixture.Sizes.Count)", 'required_resource_count=2') }
 $fixture = New-SyntheticResourceFixture
 Assert-Denial 'header-forges-fixed-manifest-hash' { Assert-RequiredResourceEvidence $fixture.Manifest $fixture.Header.Replace($fixedInventory['aster-builder/SKILL.md'].sha256, ('f' * 64)) }
 [pscustomobject][ordered]@{

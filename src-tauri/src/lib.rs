@@ -1,4 +1,4 @@
-//! Protocol 4 host: a fixed Contributor transport, temporary originals and
+//! A fixed Contributor transport, temporary originals and
 //! bounded finance. WebView messages are intent, never authority or secrets.
 mod admission;
 mod attachment_fixture;
@@ -40,6 +40,7 @@ mod private_store;
 mod processed_history;
 mod provider;
 mod render_trace;
+mod speech;
 mod startup;
 #[cfg(test)]
 mod transcript_layout; // Synthetic fragment/quota seams only; no active store migration.
@@ -119,6 +120,9 @@ const COMMANDS: &[&str] = &[
     "select_attachments",
     "remove_attachment",
     "review_processed_attachment",
+    "start_speech_capture",
+    "finish_speech_capture",
+    "cancel_speech_capture",
 ];
 
 struct Persistence {
@@ -586,10 +590,10 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         "attention_required"
     } else if active {
         "busy"
-    } else if !contributor.accepted {
-        "needs_terms"
     } else if !configured || credential_validation != ValidationState::Valid {
         "needs_credential"
+    } else if !contributor.accepted {
+        "needs_terms"
     } else if budget.requires_reconciliation {
         "attention_required"
     } else if !budget.configured {
@@ -639,6 +643,10 @@ fn invalidate_identity(host: &Host) -> Result<(), String> {
         .map_err(|e| code(*e))?
         .revoke()
         .map_err(code)?;
+    invalidate_identity_context(host)
+}
+
+fn invalidate_identity_context(host: &Host) -> Result<(), String> {
     host.attachments
         .lock()
         .map_err(|_| "state_unavailable")?
@@ -661,7 +669,7 @@ async fn configure_meta_credential(
     // No key is read or sent to the WebView; saved history and finances survive.
     let hwnd = owner(&window)?;
     let worker_lease = guard.worker_lease();
-    let configured = tauri::async_runtime::spawn_blocking(move || {
+    let key_changed = tauri::async_runtime::spawn_blocking(move || {
         let _worker_lease = worker_lease;
         CredentialStore
             .enter_with_native_dialog_after(hwnd, || {
@@ -672,11 +680,11 @@ async fn configure_meta_credential(
     })
     .await
     .map_err(|_| "credential_unavailable")??;
-    if configured {
-        // Native review explicitly covers the fixed non-inference GET.
-        let _ = verify_credential_inner(&window, &host, &guard).await?;
-    }
-    Ok(CredentialStatus { configured })
+    // Native review explicitly covers the fixed non-inference GET.
+    verify_credential_inner(&window, &host, &guard, key_changed).await?;
+    Ok(CredentialStatus {
+        configured: host.credentials.configured().map_err(|e| e.code())?,
+    })
 }
 
 fn credential_state(host: &Host, configured: bool) -> ValidationState {
@@ -711,6 +719,7 @@ async fn verify_credential_inner(
     window: &WebviewWindow,
     host: &Host,
     guard: &NativeOperationLease,
+    identity_already_reset: bool,
 ) -> Result<ValidationReceipt, String> {
     if !host.credentials.configured().map_err(|e| e.code())? {
         return Ok(ValidationReceipt {
@@ -720,58 +729,31 @@ async fn verify_credential_inner(
     if !review(window, operation(serde_json::json!({
         "operation":"Verify configured Meta API credential",
         "destination":provider::MODEL_VALIDATION_ENDPOINT,
-        "effect":"One fixed model metadata GET. The native key is sent only to Meta. No conversation, attachment, Personalization or inference is sent. This proves authentication/model access only, not quota or billing. No automatic retry."
+        "effect":"One fixed model metadata GET. The native key is sent only to Meta. No conversation, attachment, Personalization or inference is sent. An unrecognized key requires fresh Contributor consent and starts a new continuation; saved conversations and spending records remain. This proves authentication/model access only, not quota or billing. No automatic retry."
     }))?, guard).await? {
-        return Ok(ValidationReceipt { state: credential_state(host, true) });
+        return Err("credential_review_cancelled".into());
     }
     let key = host.credentials.read().map_err(|e| e.code())?;
-    if !host
+    let previous_identity_known = host
         .credential_validation
-        .lock()
-        .map_err(|_| "state_unavailable")?
-        .as_ref()
-        .map_err(|e| code(*e))?
-        .can_verify()
-        .map_err(code)?
-    {
-        return Err("credential_proof_capacity".into());
-    }
-    host.credential_validation
         .lock()
         .map_err(|_| "state_unavailable")?
         .as_mut()
         .map_err(|e| code(*e))?
-        .revoke()
-        .map_err(code)?;
+        .begin_verification(&key)?;
+    if !previous_identity_known && !identity_already_reset {
+        invalidate_identity_context(host)?;
+    }
     let result = provider::verify_registered_model(key.clone()).await;
     // A concurrent external credential edit cannot validate different bytes.
     let current = host.credentials.read().map_err(|e| e.code())?;
-    if current.as_str() != key.as_str() {
-        return Err("credential_validation_stale".into());
-    }
-    let state = match result {
-        Ok(()) => {
-            host.credential_validation
-                .lock()
-                .map_err(|_| "state_unavailable")?
-                .as_mut()
-                .map_err(|e| code(*e))?
-                .record_result(&key, true)
-                .map_err(code)?;
-            ValidationState::Valid
-        }
-        Err(ProviderFailure::Authentication) => {
-            host.credential_validation
-                .lock()
-                .map_err(|_| "state_unavailable")?
-                .as_mut()
-                .map_err(|e| code(*e))?
-                .record_result(&key, false)
-                .map_err(code)?;
-            ValidationState::Invalid
-        }
-        Err(_) => ValidationState::Unavailable,
-    };
+    let state = host
+        .credential_validation
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_mut()
+        .map_err(|e| code(*e))?
+        .finish_verification(&key, &current, result)?;
     Ok(ValidationReceipt { state })
 }
 
@@ -783,7 +765,7 @@ async fn verify_meta_credential(
     trusted(&window)?;
     let guard = host.enter_native_dialog()?;
     host.idle()?;
-    verify_credential_inner(&window, &host, &guard).await
+    verify_credential_inner(&window, &host, &guard, false).await
 }
 #[tauri::command]
 async fn remove_meta_credential(
@@ -1760,6 +1742,7 @@ pub fn run() {
     }
     tauri::Builder::default()
         .manage(render_trace::RenderTrace::new())
+        .manage(speech::Speech::default())
         .on_page_load(|webview, payload| {
             if webview.label() == MAIN_WINDOW {
                 webview
@@ -1887,10 +1870,19 @@ pub fn run() {
             startup::startup_shell_ready,
             select_attachments,
             remove_attachment,
-            review_processed_attachment
+            review_processed_attachment,
+            speech::start_speech_capture,
+            speech::finish_speech_capture,
+            speech::cancel_speech_capture
         ])
         .on_window_event(|window, event| {
             if window.label() == MAIN_WINDOW {
+                if matches!(
+                    event,
+                    tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed
+                ) {
+                    window.state::<speech::Speech>().cancel_active();
+                }
                 let phase = match event {
                     tauri::WindowEvent::Resized(_) => Some(render_trace::NativePhase::Resized),
                     tauri::WindowEvent::ScaleFactorChanged { .. } => {

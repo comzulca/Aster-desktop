@@ -1,6 +1,12 @@
-# Set up and use Aster v0.2.4
+# Set up and use Aster v0.2.5
 
-These instructions apply to Aster v0.2.4 with IPC protocol 5 and financial policy 4. The [spending/Send delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) identifies the unsigned Windows x64 installer for the spending/Send correction. For builds incorporating the 20 November dependency updates, use the [revision and workflow listed in the engineering notes](RELEASE-NOTES-v0.2.4.md#dependency-maintenance--20-november-2026).
+This guide covers the v0.2.5 engineering candidate. The [candidate specification](specs/SPEC-0009.md) describes local dictation and the chat readiness changes.
+
+## Dictate a draft
+
+Select the microphone beside the reasoning selector and approve the native microphone prompt. Speak into the default Windows input device. Select Finish to transcribe, or Cancel to discard the recording. Capture is limited to 30 seconds. Review the text in the composer before classifying and sending it. Dictation uses the bundled multilingual CPU model and works independently of Meta authentication.
+
+Windows desktop microphone access and the x64 Microsoft Visual C++ runtime, including VCOMP140.dll, are required.
 
 ## Configure before sending
 

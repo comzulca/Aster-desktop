@@ -4,6 +4,35 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => ({ accepted: 
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async () => () => {}) }));
 afterEach(() => { delete (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__; vi.clearAllMocks(); });
 describe('closed Meta/persistence IPC envelope (T-055)', () => {
+  it('registers a main-window listener and admits only the two bounded speech phase shapes', async () => {
+    (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const { listen } = await import('@tauri-apps/api/event');
+    const { nativeBridge } = await import('./bridge');
+    const callback = vi.fn();
+    const stop = await nativeBridge.subscribeSpeechPhase!(callback);
+    const [event, notify, options] = vi.mocked(listen).mock.calls[0];
+    expect(event).toBe('aster://speech-phase');
+    expect(options).toEqual({ target: 'main' });
+    const sessionId = crypto.randomUUID();
+    for (const payload of [null, { sessionId, phase: 'unknown' }, { sessionId, phase: 'recording', audio: 'unwanted' }]) notify({ event, id: 1, payload });
+    expect(callback).not.toHaveBeenCalled();
+    notify({ event, id: 1, payload: { sessionId, phase: 'recording' } });
+    notify({ event, id: 1, payload: { sessionId, phase: 'transcribing' } });
+    expect(callback.mock.calls).toEqual([[{ sessionId, phase: 'recording' }], [{ sessionId, phase: 'transcribing' }]]);
+    stop();
+  });
+  it('sends only the same opaque session id to the local speech commands', async () => {
+    (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const { invoke } = await import('@tauri-apps/api/core');
+    const { nativeBridge } = await import('./bridge');
+    const sessionId = crypto.randomUUID();
+    await nativeBridge.startSpeechCapture!(sessionId);
+    await nativeBridge.finishSpeechCapture!(sessionId);
+    await nativeBridge.cancelSpeechCapture!(sessionId);
+    expect(vi.mocked(invoke).mock.calls).toEqual([
+      ['start_speech_capture', { sessionId }], ['finish_speech_capture', { sessionId }], ['cancel_speech_capture', { sessionId }],
+    ]);
+  });
   it('uses one input DTO with no authorisation or renderer transcript', async () => {
     (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');

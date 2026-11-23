@@ -69,7 +69,7 @@ describe('spending activation and Send prerequisites (T-102/T-104)', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Close dialogue' }));
     const send = screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement;
     expect(send.disabled).toBe(true);
-    expect(screen.getByText(/Open the reasoning menu and choose Classify content/)).toBeTruthy();
+    expect(screen.getByText('Classify the complete draft before sending.')).toBeTruthy();
     await selectClassification('synthetic');
     await waitFor(() => expect(send.disabled).toBe(false));
     expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
