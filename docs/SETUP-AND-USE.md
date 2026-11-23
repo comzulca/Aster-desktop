@@ -1,6 +1,6 @@
 # Set up and use Aster v0.2.5
 
-This guide covers the v0.2.5 engineering candidate. The [candidate specification](specs/SPEC-0009.md) describes local dictation and the chat readiness changes.
+This guide covers the v0.2.5 source integrated in [PR #83](https://github.com/comzulca/Aster-desktop/pull/83). The [specification](specs/SPEC-0009.md) describes local dictation and the chat readiness changes.
 
 ## Dictate a draft
 

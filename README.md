@@ -24,11 +24,11 @@ Full license: [Apache License, Version 2.0](https://www.apache.org/licenses/LICE
 
 A Windows 11 desktop assistant by Computación Zuliana C.A. (COMZULCA), built with Tauri, Rust, React and TypeScript. The trusted native host owns credentials, document custody, exact disclosure review and spending admission.
 
-**Current source candidate: 0.2.5.** The composer includes local Windows dictation with whisper.cpp. The provider setup refreshes the state of the stored credential and reports the next required action. [Candidate specification](docs/specs/SPEC-0009.md).
+**Current source on main: 0.2.5.** The composer includes local Windows dictation with whisper.cpp. The provider setup refreshes the state of the stored credential and reports the next required action. [Specification](docs/specs/SPEC-0009.md) · [Integration and dependency review](docs/ENGINEERING-STATUS.md#23-november-2026).
 
 **Earlier v0.2.4 engineering delivery.** The [spending activation and Send correction](docs/qa/SEND-READINESS-20261105.md) adds expiry guidance, visible Settings errors and composer prerequisites with IPC protocol 5. The [maintenance verification](docs/qa/SEND-READINESS-20261105.md#observed-successor-verification) records the completed candidate checks; the [final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) binds the independently verified main installer. The previous delivery was main [`57339a6`](https://github.com/comzulca/Aster-desktop/commit/57339a687125a0b1fd8d6cda787649b5a111fa65); its receipt does not qualify newer bytes.
 
-[Current engineering status](docs/ENGINEERING-STATUS.md) · [Setup and use](docs/SETUP-AND-USE.md) · [Version index](docs/V0.2.4-DOCUMENTATION-INDEX.md) · [Engineering notes](docs/RELEASE-NOTES-v0.2.4.md) · [Licence](LICENSE)
+[Current engineering status](docs/ENGINEERING-STATUS.md) · [Setup and use](docs/SETUP-AND-USE.md) · [v0.2.4 index](docs/V0.2.4-DOCUMENTATION-INDEX.md) · [Engineering notes](docs/RELEASE-NOTES-v0.2.4.md) · [Licence](LICENSE)
 
 ## Frontend dependency maintenance — 20 November 2026
 
