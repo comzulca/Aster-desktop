@@ -23,7 +23,7 @@ A Linux frontend build is not a Windows native/package result. Keep Windows, GPU
 
 Use the declared Node and pnpm versions with the frozen lockfile. The frontend resolves Tauri API 2.12.5, Tauri CLI 2.12.6, user-event 14.6.13, jsdom 31.0.1, Vitest 5.1.1 and Vite 8.3.8.
 
-The application Cargo lock resolves cc 1.11.3, pin-project-lite 0.2.18, serde_with 3.25.0 and serde_with_macros 3.25.0. The two QA harnesses keep separate locks. The [maintenance notes](RELEASE-NOTES-v0.2.4.md#dependency-maintenance--20-november-2026) link the candidate checks and main workflow. The [19 November review](qa/DEPENDENCY-REVIEW-20261119.md) explains the retained Windows ABI and vendored JPEG constraints.
+The application Cargo lock resolves cc 1.11.3, pin-project-lite 0.2.18, serde_with 3.25.0 and serde_with_macros 3.25.0. The two QA harnesses keep separate locks. The [23 November review](ENGINEERING-STATUS.md#23-november-2026) records the current transitive updates and retained constraints. The [maintenance notes](RELEASE-NOTES-v0.2.4.md#dependency-maintenance--20-november-2026) link the candidate checks and main workflow. The [19 November review](qa/DEPENDENCY-REVIEW-20261119.md) explains the retained Windows ABI and vendored JPEG constraints.
 
 ## Source validation
 

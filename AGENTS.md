@@ -1,6 +1,6 @@
 ## Current dependency baseline
 
-Use the manifests and lockfiles for resolved versions. The [maintenance notes](docs/RELEASE-NOTES-v0.2.4.md#dependency-maintenance--20-november-2026) record the latest changes. The dated instructions below document earlier maintenance.
+Use the manifests and lockfiles for resolved versions. The [23 November dependency review](docs/ENGINEERING-STATUS.md#23-november-2026) records the current lockfile changes and compatibility constraints. The dated instructions below document earlier maintenance.
 
 ## 18 November dependency integration
 

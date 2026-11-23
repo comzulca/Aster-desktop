@@ -1,5 +1,13 @@
 # Current engineering status
 
+## 23 November 2026
+
+[PR #83](https://github.com/comzulca/Aster-desktop/pull/83) integrated v0.2.5 at `e348b63`. Dictation transcribes locally into an editable draft. The user classifies the text and reviews disclosure before sending. Returning to the app refreshes the saved credential state. All five jobs passed on [the final PR candidate](https://github.com/comzulca/Aster-desktop/actions/runs/45052852286), including the extracted installer speech probe. Physical microphone capture and installed Windows GUI acceptance still require an interactive session. [Setup and use](SETUP-AND-USE.md) · [Specification](specs/SPEC-0009.md).
+
+The 12 direct frontend packages matched the npm latest tags. Updating the transitive lock moved @babel/runtime from 7.29.14 to 7.29.15 and undici from 8.12.4 to 8.13.1. Cargo updated anyhow, cookie, hashbrown, jiff, jiff-static, toml, toml_edit, toml_parser and walkdir in the [host lock](../src-tauri/Cargo.lock). Both QA locks resolved without changes. A second host resolution found zero compatible updates. Cargo retained older generic-array, toml, toml_datetime and toml_edit entries in the graph and the Windows ABI pin on windows-future 0.3.2. The three workflow actions matched their upstream stable releases.
+
+## Earlier maintenance
+
 Dependency maintenance, 20 November 2026. The source locks the Tauri Rust crate at 2.12.7, the JavaScript API at 2.12.5 and the CLI at 2.12.6. The test suite uses user-event 14.6.13. The frontend uses jsdom 31.0.1, Vite 8.3.8 and Vitest 5.1.1. [Integrated changes and CI for main `0766478`](RELEASE-NOTES-v0.2.4.md#dependency-maintenance--20-november-2026). [Retained dependency constraints](qa/DEPENDENCY-REVIEW-20261119.md).
 
 **Earlier spending/Send maintenance:** [PR #70](https://github.com/comzulca/Aster-desktop/pull/70) implements the [spending/Send correction](qa/SEND-READINESS-20261105.md), IPC protocol 5 and unchanged financial policy 4. Its initial completed candidate run is `42109052799`, attempt 1, tested merge `8e92ef76a4e7910ae2193e87e7085c4910b58d1e` from head `c6974cd`. All five jobs and packaged probes passed. The PR delivery receipt separately binds final main source, run and installer hashes.
@@ -10,7 +18,8 @@ Reconciled 5 November 2026. The previous delivered software snapshot was [`57339
 
 | Area | Implemented behaviour | Evidence / remaining boundary |
 | --- | --- | --- |
-| Engineering installer | Unsigned Windows x64 v0.2.4 with spending/Send maintenance | Initial candidate: all five jobs, fifteen codec/six resource probes and twelve-resource passive verification PASS. Spending/Send delivery receipt for the earlier main installer: [PR #70](https://github.com/comzulca/Aster-desktop/pull/70). The earlier [57339a6 receipt](qa/FINAL-ENGINEERING-V024-20261105.md) remains historical; owner GUI acceptance is separate. |
+| Local dictation | Windows x64 v0.2.5, 30-second capture and editable transcript | Candidate CI exercised the packaged decoder with a known recording. Physical microphone and installed GUI acceptance remain open. |
+| Previous engineering installer | Unsigned Windows x64 v0.2.4 with spending/Send maintenance | Initial candidate: all five jobs, fifteen codec/six resource probes and twelve-resource passive verification PASS. Spending/Send delivery receipt for the earlier main installer: [PR #70](https://github.com/comzulca/Aster-desktop/pull/70). The earlier [57339a6 receipt](qa/FINAL-ENGINEERING-V024-20261105.md) remains historical; owner GUI acceptance is separate. |
 | Policy and authentication | IPC protocol 5 / financial policy 4; sole Meta Contributor pair, current-key model retrieval proof, native terms review | Source and offline tests PASS. Proof is distinct from billing, eligibility, quota and an actual inference. |
 | Policy renewal | Terms 2026-10-09, geography 2026-10-12, reviewed 2026-11-05; local deadline 2026-12-06T00:00:00Z | Legacy terms and financial replay preserved; fresh current review/configuration required. [Primary review](providers/META-POLICY-REVIEW-20261105.md). |
 | Attachments | Additive native selection; previous documents/draft retained on cancellation or atomic rejection | Rust/frontend regressions PASS. Aggregate bounds and earliest five-minute custody remain; malformed/uncertain receipts fail closed. |
