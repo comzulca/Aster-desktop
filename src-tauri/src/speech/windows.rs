@@ -1,4 +1,5 @@
 use super::{Control, ACTIVE, CANCEL};
+mod decoder;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -10,18 +11,14 @@ use std::{
     os::windows::{
         ffi::OsStringExt,
         fs::{MetadataExt, OpenOptionsExt},
-        io::AsRawHandle,
-        process::CommandExt,
     },
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
-    ptr::{null, null_mut},
+    ptr::null_mut,
     sync::atomic::{AtomicBool, Ordering},
     thread,
     time::{Duration, Instant},
 };
 use windows_sys::Win32::{
-    Foundation::{CloseHandle, HANDLE},
     Media::Audio::{
         waveInAddBuffer, waveInClose, waveInOpen, waveInPrepareHeader, waveInReset, waveInStart,
         waveInUnprepareHeader, WAVEFORMATEX, WAVEHDR, WAVE_MAPPER,
@@ -30,21 +27,13 @@ use windows_sys::Win32::{
         FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
         FILE_SHARE_READ,
     },
-    System::{
-        JobObjects::{
-            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
-            SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-            JOB_OBJECT_LIMIT_ACTIVE_PROCESS, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-            JOB_OBJECT_LIMIT_PROCESS_MEMORY,
-        },
-        SystemInformation::GetSystemDirectoryW,
-        Threading::CREATE_NO_WINDOW,
-    },
+    System::SystemInformation::GetSystemDirectoryW,
 };
 use zeroize::Zeroizing;
 
 const UNAVAILABLE: &str = "speech_unavailable";
 const FAILED: &str = "speech_failed";
+const RELEASE_UNCONFIRMED: &str = "speech_release_unconfirmed";
 const MODEL: &str = "ggml-base-q5_1.bin";
 const SAMPLE_RATE: u32 = 16000;
 const MAX_SECONDS: u32 = 30;
@@ -129,15 +118,30 @@ impl VerifiedAssets {
     }
 }
 
+fn capture_close_result(
+    closed: bool,
+    action: u8,
+    device_failure: &AtomicBool,
+) -> Result<(), &'static str> {
+    if !closed {
+        device_failure.store(true, Ordering::Release);
+        return Err(RELEASE_UNCONFIRMED);
+    }
+    if action == CANCEL {
+        return Err("speech_cancelled");
+    }
+    Ok(())
+}
+
 pub(super) fn capture(
     control: &Control,
     on_recording: impl FnOnce() -> Result<(), &'static str>,
 ) -> Result<Zeroizing<Vec<u8>>, &'static str> {
+    if DEVICE_FAILURE.load(Ordering::Acquire) {
+        return Err(RELEASE_UNCONFIRMED);
+    }
     if control.action() != ACTIVE {
         return Err("speech_cancelled");
-    }
-    if DEVICE_FAILURE.load(Ordering::Acquire) {
-        return Err("speech_microphone");
     }
     let format = WAVEFORMATEX {
         wFormatTag: 1,
@@ -164,9 +168,7 @@ pub(super) fn capture(
             return Err("speech_microphone");
         }
         if waveInPrepareHeader(device, header_ptr, header_bytes) != 0 {
-            if waveInClose(device) != 0 {
-                DEVICE_FAILURE.store(true, Ordering::Release);
-            }
+            capture_close_result(waveInClose(device) == 0, control.action(), &DEVICE_FAILURE)?;
             return Err("speech_microphone");
         }
         let queued = waveInAddBuffer(device, header_ptr, header_bytes) == 0;
@@ -188,19 +190,15 @@ pub(super) fn capture(
         let reset = waveInReset(device);
         let released = waveInUnprepareHeader(device, header_ptr, header_bytes) == 0;
         let closed = waveInClose(device) == 0;
-        if !closed {
-            DEVICE_FAILURE.store(true, Ordering::Release);
-        }
-        if !released && !closed {
-            std::mem::forget(header);
-            std::mem::forget(pcm);
-            return Err("speech_microphone");
-        }
-        if control.action() == CANCEL {
-            return Err("speech_cancelled");
+        if let Err(reason) = capture_close_result(closed, control.action(), &DEVICE_FAILURE) {
+            if !released && !closed {
+                std::mem::forget(header);
+                std::mem::forget(pcm);
+            }
+            return Err(reason);
         }
         capture_result.map_err(|_| FAILED)??;
-        if !running || reset != 0 || !released || !closed {
+        if !running || reset != 0 || !released {
             return Err("speech_microphone");
         }
     }
@@ -232,52 +230,6 @@ fn write_wav(out: &mut impl Write, pcm: &[u8]) -> std::io::Result<()> {
     out.write_all(pcm)
 }
 
-struct Worker(Child);
-impl Drop for Worker {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
-
-struct Job(HANDLE);
-impl Drop for Job {
-    fn drop(&mut self) {
-        unsafe {
-            CloseHandle(self.0);
-        }
-    }
-}
-
-impl Job {
-    fn attach(child: &Child) -> Result<Self, &'static str> {
-        let handle = unsafe { CreateJobObjectW(null(), null()) };
-        if handle.is_null() {
-            return Err(FAILED);
-        }
-        let job = Self(handle);
-        let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
-        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-            | JOB_OBJECT_LIMIT_ACTIVE_PROCESS
-            | JOB_OBJECT_LIMIT_PROCESS_MEMORY;
-        limits.BasicLimitInformation.ActiveProcessLimit = 1;
-        limits.ProcessMemoryLimit = 1024 * 1024 * 1024;
-        unsafe {
-            if SetInformationJobObject(
-                handle,
-                JobObjectExtendedLimitInformation,
-                (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
-                size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
-            ) == 0
-                || AssignProcessToJobObject(handle, child.as_raw_handle()) == 0
-            {
-                return Err(FAILED);
-            }
-        }
-        Ok(job)
-    }
-}
-
 fn system_directory() -> Result<PathBuf, &'static str> {
     let mut buf = [0u16; 32768];
     let n = unsafe { GetSystemDirectoryW(buf.as_mut_ptr(), buf.len() as u32) } as usize;
@@ -295,28 +247,7 @@ pub(super) fn transcribe(
     if control.action() == CANCEL {
         return Err("speech_cancelled");
     }
-    let system = system_directory()?;
-    let executable = assets.directory.join("whisper-cli.exe");
-    let mut worker = Worker(
-        Command::new(executable)
-            .current_dir(&assets.directory)
-            .env_clear()
-            .env("PATH", &system)
-            .env("SystemRoot", system.parent().ok_or(UNAVAILABLE)?)
-            .args([
-                "-m", MODEL, "-f", "-", "-l", "auto", "-otxt", "-of", "-", "-np", "-nt", "-ng",
-                "-t", "4",
-            ])
-            .creation_flags(CREATE_NO_WINDOW)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|_| "speech_runtime")?,
-    );
-    let job = Job::attach(&worker.0)?;
-    let mut input = worker.0.stdin.take().ok_or(FAILED)?;
-    let output = worker.0.stdout.take().ok_or(FAILED)?;
+    let (worker, mut input, output) = decoder::Decoder::start(assets)?;
     // Pipes are drained concurrently. The parent retains its deadline and can
     // always kill the child before joining either I/O worker.
     let writer = thread::Builder::new()
@@ -339,16 +270,13 @@ pub(super) fn transcribe(
         if Instant::now() >= deadline {
             break Err("speech_timeout");
         }
-        match worker.0.try_wait() {
-            Ok(Some(status)) if status.success() => break Ok(()),
-            Ok(Some(status)) if status.code().is_some_and(|c| c as u32 == 0xc0000135) => {
-                break Err("speech_runtime")
-            }
+        match worker.try_wait() {
+            Ok(Some(0)) => break Ok(()),
+            Ok(Some(0xc0000135)) => break Err("speech_runtime"),
             Ok(Some(_)) | Err(_) => break Err(FAILED),
             Ok(None) => thread::sleep(POLL),
         }
     };
-    drop(job);
     drop(worker);
     let wrote = writer.join();
     let read = reader.join();
@@ -383,6 +311,24 @@ fn decode_output(data: Vec<u8>) -> Result<String, &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cancellation_cannot_certify_a_failed_device_close() {
+        let device_failure = AtomicBool::new(false);
+        assert_eq!(
+            capture_close_result(false, CANCEL, &device_failure),
+            Err("speech_release_unconfirmed")
+        );
+        assert!(device_failure.load(Ordering::Acquire));
+        let healthy = AtomicBool::new(false);
+        assert_eq!(
+            capture_close_result(true, CANCEL, &healthy),
+            Err("speech_cancelled")
+        );
+        assert!(capture_close_result(true, ACTIVE, &healthy).is_ok());
+        assert!(!healthy.load(Ordering::Acquire));
+    }
+
     #[test]
     fn pipe_wave_has_exact_pcm_geometry_and_length() {
         let mut bytes = vec![];

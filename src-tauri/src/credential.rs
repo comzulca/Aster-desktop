@@ -140,7 +140,11 @@ pub struct CredentialStore;
 
 impl CredentialStore {
     pub fn configured(&self) -> Result<bool, CredentialError> {
-        native::configured()
+        self.read_configured().map(|key| key.is_some())
+    }
+
+    pub fn read_configured(&self) -> Result<Option<Zeroizing<String>>, CredentialError> {
+        configured_key(self.read())
     }
 
     pub fn enter_with_native_dialog_after<F>(
@@ -160,6 +164,18 @@ impl CredentialStore {
 
     pub fn delete(&self) -> Result<bool, CredentialError> {
         native::delete()
+    }
+}
+
+// Both missing and malformed entries have historically required configuration.
+// An OS failure leaves presence unknown and must reach the caller as an error.
+fn configured_key(
+    read: Result<Zeroizing<String>, CredentialError>,
+) -> Result<Option<Zeroizing<String>>, CredentialError> {
+    match read {
+        Ok(key) => Ok(Some(key)),
+        Err(CredentialError::Rejected) => Ok(None),
+        Err(error) => Err(error),
     }
 }
 
@@ -206,10 +222,6 @@ pub(crate) fn fixture_delete(
 mod native {
     use super::{CredentialError, Zeroizing};
 
-    pub fn configured() -> Result<bool, CredentialError> {
-        Err(CredentialError::Unavailable)
-    }
-
     pub fn prompt_and_save_after<F>(
         _owner: usize,
         _before_write: F,
@@ -246,20 +258,6 @@ mod native {
 
     fn wide(text: &str) -> Vec<u16> {
         text.encode_utf16().chain(iter::once(0)).collect()
-    }
-
-    pub fn configured() -> Result<bool, CredentialError> {
-        configured_at(TARGET)
-    }
-
-    fn configured_at(target_name: &str) -> Result<bool, CredentialError> {
-        // Mere presence must not report a malformed blob as a usable key.
-        // The validated temporary secret is zeroized as it leaves this match.
-        match read_at(target_name) {
-            Ok(_) => Ok(true),
-            Err(CredentialError::Rejected) => Ok(false),
-            Err(error) => Err(error),
-        }
     }
 
     pub fn prompt_and_save_after<F>(owner: usize, before_write: F) -> Result<bool, CredentialError>
@@ -642,6 +640,7 @@ mod native {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use crate::credential::configured_key;
 
         #[test]
         fn fixture_metadata_admission_rejects_foreign_entries_with_known_fake_password() {
@@ -914,7 +913,7 @@ mod native {
             cleanup
                 .arm_after_write(write_at(&target, "LLM|0|synthetic-fixture-key-123"))
                 .unwrap();
-            assert!(configured_at(&target).unwrap());
+            assert!(configured_key(read_at(&target)).unwrap().is_some());
             assert_eq!(
                 read_at(&target).unwrap().as_str(),
                 "LLM|0|synthetic-fixture-key-123"
@@ -958,7 +957,7 @@ mod native {
                 cleanup
                     .arm_after_write(write_malformed_fixture_blob(&target, &mut blob))
                     .unwrap();
-                assert!(!configured_at(&target).unwrap());
+                assert!(configured_key(read_at(&target)).unwrap().is_none());
                 assert_eq!(read_at(&target).err(), Some(CredentialError::Rejected));
             }
             assert!(delete_at(&target).unwrap());
@@ -974,6 +973,20 @@ mod representation_tests {
     use super::*;
 
     const OPAQUE_SYNTHETIC_KEY: &str = "LLM_0_SYNTHETIC_NOT_A_SECRET";
+
+    #[test]
+    fn a_store_read_error_is_distinct_from_no_configured_key() {
+        assert!(configured_key(Err(CredentialError::Rejected))
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            configured_key(Err(CredentialError::System)).unwrap_err(),
+            CredentialError::System
+        );
+        assert!(configured_key(decode_blob(OPAQUE_SYNTHETIC_KEY.as_bytes()))
+            .unwrap()
+            .is_some());
+    }
 
     #[test]
     fn opaque_synthetic_key_decodes_exact_ascii_utf16_and_native_bytes() {
