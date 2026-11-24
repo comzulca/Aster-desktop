@@ -553,6 +553,18 @@ jobs:
           $details | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath reports/engineering-installer/manifest.json -Encoding utf8
           if ((Get-Item -LiteralPath reports/engineering-installer/manifest.json).Length -gt 16384) { throw 'Installer manifest exceeds the existing passive 16-KiB bound.' }
           Get-Content -LiteralPath reports/engineering-installer/manifest.json
+          $speechReport = @(& python -I scripts/prepare-speech.py --inventory-dir (Join-Path $payloadRoot 'speech') --source-revision $revision --installer-sha256 $details.sha256)
+          if ($LASTEXITCODE -ne 0) { throw 'Extracted speech inventory verification failed.' }
+          $speechReportJson = ($speechReport -join "`n") | ConvertFrom-Json
+          if ($speechReportJson.schema_version -ne 1 -or $speechReportJson.source_revision -cne $revision -or $speechReportJson.installer_sha256 -cne $details.sha256 -or $speechReportJson.resources.Count -ne $speechInventory.Count) { throw 'Speech inventory evidence identity or coverage differs.' }
+          $speechReport | Set-Content -LiteralPath reports/native-speech-inventory.json -Encoding utf8NoBOM
+      - name: Upload verified native speech inventory
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-speech-inventory-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/native-speech-inventory.json
+          retention-days: 14
+          if-no-files-found: error
       - name: Preserve synthetic attachment diagnostics even on failure
         if: ${{ always() && hashFiles('reports/installer-execution-context.json') != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

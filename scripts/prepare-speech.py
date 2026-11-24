@@ -15,16 +15,20 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = json.loads((ROOT / "src-tauri/speech-assets.json").read_text("utf-8"))
-WHISPER = "https://raw.githubusercontent.com/ggml-org/whisper.cpp/5eaee0cc9024eb9e9a99469199920c8b7f5cb9ec"
+WHISPER_REVISION = "5eaee0cc9024eb9e9a99469199920c8b7f5cb9ec"
+WHISPER = f"https://raw.githubusercontent.com/ggml-org/whisper.cpp/{WHISPER_REVISION}"
 ARCHIVE = "https://github.com/ggml-org/whisper.cpp/releases/download/b5907/whisper-bin-x64.zip"
+ARCHIVE_SHA256 = "ecca07b277d943e9b9f4712856a144b857271a6b333104e511e1988e80db582b"
+MODEL_REVISION = "5359861c739e955e79d9a303bcbc70fb988958b1"
+MODEL_LICENSE_REVISION = "86098128c0b4f24f0e2aa2994de830614b474227"
 MODEL = "ggml-base-q5_1.bin"
 FIXTURE = ROOT / "reports/speech-fixture.wav"
 FIXTURE_SIZE = 352078
 FIXTURE_SHA256 = "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e"
 URLS = {
-    MODEL: f"https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/{MODEL}",
+    MODEL: f"https://huggingface.co/ggerganov/whisper.cpp/resolve/{MODEL_REVISION}/{MODEL}",
     "whisper.cpp-LICENSE.txt": f"{WHISPER}/LICENSE",
-    "whisper-model-LICENSE.txt": "https://raw.githubusercontent.com/openai/whisper/86098128c0b4f24f0e2aa2994de830614b474227/LICENSE",
+    "whisper-model-LICENSE.txt": f"https://raw.githubusercontent.com/openai/whisper/{MODEL_LICENSE_REVISION}/LICENSE",
 }
 
 
@@ -90,7 +94,7 @@ def prepare():
             data = download(URLS[name], size, digest)
         else:
             if archive is None:
-                payload = download(ARCHIVE, 9168428, "ecca07b277d943e9b9f4712856a144b857271a6b333104e511e1988e80db582b")
+                payload = download(ARCHIVE, 9168428, ARCHIVE_SHA256)
                 archive = zipfile.ZipFile(io.BytesIO(payload))
             with archive.open("Release/" + name) as item:
                 data = validate(item.read(size + 1), size, digest)
@@ -100,6 +104,57 @@ def prepare():
     verify(folder)
     public_fixture()
     print("Verified packaged speech resources:", len(ASSETS))
+
+
+def payload_inventory(folder, source_revision, installer_sha256):
+    """Describe the verified, extracted files; this is not an advisory scan."""
+    for value, length in ((source_revision, 40), (installer_sha256, 64)):
+        if len(value) != length or any(char not in "0123456789abcdef" for char in value):
+            raise ValueError("Invalid source or installer identity")
+    verify(folder)
+    direct = {
+        MODEL: ("whisper-model", MODEL_REVISION),
+        "whisper.cpp-LICENSE.txt": ("whisper.cpp-license", WHISPER_REVISION),
+        "whisper-model-LICENSE.txt": ("whisper-model-license", MODEL_LICENSE_REVISION),
+    }
+    binaries = {
+        "whisper-cli.exe": "whisper.cpp",
+        "whisper.dll": "whisper.cpp",
+        "ggml.dll": "GGML",
+        "ggml-base.dll": "GGML",
+        "ggml-cpu-x64.dll": "GGML",
+        "ggml-cpu-haswell.dll": "GGML",
+    }
+    if set(ASSETS) != set(direct) | set(binaries) or set(direct) != set(URLS):
+        raise ValueError("Missing or unexpected speech provenance")
+    resources = []
+    for name, spec in sorted(ASSETS.items()):
+        if name in direct:
+            component, revision = direct[name]
+            origin = {"url": URLS[name], "revision": revision}
+        else:
+            component = binaries[name]
+            origin = {
+                "url": ARCHIVE,
+                "revision": WHISPER_REVISION,
+                "release_tag": "b5907",
+                "archive_sha256": ARCHIVE_SHA256,
+                "archive_member": f"Release/{name}",
+            }
+        resources.append({
+            "path": f"speech/{name}",
+            "component": component,
+            "byte_count": spec["bytes"],
+            "sha256": spec["sha256"],
+            "origin": origin,
+        })
+    return {
+        "schema_version": 1,
+        "classification": "verified-extracted-nsis-speech-inventory",
+        "source_revision": source_revision,
+        "installer_sha256": installer_sha256,
+        "resources": resources,
+    }
 
 
 def probe(folder):
@@ -123,8 +178,18 @@ def probe(folder):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test-dir", type=Path, help="Probe the exact supplied directory without changing its contents")
+    parser.add_argument("--inventory-dir", type=Path, help="Print provenance for a verified extracted speech directory")
+    parser.add_argument("--source-revision")
+    parser.add_argument("--installer-sha256")
     args = parser.parse_args()
-    if args.test_dir:
+    if args.inventory_dir is not None:
+        if args.test_dir is not None or not args.source_revision or not args.installer_sha256:
+            parser.error("--inventory-dir requires --source-revision and --installer-sha256, without --test-dir")
+        result = payload_inventory(args.inventory_dir, args.source_revision, args.installer_sha256)
+        print(json.dumps(result, indent=2, sort_keys=True))
+    elif args.source_revision is not None or args.installer_sha256 is not None:
+        parser.error("Source and installer identity require --inventory-dir")
+    elif args.test_dir:
         probe(args.test_dir)
     else:
         prepare()
