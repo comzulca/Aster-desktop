@@ -1,6 +1,6 @@
-# Current verification navigation — 5 November 2026
+# Current verification navigation — 23 November 2026
 
-Current source/build procedures are in [BUILDING.md](../BUILDING.md); exact delivered source/run/artifact outcomes and remaining qualifications are in the [5 November engineering receipt](../qa/FINAL-ENGINEERING-V024-20261105.md) and [status matrix](../ENGINEERING-STATUS.md). The five jobs and actual fifteen-codec/six-resource/CPU requirements remain mandatory.
+The [v0.2.5 security review and installer receipt](../qa/SECURITY-REVIEW-V025-20261123.md) binds the five successful jobs, packaged speech probe, 15 codec and six resource probes to main `a8d6123`. Its requirement table tracks the remaining credential and microphone cases. See the [build procedures](../BUILDING.md), [status matrix](../ENGINEERING-STATUS.md) and [earlier v0.2.4 receipt](../qa/FINAL-ENGINEERING-V024-20261105.md).
 
 The complete original procedures and dated outcomes below are preserved historical contracts, not current source results. New pure/hosted execution does not substitute for owner-installed, live account, 42 compound, signing or production acceptance. In particular, default ignored credential cases and their separately executed disposable follow-up must remain distinct. Frozen JSON ledgers and original failures are unchanged.
 

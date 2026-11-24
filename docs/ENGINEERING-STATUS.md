@@ -2,6 +2,8 @@
 
 ## 23 November 2026
 
+All five jobs passed on [main `a8d6123`, attempt 1](https://github.com/comzulca/Aster-desktop/actions/runs/45232167632), after the dependency update in [PR #84](https://github.com/comzulca/Aster-desktop/pull/84) and interface preview in [PR #85](https://github.com/comzulca/Aster-desktop/pull/85). The unsigned Windows installer passed independent passive verification. The [security review and installer receipt](qa/SECURITY-REVIEW-V025-20261123.md) traces SPEC-0009 to the executed tests and identifies open defects in microphone lifecycle and credential handling. Full qualification remains open.
+
 [PR #83](https://github.com/comzulca/Aster-desktop/pull/83) integrated v0.2.5 at `e348b63`. Dictation transcribes locally into an editable draft. The user classifies the text and reviews disclosure before sending. Returning to the app refreshes the saved credential state. All five jobs passed on [the final PR candidate](https://github.com/comzulca/Aster-desktop/actions/runs/45052852286), including the extracted installer speech probe. Physical microphone capture and installed Windows GUI acceptance still require an interactive session. [Setup and use](SETUP-AND-USE.md) · [Specification](specs/SPEC-0009.md).
 
 The 12 direct frontend packages matched the npm latest tags. Updating the transitive lock moved @babel/runtime from 7.29.14 to 7.29.15 and undici from 8.12.4 to 8.13.1. Cargo updated anyhow, cookie, hashbrown, jiff, jiff-static, toml, toml_edit, toml_parser and walkdir in the [host lock](../src-tauri/Cargo.lock). Both QA locks resolved without changes. A second host resolution found zero compatible updates. Cargo retained older generic-array, toml, toml_datetime and toml_edit entries in the graph and the Windows ABI pin on windows-future 0.3.2. The three workflow actions matched their upstream stable releases.
@@ -18,7 +20,7 @@ Reconciled 5 November 2026. The previous delivered software snapshot was [`57339
 
 | Area | Implemented behaviour | Evidence / remaining boundary |
 | --- | --- | --- |
-| Local dictation | Windows x64 v0.2.5, 30-second capture and editable transcript | Candidate CI exercised the packaged decoder with a known recording. Physical microphone and installed GUI acceptance remain open. |
+| Local dictation | Windows x64 v0.2.5, 30-second capture and editable transcript | Main CI transcribed a public recording with the extracted decoder. Cancellation acknowledgement, process startup limits and physical microphone acceptance remain open. |
 | Previous engineering installer | Unsigned Windows x64 v0.2.4 with spending/Send maintenance | Initial candidate: all five jobs, fifteen codec/six resource probes and twelve-resource passive verification PASS. Spending/Send delivery receipt for the earlier main installer: [PR #70](https://github.com/comzulca/Aster-desktop/pull/70). The earlier [57339a6 receipt](qa/FINAL-ENGINEERING-V024-20261105.md) remains historical; owner GUI acceptance is separate. |
 | Policy and authentication | IPC protocol 5 / financial policy 4; sole Meta Contributor pair, current-key model retrieval proof, native terms review | Source and offline tests PASS. Proof is distinct from billing, eligibility, quota and an actual inference. |
 | Policy renewal | Terms 2026-10-09, geography 2026-10-12, reviewed 2026-11-05; local deadline 2026-12-06T00:00:00Z | Legacy terms and financial replay preserved; fresh current review/configuration required. [Primary review](providers/META-POLICY-REVIEW-20261105.md). |
@@ -53,8 +55,12 @@ The model's documented 1,048,576-token context and the owner's proposed 4-GiB tr
 
 ## Qualification limits
 
+For v0.2.5 main `a8d6123`, CI recorded 200 frontend tests, 422 default Rust tests and two separately passed disposable credential cases. The packaged app passed 15 codec and six resource probes. The Rust advisory check reported three informational warnings. The native speech distribution falls outside the Cargo and pnpm advisory scans. See the [full results and open obligations](qa/SECURITY-REVIEW-V025-20261123.md).
+
+### Earlier v0.2.4 spending and Send evidence
+
 The initial complete maintenance run reported 184 frontend PASS and 414 default Rust PASS / two ignored. The two explicitly named disposable Credential Manager cases were then executed separately and passed; this is not native credential-entry GUI or the owner's real-key evidence. Strict Clippy passed. RustSec passed with the existing two allowed warnings, not a warning-free or GLib-remediation claim.
 
 A separately authorised local synthetic Meta text stream returned HTTP 200, final stop, DONE and consistent usage (78 prompt / 1021 completion / 1099 total tokens). This is service evidence only: owner-installed startup/visual/native confirmation, live multimodal/GitHub/account/invoice qualification, all 42 compound protocols, signing and production remain independent. The [GLib deferral](qa/GLIB-UPSTREAM-DEFERRAL-20261009.md) remains OPEN. Keep original failures and dated receipts; no result is transferred to changed application source.
 
-[Operating guide](SETUP-AND-USE.md) · [Build procedures](BUILDING.md) · [Current index](V0.2.4-DOCUMENTATION-INDEX.md) · [Reconciliation](qa/DOCUMENTATION-RECONCILIATION-20261105.md)
+[Operating guide](SETUP-AND-USE.md) · [Build procedures](BUILDING.md) · [Earlier v0.2.4 index](V0.2.4-DOCUMENTATION-INDEX.md) · [Earlier reconciliation](qa/DOCUMENTATION-RECONCILIATION-20261105.md)
