@@ -579,10 +579,16 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         .map_err(|_| "state_unavailable")?
         .active_count()
         != 0;
-    let key = host.credentials.configured();
+    let key = host.credentials.read_configured();
     let credential_available = key.is_ok();
-    let configured = key.unwrap_or(false);
-    let credential_validation = credential_state(&host, configured);
+    let configured = matches!(key, Ok(Some(_)));
+    let credential_validation = credential_state(key, |key| {
+        host.credential_validation
+            .lock()
+            .ok()
+            .and_then(|proof| proof.as_ref().ok().map(|p| p.state(Some(key))))
+            .unwrap_or(ValidationState::Unavailable)
+    });
     let writable = p.history.can_append_request().unwrap_or(false) && p.budget.can_append_request();
     let availability = if !cfg!(windows) {
         "unsupported"
@@ -687,18 +693,15 @@ async fn configure_meta_credential(
     })
 }
 
-fn credential_state(host: &Host, configured: bool) -> ValidationState {
-    if !configured {
-        return ValidationState::Missing;
+fn credential_state(
+    read: Result<Option<zeroize::Zeroizing<String>>, credential::CredentialError>,
+    proof: impl FnOnce(&str) -> ValidationState,
+) -> ValidationState {
+    match read {
+        Ok(Some(key)) => proof(&key),
+        Ok(None) => ValidationState::Missing,
+        Err(_) => ValidationState::Unavailable,
     }
-    let Ok(key) = host.credentials.read() else {
-        return ValidationState::Unavailable;
-    };
-    host.credential_validation
-        .lock()
-        .ok()
-        .and_then(|proof| proof.as_ref().ok().map(|p| p.state(Some(key.as_str()))))
-        .unwrap_or(ValidationState::Unavailable)
 }
 
 fn require_valid_credential(host: &Host) -> Result<(), String> {
@@ -746,14 +749,14 @@ async fn verify_credential_inner(
     }
     let result = provider::verify_registered_model(key.clone()).await;
     // A concurrent external credential edit cannot validate different bytes.
-    let current = host.credentials.read().map_err(|e| e.code())?;
+    let current = host.credentials.read_configured().map_err(|e| e.code())?;
     let state = host
         .credential_validation
         .lock()
         .map_err(|_| "state_unavailable")?
         .as_mut()
         .map_err(|e| code(*e))?
-        .finish_verification(&key, &current, result)?;
+        .finish_verification(&key, current.as_ref().map(|key| key.as_str()), result)?;
     Ok(ValidationReceipt { state })
 }
 
@@ -1916,6 +1919,24 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn credential_status_distinguishes_absence_store_failure_and_rejected_proof() {
+        let unexpected = |_: &str| panic!("no key to validate");
+        assert_eq!(
+            credential_state(Ok(None), unexpected),
+            ValidationState::Missing
+        );
+        assert_eq!(
+            credential_state(Err(credential::CredentialError::System), unexpected),
+            ValidationState::Unavailable
+        );
+        let key = zeroize::Zeroizing::new("synthetic-status-key".to_owned());
+        assert_eq!(
+            credential_state(Ok(Some(key)), |_| ValidationState::Invalid),
+            ValidationState::Invalid
+        );
+    }
+
     #[test]
     fn acknowledged_cancel_wins_preparation_error() {
         let mut sessions = SessionState::default();

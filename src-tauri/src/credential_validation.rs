@@ -73,16 +73,20 @@ impl CredentialValidation {
             (0u64, String::new(), None, ValidationState::Unverified);
         for (name, bytes) in records {
             let record: Record = serde_json::from_slice(&bytes).map_err(|_| StoreError::Corrupt)?;
-            if record.version != 1
+            let valid_identity = match (record.version, record.state, &record.fingerprint) {
+                (1 | 2, ValidationState::Unverified, None) => true,
+                (1 | 2, ValidationState::Valid | ValidationState::Invalid, Some(_)) => true,
+                // Version 2 can suspend proof for an already acknowledged key.
+                // Missing legacy identity and explicit tombstones stay unknown.
+                (2, ValidationState::Unverified, Some(_)) => {
+                    record.fingerprint == saved_fingerprint
+                }
+                _ => false,
+            };
+            if !valid_identity
                 || record.sequence != sequence.checked_add(1).ok_or(StoreError::Corrupt)?
                 || record.previous != head
                 || name != format!("{:032x}", record.sequence)
-                || !matches!(
-                    record.state,
-                    ValidationState::Unverified | ValidationState::Valid | ValidationState::Invalid
-                )
-                || (record.state == ValidationState::Unverified && record.fingerprint.is_some())
-                || (record.state != ValidationState::Unverified && record.fingerprint.is_none())
                 || record.fingerprint.as_ref().is_some_and(|hash| {
                     hash.len() != 64
                         || !hash
@@ -149,7 +153,7 @@ impl CredentialValidation {
         }
         let sequence = self.sequence.checked_add(1).ok_or(StoreError::Capacity)?;
         let record = Record {
-            version: 1,
+            version: 2,
             sequence,
             previous: self.head.clone(),
             fingerprint,
@@ -190,10 +194,13 @@ impl CredentialValidation {
     pub(crate) fn finish_verification(
         &mut self,
         sent_key: &str,
-        current_key: &str,
+        current_key: Option<&str>,
         result: Result<(), ProviderFailure>,
     ) -> Result<ValidationState, &'static str> {
-        if current_key != sent_key {
+        if current_key != Some(sent_key) {
+            // The host observed a removal or a different key while the GET ran.
+            // A later return to the old key must pass identity review again.
+            self.revoke().map_err(StoreError::code)?;
             return Err("credential_validation_stale");
         }
         match result {
@@ -226,8 +233,13 @@ impl CredentialValidation {
         }
         // An external Windows edit bypasses the configure dialog. An unknown
         // identity must not inherit contributor consent or prior continuation.
-        let previous_identity_known = self.fingerprint.as_ref() == Some(&fingerprint(key));
-        self.revoke().map_err(StoreError::code)?;
+        let digest = fingerprint(key);
+        let previous_identity_known = self.fingerprint.as_ref() == Some(&digest);
+        self.append(
+            previous_identity_known.then_some(digest),
+            ValidationState::Unverified,
+        )
+        .map_err(StoreError::code)?;
         Ok(previous_identity_known)
     }
 }
@@ -239,6 +251,18 @@ mod tests {
     fn empty() -> CredentialValidation {
         CredentialValidation::restore(PrivateStore::memory(Domain::CredentialProof)).unwrap()
     }
+
+    fn legacy_valid_proof() -> CredentialValidation {
+        let mut store = PrivateStore::memory(Domain::CredentialProof);
+        let record = serde_json::json!({"version":1,"sequence":1,"previous":"","fingerprint":fingerprint(KEY),"state":"valid"});
+        store
+            .append(
+                &format!("{:032x}", 1),
+                &serde_json::to_vec(&record).unwrap(),
+            )
+            .unwrap();
+        CredentialValidation::restore(store).unwrap()
+    }
     #[test]
     fn syntax_and_renderer_cannot_make_authentication_proof() {
         let proof = empty();
@@ -249,7 +273,7 @@ mod tests {
     #[test]
     fn verification_reports_service_errors_without_authenticating_or_rejecting_the_key() {
         let mut proof = empty();
-        proof.finish_verification(KEY, KEY, Ok(())).unwrap();
+        proof.finish_verification(KEY, Some(KEY), Ok(())).unwrap();
         proof.revoke().unwrap();
         for failure in [
             ProviderFailure::Forbidden,
@@ -261,13 +285,13 @@ mod tests {
             ProviderFailure::InvalidContract,
         ] {
             assert_eq!(
-                proof.finish_verification(KEY, KEY, Err(failure)),
+                proof.finish_verification(KEY, Some(KEY), Err(failure)),
                 Err(failure.code())
             );
             assert_eq!(proof.state(Some(KEY)), ValidationState::Unverified);
         }
         assert_eq!(
-            proof.finish_verification(KEY, KEY, Err(ProviderFailure::Authentication)),
+            proof.finish_verification(KEY, Some(KEY), Err(ProviderFailure::Authentication)),
             Err("meta_authentication_failed")
         );
         assert_eq!(proof.state(Some(KEY)), ValidationState::Invalid);
@@ -277,14 +301,14 @@ mod tests {
         let mut proof = empty();
         for result in [Ok(()), Err(ProviderFailure::Authentication)] {
             assert_eq!(
-                proof.finish_verification(KEY, "different-synthetic-key", result),
+                proof.finish_verification(KEY, Some("different-synthetic-key"), result),
                 Err("credential_validation_stale")
             );
             assert_eq!(proof.state(Some(KEY)), ValidationState::Unverified);
             assert!(proof.require("different-synthetic-key").is_err());
         }
         proof.store.fail_next_append_for_test(true);
-        assert!(proof.finish_verification(KEY, KEY, Ok(())).is_err());
+        assert!(proof.finish_verification(KEY, Some(KEY), Ok(())).is_err());
         assert!(proof.require(KEY).is_err());
     }
 
@@ -292,13 +316,96 @@ mod tests {
     fn external_rotation_requires_new_identity_review_before_proof() {
         let mut proof = empty();
         assert_eq!(proof.begin_verification(KEY), Ok(false));
-        proof.finish_verification(KEY, KEY, Ok(())).unwrap();
+        proof.finish_verification(KEY, Some(KEY), Ok(())).unwrap();
         assert_eq!(proof.begin_verification(KEY), Ok(true));
         assert!(proof.require(KEY).is_err());
-        proof.finish_verification(KEY, KEY, Ok(())).unwrap();
+        proof.finish_verification(KEY, Some(KEY), Ok(())).unwrap();
         assert_eq!(proof.begin_verification("other-synthetic-key"), Ok(false));
         assert!(proof.require(KEY).is_err());
         assert!(proof.require("other-synthetic-key").is_err());
+    }
+
+    #[test]
+    fn same_identity_survives_interruption_and_retry_without_authenticating() {
+        let mut proof = legacy_valid_proof();
+        assert_eq!(proof.require(KEY), Ok(()));
+        assert_eq!(proof.begin_verification(KEY), Ok(true));
+        let mut reopened = CredentialValidation::restore(proof.store).unwrap();
+        assert!(reopened.require(KEY).is_err());
+        assert_eq!(reopened.begin_verification(KEY), Ok(true));
+        assert_eq!(
+            reopened.finish_verification(KEY, Some(KEY), Err(ProviderFailure::Network)),
+            Err(ProviderFailure::Network.code())
+        );
+        let mut retried = CredentialValidation::restore(reopened.store).unwrap();
+        assert_eq!(retried.begin_verification(KEY), Ok(true));
+        assert!(retried.require(KEY).is_err());
+        retried.finish_verification(KEY, Some(KEY), Ok(())).unwrap();
+        assert_eq!(retried.require(KEY), Ok(()));
+    }
+
+    #[test]
+    fn a_different_identity_cannot_carry_old_context_through_interruption_or_stale_result() {
+        let other = "other-synthetic-key";
+        for changed_during_request in [false, true] {
+            let mut proof = empty();
+            proof.record_result(KEY, true).unwrap();
+            if changed_during_request {
+                assert_eq!(proof.begin_verification(KEY), Ok(true));
+                assert_eq!(
+                    proof.finish_verification(KEY, Some(other), Ok(())),
+                    Err("credential_validation_stale")
+                );
+            } else {
+                assert_eq!(proof.begin_verification(other), Ok(false));
+            }
+            let mut reopened = CredentialValidation::restore(proof.store).unwrap();
+            assert!(reopened.require(KEY).is_err());
+            assert!(reopened.require(other).is_err());
+            assert_eq!(reopened.begin_verification(KEY), Ok(false));
+        }
+    }
+
+    #[test]
+    fn missing_legacy_identity_and_explicit_removal_cannot_inherit_old_grants() {
+        let mut proof = legacy_valid_proof();
+        let record = serde_json::json!({"version":1,"sequence":2,"previous":proof.head,"fingerprint":null,"state":"unverified"});
+        proof
+            .store
+            .append(
+                &format!("{:032x}", 2),
+                &serde_json::to_vec(&record).unwrap(),
+            )
+            .unwrap();
+        let mut reopened = CredentialValidation::restore(proof.store).unwrap();
+        assert!(reopened.require(KEY).is_err());
+        assert_eq!(reopened.begin_verification(KEY), Ok(false));
+        reopened
+            .finish_verification(KEY, Some(KEY), Ok(()))
+            .unwrap();
+        assert_eq!(reopened.begin_verification(KEY), Ok(true));
+        assert_eq!(
+            reopened.finish_verification(KEY, None, Ok(())),
+            Err("credential_validation_stale")
+        );
+        let mut removed = CredentialValidation::restore(reopened.store).unwrap();
+        assert_eq!(removed.begin_verification(KEY), Ok(false));
+    }
+
+    #[test]
+    fn pending_proof_cannot_invent_an_identity_or_expand_the_legacy_format() {
+        for (version, key) in [(1, KEY), (2, "unacknowledged-synthetic-key")] {
+            let mut proof = legacy_valid_proof();
+            let record = serde_json::json!({"version":version,"sequence":2,"previous":proof.head,"fingerprint":fingerprint(key),"state":"unverified"});
+            proof
+                .store
+                .append(
+                    &format!("{:032x}", 2),
+                    &serde_json::to_vec(&record).unwrap(),
+                )
+                .unwrap();
+            assert!(CredentialValidation::restore(proof.store).is_err());
+        }
     }
     #[test]
     fn proof_is_exact_key_bound_and_replacement_deletion_revoke_it() {

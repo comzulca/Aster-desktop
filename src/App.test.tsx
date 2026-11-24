@@ -13,6 +13,20 @@ async function prepare(text = 'A wholly synthetic example') {
   await waitFor(() => expect((screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement).disabled).toBe(false));
 }
 describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
+  it('explains an unreadable credential store without prompting for a replacement key (T-109)', async () => {
+    const fake = fakeBridge({ ...baseline, configured: false, credentialAvailable: false, credentialValidation: 'unavailable', availability: 'attention_required' });
+    render(<App bridge={fake.bridge}/>);
+    const guidance = /Aster could not read Windows Credential Manager/;
+    await screen.findByText(guidance);
+    expect((screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Open Settings' }));
+    const settings = within(screen.getByRole('dialog'));
+    expect(settings.getByText(guidance)).toBeTruthy();
+    expect(settings.queryByRole('button', { name: 'Set up key in Windows' })).toBeNull();
+    expect(fake.bridge.configureCredential).not.toHaveBeenCalled();
+    expect(fake.bridge.verifyCredential).not.toHaveBeenCalled();
+  });
+
   it('explains expired policy without claiming a Windows or credential failure (T-097)', async () => {
     const fake = fakeBridge();
     vi.mocked(fake.bridge.acceptContributorTerms).mockRejectedValue('contributor_policy_expired');
