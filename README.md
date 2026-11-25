@@ -24,7 +24,7 @@ Full license: [Apache License, Version 2.0](https://www.apache.org/licenses/LICE
 
 A Windows 11 desktop assistant by Computación Zuliana C.A. (COMZULCA), built with Tauri, Rust, React and TypeScript. The trusted native host owns credentials, document custody, exact disclosure review and spending admission.
 
-**Current source on main: 0.2.5.** The composer includes local Windows dictation with whisper.cpp. Aster refreshes the stored credential status when the user returns to chat. All five engineering checks passed for main `a8d6123`. The [security review](docs/qa/SECURITY-REVIEW-V025-20261123.md) records open issues with microphone cancellation, decoder startup and credential status, plus the verified unsigned installer. [Specification](docs/specs/SPEC-0009.md) · [Setup and use](docs/SETUP-AND-USE.md).
+**Current source on main: 0.2.5.** The composer includes local Windows dictation with whisper.cpp. Aster refreshes the stored credential status when the user returns to chat. The [23 November security review](docs/qa/SECURITY-REVIEW-V025-20261123.md) and its verified unsigned installer apply to main `a8d6123`. [PR #87](https://github.com/comzulca/Aster-desktop/pull/87) addressed the four implementation findings; physical-microphone, installed-app and live acceptance remain separate. See [current engineering status](docs/ENGINEERING-STATUS.md) for the subsequent checks. [Specification](docs/specs/SPEC-0009.md) · [Setup and use](docs/SETUP-AND-USE.md).
 
 **Earlier v0.2.4 engineering delivery.** The [spending activation and Send correction](docs/qa/SEND-READINESS-20261105.md) adds expiry guidance, visible Settings errors and composer prerequisites with IPC protocol 5. The [maintenance verification](docs/qa/SEND-READINESS-20261105.md#observed-successor-verification) records the completed candidate checks; the [final delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) binds the independently verified main installer. The previous delivery was main [`57339a6`](https://github.com/comzulca/Aster-desktop/commit/57339a687125a0b1fd8d6cda787649b5a111fa65); its receipt does not qualify newer bytes.
 
@@ -54,7 +54,7 @@ See the [exact engineering receipt](docs/qa/FINAL-ENGINEERING-V024-20261105.md) 
 
 - The only model is **Muse Spark 1.3 Contributor** through the fixed direct Meta API. Current-key authentication is separate from account eligibility, billing and quota.
 - `+` adds documents to the current unsent selection. Cancelling or atomically rejecting an addition retains the previous selection and draft. The combined batch keeps its four-file and earliest five-minute limits; adding files does not renew custody.
-- Aster checks its public GitHub Releases for a newer stable Windows installer. Once that version is available, the old build can send new requests for 14 days. A PR, a CI artifact or an offline check does not start that clock. This is not expiry of a Meta key, account or subscription. Owner consent and the monthly financial configuration remain separate. [Lifecycle and rollout notes](docs/qa/RELEASE-LIFECYCLE-20261125.md).
+- Aster checks its public GitHub Releases for a newer stable Windows installer. A build with this lifecycle policy stops accepting new sends 14 days after a newer stable Windows installer becomes available; normal sign-in, eligibility and budget checks still apply during the grace period. A PR, a CI artifact or an offline check does not start that clock. This is not expiry of a Meta key, account or subscription. Owner consent and the monthly financial configuration remain separate. [Lifecycle and rollout notes](docs/qa/RELEASE-LIFECYCLE-20261125.md).
 - Eligible conversations and processed derivatives use protected local storage. Temporary originals and disclosure grants are not restored after restart.
 - Personalization stays local. Skills/Plugins are bounded inert content; the built-in GitHub connector has separately controlled authentication/read routes. Runtime GitHub writes and automatic full-window compaction remain unavailable.
 
@@ -70,7 +70,7 @@ Enter keys only through Aster's native Windows credential dialogue. Direct Model
 
 The host re-admits eligible continuation and separately reviews every complete disclosure. Restored history never restores active requests, approvals, temporary originals or grants. Current encrypted payload limits are 64 MiB for transcript history and a separate 128 MiB for processed media; filesystem/ciphertext overhead is distinct. The proposed 4-GiB transcript migration is not active.
 
-The local £89 calendar-month admission ceiling uses `Europe/London`, warns at £80.10 and requires explicit owner-confirmed FX/margin/tax/payment assumptions. Configuration lasts at most 31 days and cannot outlive the reviewed policy. Unknown charges retain reservations and block new dispatch until reviewed reconciliation; deletion, restart or changing an alias does not reset spending. This local control does not cap other clients or guarantee Meta's invoice.
+The local £89 calendar-month admission ceiling uses `Europe/London`, warns at £80.10 and requires explicit owner-confirmed FX/margin/tax/payment assumptions. Configuration lasts at most 31 days and only activates the explicitly confirmed London calendar month. The installed-version deadline, if one is known, is a separate check. Unknown charges retain reservations and block new dispatch until reviewed reconciliation; deletion, restart or changing an alias does not reset spending. This local control does not cap other clients or guarantee Meta's invoice.
 
 ## Resource and authority limits
 
@@ -80,7 +80,7 @@ The microphone adds locally transcribed speech to the editable draft. Sending it
 
 ## Source checks and Windows build
 
-Read [AGENTS.md](AGENTS.md), then [BUILDING.md](docs/BUILDING.md). The pinned cohort is Node 24 (`>=24.15.0 <25`), pnpm 11.19.0 and Rust 1.97.0, with the Windows MSVC/WebView2 prerequisites. Use frozen lockfiles and the unchanged five-job workflow; generating an executable alone is not package qualification.
+Read [AGENTS.md](AGENTS.md), then [BUILDING.md](docs/BUILDING.md). The pinned cohort is Node 24 (`>=24.15.0 <25`), pnpm 11.28.12 and Rust 1.97.0, with the Windows MSVC/WebView2 prerequisites. Use frozen lockfiles and the unchanged five-job workflow; generating an executable alone is not package qualification.
 
 ## Licence, contribution and history
 
