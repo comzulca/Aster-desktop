@@ -38,6 +38,7 @@ mod personalization;
 mod policy;
 mod private_store;
 mod processed_history;
+mod projects;
 mod provider;
 mod release_lifecycle;
 mod render_trace;
@@ -79,6 +80,7 @@ use std::{
 };
 use tauri::{Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
+use workspace::obsidian;
 
 const MAIN_WINDOW: &str = "main";
 const STREAM_EVENT: &str = "aster://stream";
@@ -97,6 +99,13 @@ const COMMANDS: &[&str] = &[
     "set_customization_enabled",
     "import_customization",
     "generate_customization",
+    "get_obsidian_status",
+    "select_obsidian_vault",
+    "clear_obsidian_vault",
+    "list_obsidian_notes",
+    "read_obsidian_note",
+    "create_obsidian_topic",
+    "create_obsidian_note",
     "get_github_status",
     "begin_github_connection",
     "poll_github_connection",
@@ -110,6 +119,9 @@ const COMMANDS: &[&str] = &[
     "accept_contributor_terms",
     "configure_budget",
     "reconcile_budget",
+    "list_projects",
+    "create_project",
+    "assign_conversation_project",
     "list_conversations",
     "create_conversation",
     "load_conversation",
@@ -148,7 +160,9 @@ struct Host {
     credential_validation: Mutex<Result<CredentialValidation, StoreError>>,
     personalization: Mutex<Result<personalization::Personalization, StoreError>>,
     customization: Mutex<Result<customization::Customization, StoreError>>,
+    projects: Mutex<Result<projects::Projects, StoreError>>,
     github: Mutex<github_host::GithubHost>,
+    obsidian: obsidian::Vault,
     sessions: Mutex<SessionState>,
     attachments: Mutex<AttachmentRegistry>,
     persistent: Mutex<Result<Persistence, StoreError>>,
@@ -397,6 +411,195 @@ async fn import_customization(
         .import_json(input.expected_revision, &bytes)
         .map_err(code)
 }
+#[tauri::command]
+fn get_obsidian_status(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+) -> Result<obsidian::Status, String> {
+    trusted(&window)?;
+    host.obsidian.status()
+}
+
+#[tauri::command]
+async fn select_obsidian_vault(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    host: State<'_, Host>,
+) -> Result<obsidian::Status, String> {
+    trusted(&window)?;
+    #[cfg(windows)]
+    {
+        let guard = host.enter_native_dialog()?;
+        host.idle()?;
+        owner(&window)?;
+        let local_data = app
+            .path()
+            .local_data_dir()
+            .map_err(|_| "obsidian_unavailable")?;
+        let worker_lease = guard.worker_lease();
+        let selected = tauri::async_runtime::spawn_blocking(move || {
+            let _worker_lease = worker_lease;
+            let selection = app
+                .dialog()
+                .file()
+                .set_parent(&window)
+                .set_title("Aster: select a local Markdown vault")
+                .blocking_pick_folder()
+                .ok_or("cancelled")?;
+            selection
+                .as_path()
+                .map(Path::to_path_buf)
+                .ok_or("obsidian_invalid")
+        })
+        .await
+        .map_err(|_| "obsidian_unavailable")??;
+        host.idle()?;
+        host.obsidian.select(selected, local_data)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, host);
+        Err("obsidian_unavailable".into())
+    }
+}
+
+#[tauri::command]
+fn clear_obsidian_vault(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+) -> Result<obsidian::Status, String> {
+    trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    host.obsidian.clear()
+}
+
+#[tauri::command]
+fn list_obsidian_notes(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: obsidian::Search,
+) -> Result<obsidian::SearchResults, String> {
+    trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    host.obsidian.search(input)
+}
+
+#[tauri::command]
+async fn read_obsidian_note(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: obsidian::OpenNote,
+) -> Result<(), String> {
+    trusted(&window)?;
+    #[cfg(windows)]
+    {
+        let guard = host.enter_native_dialog()?;
+        host.idle()?;
+        let hwnd = owner(&window)?;
+        let (relative_path, content) = host.obsidian.read(input)?;
+        let worker_lease = guard.worker_lease();
+        tauri::async_runtime::spawn_blocking(move || {
+            let _worker_lease = worker_lease;
+            ReviewDocument::show_local_note(&relative_path, &content, hwnd)
+                .map_err(|_| "obsidian_unavailable".to_owned())
+        })
+        .await
+        .map_err(|_| "obsidian_unavailable".to_owned())?
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = host;
+        let _ = input;
+        Err("obsidian_unavailable".into())
+    }
+}
+
+#[cfg(windows)]
+async fn obsidian_confirm(
+    hwnd: usize,
+    document: ReviewDocument,
+    guard: &NativeOperationLease,
+) -> Result<crate::native_review::NativeApproval, String> {
+    let worker_lease = guard.worker_lease();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _worker_lease = worker_lease;
+        native_review::confirm_owned(&document, hwnd)
+            .map_err(|_| "obsidian_unavailable".to_owned())?
+            .ok_or_else(|| "cancelled".to_owned())
+    })
+    .await
+    .map_err(|_| "obsidian_unavailable".to_owned())?
+}
+
+#[tauri::command]
+async fn create_obsidian_topic(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: obsidian::CreateTopic,
+) -> Result<obsidian::RelativePath, String> {
+    trusted(&window)?;
+    #[cfg(windows)]
+    {
+        let guard = host.enter_native_dialog()?;
+        host.idle()?;
+        let hwnd = owner(&window)?;
+        let candidate = host.obsidian.prepare_topic(input)?;
+        let document = candidate.review_document()?;
+        let approval = obsidian_confirm(hwnd, document, &guard).await?;
+        host.idle()?;
+        host.obsidian.create_topic(candidate, approval)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (host, input);
+        Err("obsidian_unavailable".into())
+    }
+}
+
+#[tauri::command]
+async fn create_obsidian_note(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    host: State<'_, Host>,
+    input: obsidian::CreateNote,
+) -> Result<obsidian::RelativePath, String> {
+    trusted(&window)?;
+    #[cfg(windows)]
+    {
+        let guard = host.enter_native_dialog()?;
+        host.idle()?;
+        let hwnd = owner(&window)?;
+        let local_data = app
+            .path()
+            .local_data_dir()
+            .map_err(|_| "obsidian_unavailable")?;
+        // A previous cancelled waiter can never publish its pending proposal.
+        host.obsidian.discard_note();
+        let candidate = host.obsidian.prepare_note(&input, local_data)?;
+        let document =
+            ReviewDocument::proposal(&candidate.diff).map_err(|_| "obsidian_unavailable")?;
+        let approval = match obsidian_confirm(hwnd, document, &guard).await {
+            Ok(approval) => approval,
+            Err(err) => {
+                host.obsidian.discard_note();
+                return Err(err);
+            }
+        };
+        if let Err(err) = host.idle() {
+            host.obsidian.discard_note();
+            return Err(err);
+        }
+        host.obsidian.create_note(candidate, approval)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, host, input);
+        Err("obsidian_unavailable".into())
+    }
+}
+
 #[cfg(windows)]
 fn owner(window: &WebviewWindow) -> Result<usize, String> {
     window
@@ -928,6 +1131,67 @@ async fn reconcile_budget(
         .reconcile(&input.request_id, charge, now()?)
         .map_err(code)?;
     Ok(ReconcileReceipt { reconciled: true })
+}
+fn project_conversations(host: &Host) -> Result<Vec<ConversationSummary>, String> {
+    let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
+    persistent(&mut state)?.history.list().map_err(code)
+}
+#[tauri::command]
+fn list_projects(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+) -> Result<projects::Snapshot, String> {
+    trusted(&window)?;
+    let visible = project_conversations(&host).unwrap_or_default();
+    host.projects
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_ref()
+        .map_err(|e| code(*e))?
+        .snapshot()
+        .map(|snapshot| snapshot.visible_for(&visible))
+        .map_err(code)
+}
+#[tauri::command]
+fn create_project(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: projects::CreateIntent,
+) -> Result<projects::Snapshot, String> {
+    trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    let visible = project_conversations(&host).unwrap_or_default();
+    host.projects
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_mut()
+        .map_err(|e| code(*e))?
+        .create(input)
+        .map(|snapshot| snapshot.visible_for(&visible))
+        .map_err(code)
+}
+#[tauri::command]
+fn assign_conversation_project(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: projects::AssignIntent,
+) -> Result<projects::Snapshot, String> {
+    trusted(&window)?;
+    let _guard = host.enter_native_dialog()?;
+    host.idle()?;
+    let visible = project_conversations(&host)?;
+    if !visible.iter().any(|item| item.id == input.conversation_id) {
+        return Err("private_store_denied".into());
+    }
+    host.projects
+        .lock()
+        .map_err(|_| "state_unavailable")?
+        .as_mut()
+        .map_err(|e| code(*e))?
+        .assign(input)
+        .map(|snapshot| snapshot.visible_for(&visible))
+        .map_err(code)
 }
 #[tauri::command]
 fn list_conversations(
@@ -1828,7 +2092,14 @@ pub fn run() {
                         .and_then(|base| personalization::Personalization::open(&base)),
                 ),
                 customization: Mutex::new(catalogue),
+                projects: Mutex::new(
+                    app.path()
+                        .local_data_dir()
+                        .map_err(|_| StoreError::Unavailable)
+                        .and_then(|base| projects::Projects::open(&base)),
+                ),
                 github: Mutex::new(github),
+                obsidian: obsidian::Vault::default(),
                 sessions: Mutex::new(SessionState::default()),
                 attachments: Mutex::new(AttachmentRegistry::default()),
                 persistent: Mutex::new(persistence),
@@ -1871,6 +2142,13 @@ pub fn run() {
             set_customization_enabled,
             import_customization,
             customization_generation::generate_customization,
+            get_obsidian_status,
+            select_obsidian_vault,
+            clear_obsidian_vault,
+            list_obsidian_notes,
+            read_obsidian_note,
+            create_obsidian_topic,
+            create_obsidian_note,
             github_host::get_github_status,
             github_host::begin_github_connection,
             github_host::poll_github_connection,
@@ -1884,6 +2162,9 @@ pub fn run() {
             accept_contributor_terms,
             configure_budget,
             reconcile_budget,
+            list_projects,
+            create_project,
+            assign_conversation_project,
             list_conversations,
             create_conversation,
             load_conversation,
@@ -2042,7 +2323,9 @@ mod tests {
             credential_validation: Mutex::new(Err(StoreError::Unavailable)),
             personalization: Mutex::new(Err(StoreError::Unavailable)),
             customization: Mutex::new(Err(StoreError::Unavailable)),
+            projects: Mutex::new(Err(StoreError::Unavailable)),
             github: Mutex::new(github_host::GithubHost::default()),
+            obsidian: obsidian::Vault::default(),
             sessions: Mutex::new(SessionState::default()),
             attachments: Mutex::new(AttachmentRegistry::default()),
             persistent: Mutex::new(Err(StoreError::Unavailable)),

@@ -43,7 +43,17 @@ describe('closed Meta/persistence IPC envelope (T-055)', () => {
     await nativeBridge.cancelMessage('req_1'); expect(invoke).toHaveBeenLastCalledWith('cancel_message', { requestId: 'req_1' });
     const reconcile = { requestId: 'req_1', confirmedChargeNanoGbp: '1' }; await nativeBridge.reconcileBudget(reconcile); expect(invoke).toHaveBeenLastCalledWith('reconcile_budget', { input: reconcile });
     expect(JSON.stringify(vi.mocked(invoke).mock.calls)).not.toMatch(/approved|newContent|apiKey/);
-    expect(Object.keys(nativeBridge).join('|')).not.toMatch(/Project|Proposal/);
+    expect(Object.keys(nativeBridge).filter(key => /Project|Proposal/.test(key)).sort()).toEqual(['assignConversationProject', 'createProject', 'listProjects']);
+  });
+  it('uses closed project metadata commands without path, disclosure or send authority', async () => {
+    (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');
+    await nativeBridge.listProjects!(); expect(invoke).toHaveBeenLastCalledWith('list_projects', undefined);
+    const project = { expectedRevision: 0, name: 'Atlas' };
+    await nativeBridge.createProject!(project); expect(invoke).toHaveBeenLastCalledWith('create_project', { input: project });
+    const assignment = { expectedRevision: 1, conversationId: 'a'.repeat(32), projectId: 'b'.repeat(32) };
+    await nativeBridge.assignConversationProject!(assignment); expect(invoke).toHaveBeenLastCalledWith('assign_conversation_project', { input: assignment });
+    expect(JSON.stringify(vi.mocked(invoke).mock.calls)).not.toMatch(/path|disclosure|send_message|authorisation/i);
   });
   it('separates native Meta credential and terms commands from all legacy APIs', async () => {
     (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};

@@ -1,3 +1,4 @@
+import type { ObsidianBridge } from './obsidian-ui';
 export const DEFAULT_MODEL = 'muse-spark-1.3-contributor' as const;
 export type ModelId = typeof DEFAULT_MODEL;
 export type DataClass = 'synthetic' | 'public_eligible';
@@ -25,6 +26,7 @@ export interface ConversationEntry {
   // sending, original files, filesystem authority or disclosure approval.
   processedAttachments?: AttachmentSummary[];
 }
+export interface ProjectSnapshot { revision: number; projects: { id: string; name: string }[]; assignments: Record<string, string> }
 export interface ConversationSummary { id: string; title: string; updatedAt: number; entryCount: number }
 export interface Conversation extends Omit<ConversationSummary, 'entryCount'> { entries: ConversationEntry[] }
 export interface BudgetIntent {
@@ -135,7 +137,7 @@ export interface RenderTraceSnapshot {
   events: RenderTraceEvent[];
   webview2DetailEventsAvailable: boolean;
 }
-export interface Bridge {
+export interface Bridge extends ObsidianBridge {
   subscribeSpeechPhase?(callback: (phase: { sessionId: string; phase: 'recording' | 'transcribing' }) => void): Promise<() => void>;
   startSpeechCapture?(sessionId: string): Promise<string>;
   finishSpeechCapture?(sessionId: string): Promise<void>;
@@ -173,6 +175,9 @@ export interface Bridge {
   acceptContributorTerms(): Promise<{ accepted: boolean }>;
   configureBudget(input: BudgetIntent): Promise<{ configured: boolean }>;
   reconcileBudget(input: { requestId: string; confirmedChargeNanoGbp: string }): Promise<{ reconciled: boolean }>;
+  listProjects?(): Promise<ProjectSnapshot>;
+  createProject?(input: { expectedRevision: number; name: string }): Promise<ProjectSnapshot>;
+  assignConversationProject?(input: { expectedRevision: number; conversationId: string; projectId: string | null }): Promise<ProjectSnapshot>;
   listConversations(): Promise<ConversationSummary[]>;
   createConversation(): Promise<Conversation>;
   loadConversation(input: { conversationId: string }): Promise<Conversation>;

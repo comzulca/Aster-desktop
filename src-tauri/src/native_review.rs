@@ -43,6 +43,7 @@ pub(crate) struct ReviewDocument {
     visuals: Vec<crate::native_visual::VisualPage>,
     source_deadline: Option<Instant>,
     cancellation: ReviewCancellation,
+    local_note: bool,
 }
 
 fn digest(bytes: &[u8]) -> String {
@@ -147,7 +148,39 @@ impl ReviewDocument {
             visuals: Vec::new(),
             source_deadline: None,
             cancellation: ReviewCancellation::default(),
+            local_note: false,
         })
+    }
+
+    /// A native-only local note inspection is deliberately not approval.
+    #[cfg(windows)]
+    pub(crate) fn show_local_note(path: &str, text: &str, owner: usize) -> Result<(), ReviewError> {
+        windows::validate_owner(owner)?;
+        // The viewer is a plain-text Win32 EDIT control, not a Markdown
+        // renderer. Show real line breaks instead of JSON escapes; no links
+        // are followed and no formatting is executed.
+        let visible = text
+            .replace("\r\n", "\n")
+            .replace('\r', "\n")
+            .replace('\n', "\r\n");
+        let body = format!("Relative path: {path}\r\n\r\n{visible}");
+        if body.contains('\0') || body.len() > MAX_PROPOSAL_REVIEW_BYTES {
+            return Err(ReviewError::Limit);
+        }
+        let document = Self {
+            binding: digest(body.as_bytes()),
+            body,
+            visuals: Vec::new(),
+            source_deadline: None,
+            cancellation: ReviewCancellation::default(),
+            local_note: true,
+        };
+        windows::show(
+            &document,
+            document.effective_deadline(Instant::now()),
+            owner,
+        )?;
+        Ok(())
     }
 
     /// Exact-body review plus meaningful local visual inspection. Page order,
@@ -389,13 +422,14 @@ mod windows {
         approved: Cell<bool>,
         deadline: Instant,
         cancellation: ReviewCancellation,
+        local_note: bool,
     }
 
     fn wide(text: &str) -> Vec<u16> {
         text.encode_utf16().chain(std::iter::once(0)).collect()
     }
 
-    fn template() -> Vec<u32> {
+    fn template(local_note: bool) -> Vec<u32> {
         // DWORD-aligned standard dialog template with no embedded controls.
         // The standard dialog manager supplies Escape/Tab/default-Cancel.
         let style = WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME as u32;
@@ -412,7 +446,11 @@ mod windows {
             0,   // menu
             0,   // default dialog class
         ];
-        words.extend(wide("Aster: native review — one operation only"));
+        words.extend(wide(if local_note {
+            "Aster: local Markdown note"
+        } else {
+            "Aster: native review — one operation only"
+        }));
         if !words.len().is_multiple_of(2) {
             words.push(0);
         }
@@ -512,7 +550,11 @@ mod windows {
                     let label = child(
                         dialog,
                         "STATIC",
-                        "Complete material (read-only). Review the destination and all content.",
+                        if state.local_note {
+                            "Local note (read-only). Nothing is sent when you close this window."
+                        } else {
+                            "Complete material (read-only). Review the destination and all content."
+                        },
                         0,
                         (12, 10, width - 24, 36),
                         99,
@@ -537,29 +579,34 @@ mod windows {
                     let cancel = child(
                         dialog,
                         "BUTTON",
-                        "Cancel",
+                        if state.local_note { "Close" } else { "Cancel" },
                         WS_TABSTOP | BS_DEFPUSHBUTTON as u32,
                         (width - 234, height - 44, 100, 28),
                         IDCANCEL as usize,
                     );
-                    let accept = child(
-                        dialog,
-                        "BUTTON",
-                        "Confirm review",
-                        WS_TABSTOP | BS_PUSHBUTTON as u32,
-                        (width - 126, height - 44, 114, 28),
-                        ACCEPT_ID,
-                    );
+                    let accept = if state.local_note {
+                        ptr::null_mut()
+                    } else {
+                        child(
+                            dialog,
+                            "BUTTON",
+                            "Confirm review",
+                            WS_TABSTOP | BS_PUSHBUTTON as u32,
+                            (width - 126, height - 44, 114, 28),
+                            ACCEPT_ID,
+                        )
+                    };
                     state.accept.set(accept);
-                    if [label, edit, cancel, accept]
-                        .iter()
-                        .any(|window| window.is_null())
+                    if [label, edit, cancel].iter().any(|window| window.is_null())
+                        || (!state.local_note && accept.is_null())
                     {
                         state.failed.set(true);
                         EndDialog(dialog, 0);
                         return 1;
                     }
-                    EnableWindow(accept, 0);
+                    if !state.local_note {
+                        EnableWindow(accept, 0);
+                    }
                     SendMessageW(edit, EM_SETLIMITTEXT_VALUE, MAX_REVIEW_BYTES, 0);
                     SendMessageW(edit, EM_FMTLINES_VALUE, 0, 0);
                     if SetWindowTextW(edit, state.expected.as_ptr()) == 0 || !matches_display(state)
@@ -568,7 +615,9 @@ mod windows {
                         EndDialog(dialog, 0);
                         return 1;
                     }
-                    EnableWindow(accept, 1);
+                    if !state.local_note {
+                        EnableWindow(accept, 1);
+                    }
                     SendMessageW(dialog, DM_SETDEFID_VALUE, IDCANCEL as usize, 0);
                     // Poll only the host request signal; no renderer callback.
                     // Check on a 200 ms tick while the message pump is active;
@@ -602,7 +651,8 @@ mod windows {
                         EndDialog(dialog, 0);
                         return 1;
                     }
-                    if id == ACCEPT_ID
+                    if !state.local_note
+                        && id == ACCEPT_ID
                         && notification == BN_CLICKED as usize
                         && lparam as HWND == state.accept.get()
                     {
@@ -681,8 +731,9 @@ mod windows {
             approved: Cell::new(false),
             deadline,
             cancellation: document.cancellation.clone(),
+            local_note: document.local_note,
         });
-        let template = template();
+        let template = template(document.local_note);
         // SAFETY: DWORD-aligned complete standard template, stable boxed state
         // and callback live until the modal dialog and its children are gone.
         let result = unsafe {

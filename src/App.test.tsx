@@ -102,7 +102,9 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     for (const name of ['File','Edit','View','Help']) expect(screen.getByRole('button', { name })).toBeTruthy();
     expect(screen.queryByRole('combobox', { name: 'Model' })).toBeNull();
     expect((screen.getByRole('button', { name: 'Add attachments' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByRole('button', { name: /Project|proposal/i })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Projects' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Create project' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /project.*(?:file|root|disclosure)|proposal/i })).toBeNull();
     expect(document.querySelector('.conversation-heading')).toBeNull(); expect(document.querySelector('.starter-actions')).toBeNull();
     expect(document.querySelector('.titlebar')?.textContent).not.toMatch(/Aster|v0\.|Windows|session/);
     expect(screen.queryByText(/Nemotron|Glimmer|NVIDIA/)).toBeNull();

@@ -90,3 +90,13 @@
 .classification-actions{display:flex;justify-content:center;gap:10px;font-size:12px}
 .availability-action{font:inherit;background:none;border:0;padding:0;color:inherit;text-decoration:underline;text-underline-offset:2px}
 @media(min-width:751px){.composer{padding-top:19px}.composer textarea{min-height:62px}}
+
+.obsidian-page label{display:block;margin:14px 0 5px;font-size:13px}
+.obsidian-page input,.obsidian-page textarea{display:block;width:100%;border:1px solid #445055;border-radius:8px;background:#111516;color:#f1f3f5;padding:9px 11px}
+.obsidian-page textarea{resize:vertical;min-height:98px}
+.obsidian-page ul{list-style:none;padding:0}
+.obsidian-page li{margin:5px 0}
+.obsidian-page li button{max-width:100%;overflow-wrap:anywhere;text-align:left}
+.obsidian-page .settings-actions{flex-wrap:wrap}
+/* Projects follows the v0.2.6 sidebar reference without changing the chat rail geometry. */
+.projects-sidebar{flex:none;min-width:0;padding:6px 3px 0}.projects-heading{display:flex;align-items:center;gap:8px;padding:0 1px 0 5px}.projects-toggle{display:inline-flex;align-items:center;gap:6px;margin-right:auto;padding:7px 3px;background:none;border:0;font-weight:650;font-size:16px;color:#f1f3f5}.projects-toggle>span{display:flex}.projects-chevron-collapsed{transform:rotate(-90deg)}.projects-heading .project-icon{min-width:34px;min-height:34px;padding:6px;color:#e3ebef}.projects-line{margin:10px 8px 6px;color:var(--muted);font-size:13px;line-height:1.5}.projects-items{max-height:min(126px,22vh);overflow-y:auto;scrollbar-width:thin;padding:3px 4px 2px}.project-row{display:block;width:100%;border:1px solid transparent;background:none;color:#e3ebef;border-radius:7px;text-align:left;padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.project-row:hover:not(:disabled){background:#30393d}.project-row[aria-pressed=true]{color:#aedaff;background:#2a3840;border-color:#4e6773}.projects-form{display:grid;gap:8px;margin:6px 3px;padding:9px;border:1px solid #4c5d64;border-radius:8px;background:#1b2225;font-size:12px}.projects-form input,.projects-form select{display:block;width:100%;margin-top:5px;padding:6px 7px;color:#f1f3f5;background:#171d20;border:1px solid #58656e}.projects-form p{margin:0}.projects-form-actions{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap}.projects-form-actions button{padding:5px 9px}.sidebar .projects-sidebar + .history-list{margin-top:4px}

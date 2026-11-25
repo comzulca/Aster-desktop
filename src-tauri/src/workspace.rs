@@ -11,6 +11,8 @@
 //! creation and a private durable Windows journal. Existing-file replacement
 //! remains proposal-only: a hash check followed by rename is not a safe CAS.
 
+pub(crate) mod obsidian;
+
 use std::collections::HashMap;
 #[cfg(windows)]
 use std::path::Path;
@@ -1462,6 +1464,7 @@ mod windows_fs {
 
     // Win32 constants; OS handles are acquired by Rust OpenOptions with
     // OPEN_REPARSE_POINT and then independently checked by handle.
+    const FILE_ATTRIBUTE_HIDDEN: u32 = 0x0000_0002;
     const FILE_ATTRIBUTE_DIRECTORY: u32 = 0x0000_0010;
     const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0000_0400;
     const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
@@ -1705,7 +1708,24 @@ mod windows_fs {
         root: &Root,
         components: &[String],
     ) -> Result<(String, FileIdentity), WorkspaceError> {
-        if components.is_empty() {
+        read_guarded_with_limit(root, components, MAX_READ_BYTES, false)
+    }
+
+    pub(super) fn read_vault_note(
+        root: &Root,
+        components: &[String],
+        limit: u64,
+    ) -> Result<(String, FileIdentity), WorkspaceError> {
+        read_guarded_with_limit(root, components, limit, true)
+    }
+
+    fn read_guarded_with_limit(
+        root: &Root,
+        components: &[String],
+        limit: u64,
+        vault_visible_only: bool,
+    ) -> Result<(String, FileIdentity), WorkspaceError> {
+        if components.is_empty() || limit == 0 || limit > MAX_READ_BYTES {
             return Err(WorkspaceError::Denied);
         }
         for ancestor in &root.ancestor_pins {
@@ -1727,7 +1747,18 @@ mod windows_fs {
             cursor.push(part);
             // No DELETE sharing pins each checked directory against rename;
             // an existing conflicting handle causes denial.
-            dirs.push(open_dir(&cursor, FILE_SHARE_READ | FILE_SHARE_WRITE)?);
+            let pin = open_dir(
+                &cursor,
+                if vault_visible_only {
+                    FILE_SHARE_READ
+                } else {
+                    FILE_SHARE_READ | FILE_SHARE_WRITE
+                },
+            )?;
+            if vault_visible_only && file_info(&pin)?.attributes & FILE_ATTRIBUTE_HIDDEN != 0 {
+                return Err(WorkspaceError::Denied);
+            }
+            dirs.push(pin);
         }
         cursor.push(components.last().ok_or(WorkspaceError::Denied)?);
         let mut file = OpenOptions::new()
@@ -1738,23 +1769,46 @@ mod windows_fs {
             .map_err(|_| WorkspaceError::Io)?;
         let info = file_info(&file)?;
         let id = check_info(&info, false)?;
-        if (((info.size_high as u64) << 32) | info.size_low as u64) > MAX_READ_BYTES {
+        if (((info.size_high as u64) << 32) | info.size_low as u64) > limit {
             return Err(WorkspaceError::TooLarge);
+        }
+        if id.volume != root.id.volume
+            || (vault_visible_only && info.attributes & FILE_ATTRIBUTE_HIDDEN != 0)
+        {
+            return Err(WorkspaceError::Denied);
         }
         let mut bytes = Vec::new();
         (&mut file)
-            .take(MAX_READ_BYTES + 1)
+            .take(limit + 1)
             .read_to_end(&mut bytes)
             .map_err(|_| WorkspaceError::Io)?;
-        if bytes.len() as u64 > MAX_READ_BYTES {
+        if bytes.len() as u64 > limit {
             return Err(WorkspaceError::TooLarge);
         }
         if check_info(&file_info(&file)?, false)? != id {
             return Err(WorkspaceError::Conflict);
         }
         let text = String::from_utf8(bytes).map_err(|_| WorkspaceError::Denied)?;
-        validate_text(&text, MAX_READ_BYTES)?;
+        validate_text(&text, limit)?;
         Ok((text, id))
+    }
+
+    // A bounded title search returns metadata only. Open the entry itself by
+    // handle with no reparse point following and no outside-volume entries.
+    pub(super) fn is_vault_note(path: &Path, root_id: FileIdentity, limit: u64) -> bool {
+        let result = OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(path);
+        result
+            .ok()
+            .and_then(|file| file_info(&file).ok())
+            .is_some_and(|info| {
+                check_info(&info, false).is_ok_and(|id| id.volume == root_id.volume)
+                    && info.attributes & FILE_ATTRIBUTE_HIDDEN == 0
+                    && (((info.size_high as u64) << 32) | info.size_low as u64) <= limit
+            })
     }
 
     pub(super) fn read_selected_attachment(
@@ -1963,6 +2017,24 @@ mod windows_fs {
             target_path: cursor,
             id: parent_id,
         })
+    }
+
+    pub(super) fn pin_vault_topic(
+        root: &Root,
+        topic: &str,
+    ) -> Result<Option<PinnedParent>, WorkspaceError> {
+        check_root(root)?;
+        match std::fs::symlink_metadata(root.path.join(topic)) {
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(WorkspaceError::Io),
+        }
+        let pin = pin_creation_parent(root, &[topic.to_owned(), "topic-guard".into()])?;
+        let topic = pin._pins.last().ok_or(WorkspaceError::Denied)?;
+        if file_info(topic)?.attributes & FILE_ATTRIBUTE_HIDDEN != 0 {
+            return Err(WorkspaceError::Denied);
+        }
+        Ok(Some(pin))
     }
 
     pub(super) fn require_absent(path: &Path) -> Result<(), WorkspaceError> {
