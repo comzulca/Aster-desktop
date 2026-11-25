@@ -37,6 +37,21 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     expect(fake.bridge.verifyCredential).not.toHaveBeenCalled();
   });
 
+  it('disables configuration reviews for an expired build but preserves history and charge reconciliation', async () => {
+    const fake = fakeBridge({ ...baseline, availability: 'version_expired', budget: { ...baseline.budget, requiresReconciliation: true, pending: [{ requestId: 'pending_request', period: '2026-10', reservationNanoGbp: '100000000', dispatched: true }] } }, [saved('history', 'Saved conversation', 1)]);
+    render(<App bridge={fake.bridge}/>);
+    await screen.findByText('Reply for history');
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const settings = within(screen.getByRole('dialog'));
+    expect(settings.getByText(/Contributor terms and spending configuration are unavailable/)).toBeTruthy();
+    expect((settings.getByRole('button', { name: 'Review terms and eligibility in Windows' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(settings.getByRole('button', { name: 'Usage' }));
+    expect((settings.getByRole('button', { name: 'Review financial configuration in Windows' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((settings.getByRole('button', { name: 'Review this charge in Windows' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(fake.bridge.acceptContributorTerms).not.toHaveBeenCalled();
+    expect(fake.bridge.configureBudget).not.toHaveBeenCalled();
+  });
+
   it('explains an unavailable policy window without claiming a credential failure (T-097)', async () => {
     const fake = fakeBridge();
     vi.mocked(fake.bridge.acceptContributorTerms).mockRejectedValue('contributor_policy_expired');
