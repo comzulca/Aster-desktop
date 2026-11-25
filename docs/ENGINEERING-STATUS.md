@@ -2,7 +2,9 @@
 
 ## 25 November 2026: Windows release lifecycle
 
-The [change contract](qa/RELEASE-LIFECYCLE-20261125.md) replaces the fixed 6 December cutoff in new builds with a transition based on a published stable Windows release. The historical evidence below does not qualify this source or change an already installed binary.
+[PR #90](https://github.com/comzulca/Aster-desktop/pull/90) reached main at [`e40943d`](https://github.com/comzulca/Aster-desktop/commit/e40943d0cecefd6ec64c9f87daf3a331f3c3b3a3). The [change contract](qa/RELEASE-LIFECYCLE-20261125.md) replaces the fixed 6 December cutoff in new builds with a 14-day grace period after a newer stable Windows release has a matching installer. All five jobs passed on [PR candidate `c602f83`](https://github.com/comzulca/Aster-desktop/actions/runs/45565643154). Its installer is an unsigned PR artifact, not an installed copy, a stable release or the [separate main build](https://github.com/comzulca/Aster-desktop/actions/runs/45570054196).
+
+[PR #87](https://github.com/comzulca/Aster-desktop/pull/87) addressed four findings from the 23 November review: microphone-release acknowledgement, decoder Job Object assignment at creation, preservation of known key identity during transient verification failures, and distinct guidance when Credential Manager cannot be read. [PR #88](https://github.com/comzulca/Aster-desktop/pull/88) changed the pnpm pin to 11.28.12 without changing resolved dependencies. [PR #89](https://github.com/comzulca/Aster-desktop/pull/89) added installed-payload provenance for all nine packaged speech resources to Actions; this does not add advisory coverage. Owner-operated Windows, physical microphone and live provider acceptance remain separate.
 
 ## 23 November 2026
 
@@ -24,7 +26,7 @@ Reconciled 5 November 2026. The previous delivered software snapshot was [`57339
 
 | Area | Implemented behaviour | Evidence / remaining boundary |
 | --- | --- | --- |
-| Local dictation | Windows x64 v0.2.5, 30-second capture and editable transcript | Main CI transcribed a public recording with the extracted decoder. Cancellation acknowledgement, process startup limits and physical microphone acceptance remain open. |
+| Local dictation | Windows x64 v0.2.5, 30-second capture and editable transcript | Hosted CI transcribed a public recording with the extracted decoder. Current source waits for release acknowledgement and assigns the decoder to its Job Object at creation; physical microphone and installed Windows acceptance remain open. |
 | Previous engineering installer | Unsigned Windows x64 v0.2.4 with spending/Send maintenance | Initial candidate: all five jobs, fifteen codec/six resource probes and twelve-resource passive verification PASS. Spending/Send delivery receipt for the earlier main installer: [PR #70](https://github.com/comzulca/Aster-desktop/pull/70). The earlier [57339a6 receipt](qa/FINAL-ENGINEERING-V024-20261105.md) remains historical; owner GUI acceptance is separate. |
 | Policy and authentication | IPC protocol 5 / financial policy 4; sole Meta Contributor pair, current-key model retrieval proof, native terms review | Source and offline tests PASS. Proof is distinct from billing, eligibility, quota and an actual inference. |
 | Historical 5 November policy renewal | Terms 2026-10-09, geography 2026-10-12, reviewed 2026-11-05; local deadline 2026-12-06T00:00:00Z | Legacy terms and financial replay preserved; fresh current review/configuration required. [Primary review](providers/META-POLICY-REVIEW-20261105.md). |

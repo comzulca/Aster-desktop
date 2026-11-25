@@ -1,6 +1,6 @@
 # Set up and use Aster v0.2.5
 
-This guide covers the v0.2.5 source integrated in [PR #83](https://github.com/comzulca/Aster-desktop/pull/83). The [specification](specs/SPEC-0009.md) describes local dictation and the chat readiness changes.
+This guide covers v0.2.5 source including the dictation and credential fixes in [PR #87](https://github.com/comzulca/Aster-desktop/pull/87) and the Windows version lifecycle in [PR #90](https://github.com/comzulca/Aster-desktop/pull/90). A previously installed v0.2.5 build may not include these changes. See the [dictation specification](specs/SPEC-0009.md).
 
 ## Dictate a draft
 
@@ -10,13 +10,13 @@ Windows desktop microphone access and the x64 Microsoft Visual C++ runtime, incl
 
 ### After cancelling dictation
 
-**Cancel dictation** discards the pending transcript. Aster hides its listening indicator immediately, before Windows confirms that it has released the microphone. If the cancellation request fails to reach the host, capture can continue for the rest of the 30-second limit. Check the Windows microphone indicator before speaking again.
+**Cancel dictation** discards the pending transcript. Aster waits for the original capture to confirm release; a stop acknowledgement alone is not enough. If release is unconfirmed, check the Windows microphone indicator and follow Aster's restart guidance before dictating again.
 
 ## Configure before sending
 
 1. Close Aster normally and install the verified engineering setup. Restart Aster using the installed application.
 2. Open **Settings → Providers**. Configure/change the direct Meta Model API key only in the native Windows dialogue, then use **Validate key in Windows** as needed. Never paste a key in chat, a repository, a prompt or an ordinary settings text field. Successful model retrieval proves current-key authentication/model visibility, not billing, quota or territorial eligibility.
-3. In **Settings → Usage**, enter explicit integer GBP-per-USD conversion, positive safety margin and tax/payment assumptions. Choose a future expiry within the displayed local host limit: at most 31 days and never past the policy deadline. Select **Review financial configuration in Windows**, confirm the exact native proposal and check **Policy status: Active** and its confirmed expiry. Filled fields or a cancelled review do not activate a policy. Account identity and earlier charges are retained, without reset. For the reported London setup, **30 November 2026 at 23:59** fits the November window; **6 December at 20:33** does not.
+3. In **Settings → Usage**, enter explicit integer GBP-per-USD conversion, positive safety margin and tax/payment assumptions. Choose a future expiry within the displayed local host limit: at most 31 days. Select **Review financial configuration in Windows**, confirm the exact native proposal and check **Policy status: Active** and its confirmed expiry. Filled fields or a cancelled review do not activate a policy. Account identity and earlier charges are retained, without reset. Confirm a new London calendar month before sending in that month, even if the previous review's displayed expiry has not passed.
 4. Return to **Providers → Review terms and eligibility in Windows**. Read the complete native proposal and independently check account, territory and direct-API rights before confirming. Coding-harness subscription credentials restricted to that harness must not be reused in Aster.
 5. Write a non-empty eligible message. Open the reasoning menu (initially **Medium**) → **Classify content** → **Synthetic** or **Eligible public**, choosing correctly for the complete message and attachments. Read the composer prerequisite notice if Send is disabled. Send opens a separate complete native disclosure review before dispatch. Personalization remains local-only.
 
@@ -24,15 +24,17 @@ The terms button intentionally displays a host-authored JSON proposal in a nativ
 
 ### If a previously configured key needs attention
 
-If Aster reports a previously configured key as missing, first check that Windows Credential Manager opens under the same Windows account and that the generic credential `AsterDesktop/MetaModelAPI/v1` is listed. Aster can show the same message when Windows cannot read the credential store.
+If Aster cannot read Windows Credential Manager, check access under the same Windows account and return to Aster to refresh the status. That warning does not mean the key is missing. If Aster reports the key as missing, check whether the generic credential `AsterDesktop/MetaModelAPI/v1` is listed.
 
-**Validate key in Windows** checks model access with one request. A network interruption can leave a previously accepted key unverified. Retrying with the same key can then clear Contributor consent, discard temporary attachments and start a new conversation context. Your saved conversations remain available for local viewing. Spending records and pending charges are preserved. After validation succeeds, review the terms again if prompted and reattach any files you want to send.
+**Validate key in Windows** checks model access with one request. A network interruption can leave a known key unverified without changing its identity. Revalidating that same known key does not itself reset Contributor consent or continuation. A changed or unrecognised key can require fresh consent and invalidate temporary attachments and continuation. Saved history, spending records and pending charges are preserved.
 
-## Current review dates
+## Windows version lifecycle
 
-Terms revision: **9 October 2026**. Geographic policy revision: **12 October 2026**. Engineering review: **5 November 2026**. Aster's next local policy deadline is **6 December 2026 at 00:00 UTC**, not expiry of the Meta account, key or subscription. The original 2 November boundary remains only for historical replay. Old terms acceptance or expired budget configuration is not silently extended by updating the app.
+A build with [the new lifecycle policy](qa/RELEASE-LIFECYCLE-20261125.md) checks public GitHub Releases for a strictly newer stable version with a matching Windows x64 installer. The 14-day grace period starts when that installer and its stable release are both available. A PR, CI artifact, prerelease or failed connection cannot start the clock. A connection failure does not erase a previously confirmed deadline. Aster does not download or install updates automatically.
 
-If Aster reports `contributor_policy_expired`, obtain an engineering update with a fresh primary-source review. Accepting the old proposal again cannot extend its deadline. Do not change the system clock or reset protected data to bypass validation.
+When Aster reports `aster_version_expired`, use the current stable Windows installer. New sends stop, but saved history and charge reconciliation remain available. The deadline does not expire a Meta account, key or subscription. Older builds with the fixed **6 December 2026 at 00:00 UTC** cutoff retain it until replaced; a merge or CI artifact does not update an installed copy. Do not downgrade over protected stores after the updated build has written v2 terms or budget records.
+
+Terms revision: **9 October 2026**. Geographic policy revision: **9 November 2026**. Engineering review: **25 November 2026**. Existing financial dates and historical replay windows are preserved. If the updated build reports `contributor_policy_expired`, check the Windows date and time rather than resetting protected data.
 
 ## Add documents with +
 

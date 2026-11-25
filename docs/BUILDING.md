@@ -1,12 +1,12 @@
 # Source checks and Windows engineering builds
 
-For v0.2.5, the [main build and security review](qa/SECURITY-REVIEW-V025-20261123.md) records the source, run, installer hash and outstanding tests for `a8d6123`. The host uses IPC protocol 5 and financial policy 4. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. Resolve build inputs from the pinned declarations and frozen locks.
+For the 23 November v0.2.5 baseline, the [build and security review](qa/SECURITY-REVIEW-V025-20261123.md) records the source, run, installer hash and outstanding tests for `a8d6123`. The host uses IPC protocol 5 and financial policy 4. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. Resolve build inputs from the pinned declarations and frozen locks.
 
 ## Preparing the v0.2.5 speech resources
 
 Run `python scripts/prepare-speech.py` before building the native host or NSIS installer. This stages the pinned CPU decoder, model and licenses in `reports/speech`. On Windows, `python scripts/prepare-speech.py --test-dir reports/speech` checks the resource identities and transcribes a known public recording. The installer's CI repeats that probe on the extracted package.
 
-The release archive, model and licenses have separate upstream identities in [the preparation script](../scripts/prepare-speech.py). The pnpm and Cargo inventories cover their respective dependency graphs. Review whisper.cpp and GGML advisories separately when evaluating the native speech distribution.
+The release archive, model and licenses have separate upstream identities in [the preparation script](../scripts/prepare-speech.py). The pnpm and Cargo inventories cover their respective dependency graphs. CI also verifies and uploads `native-speech-inventory-<source>-<run>-<attempt>` for all nine speech resources extracted from the unsigned installer. It includes packaged path, upstream origin/revision, SHA-256, source revision and installer hash. This is provenance, not advisory coverage; review whisper.cpp and GGML advisories separately.
 
 ## Build cohort
 
@@ -14,7 +14,7 @@ The release archive, model and licenses have separate upstream identities in [th
 | --- | --- |
 | Target | Windows x64 / MSVC; Windows 11 owner target, hosted Windows Server image for CI |
 | Node | 24, `>=24.15.0 <25` |
-| Package manager | Corepack / `pnpm@11.19.0` from [package.json](../package.json) |
+| Package manager | Corepack / `pnpm@11.28.12` from [package.json](../package.json) |
 | Rust | 1.97.0 with rustfmt and Clippy from [rust-toolchain.toml](../rust-toolchain.toml) |
 | Native prerequisites | Microsoft C++ build tools and WebView2; Tauri requirements |
 | Reproducible inputs | [pnpm-lock.yaml](../pnpm-lock.yaml), [Cargo.lock](../src-tauri/Cargo.lock), reviewed vendored sources and resource identities |
