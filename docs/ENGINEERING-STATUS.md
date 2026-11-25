@@ -1,5 +1,9 @@
 # Current engineering status
 
+## 25 November 2026: Windows release lifecycle
+
+The [change contract](qa/RELEASE-LIFECYCLE-20261125.md) replaces the fixed 6 December cutoff in new builds with a transition based on a published stable Windows release. The historical evidence below does not qualify this source or change an already installed binary.
+
 ## 23 November 2026
 
 All five jobs passed on [main `a8d6123`, attempt 1](https://github.com/comzulca/Aster-desktop/actions/runs/45232167632), after the dependency update in [PR #84](https://github.com/comzulca/Aster-desktop/pull/84) and interface preview in [PR #85](https://github.com/comzulca/Aster-desktop/pull/85). The unsigned Windows installer passed independent passive verification. The [security review and installer receipt](qa/SECURITY-REVIEW-V025-20261123.md) traces SPEC-0009 to the executed tests and identifies open defects in microphone lifecycle and credential handling. Full qualification remains open.
@@ -23,7 +27,7 @@ Reconciled 5 November 2026. The previous delivered software snapshot was [`57339
 | Local dictation | Windows x64 v0.2.5, 30-second capture and editable transcript | Main CI transcribed a public recording with the extracted decoder. Cancellation acknowledgement, process startup limits and physical microphone acceptance remain open. |
 | Previous engineering installer | Unsigned Windows x64 v0.2.4 with spending/Send maintenance | Initial candidate: all five jobs, fifteen codec/six resource probes and twelve-resource passive verification PASS. Spending/Send delivery receipt for the earlier main installer: [PR #70](https://github.com/comzulca/Aster-desktop/pull/70). The earlier [57339a6 receipt](qa/FINAL-ENGINEERING-V024-20261105.md) remains historical; owner GUI acceptance is separate. |
 | Policy and authentication | IPC protocol 5 / financial policy 4; sole Meta Contributor pair, current-key model retrieval proof, native terms review | Source and offline tests PASS. Proof is distinct from billing, eligibility, quota and an actual inference. |
-| Policy renewal | Terms 2026-10-09, geography 2026-10-12, reviewed 2026-11-05; local deadline 2026-12-06T00:00:00Z | Legacy terms and financial replay preserved; fresh current review/configuration required. [Primary review](providers/META-POLICY-REVIEW-20261105.md). |
+| Historical 5 November policy renewal | Terms 2026-10-09, geography 2026-10-12, reviewed 2026-11-05; local deadline 2026-12-06T00:00:00Z | Legacy terms and financial replay preserved; fresh current review/configuration required. [Primary review](providers/META-POLICY-REVIEW-20261105.md). |
 | Attachments | Additive native selection; previous documents/draft retained on cancellation or atomic rejection | Rust/frontend regressions PASS. Aggregate bounds and earliest five-minute custody remain; malformed/uncertain receipts fail closed. |
 | Text, images and PDFs | Twelve direct extensions; complete eligible PDF originals and normalised images use the fixed media request contract | Actual packaged executable: fifteen codec cases and six resource probes PASS. No owner/live multimodal certification follows. |
 | Protected data | Existing encrypted transcript and separate processed-media domains; originals/grants excluded from restored history | Current-user protection and replay fixtures PASS. OS paging/dumps, filesystem overhead and same-user rollback remain residuals. |

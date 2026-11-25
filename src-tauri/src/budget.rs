@@ -146,7 +146,11 @@ fn convert(usd: u64, config: &Configuration) -> Result<u64, StoreError> {
     Ok(cost)
 }
 fn configuration_valid(config: &Configuration, now: u64) -> bool {
-    let Some(deadline) = contributor_policy::spending_deadline(now) else {
+    configuration_valid_at_version(config, now, contributor_policy::record_version(now))
+}
+
+fn configuration_valid_at_version(config: &Configuration, now: u64, version: u32) -> bool {
+    let Some(deadline) = contributor_policy::spending_deadline(version, now) else {
         return false;
     };
     config.account_id.len() == 32
@@ -161,7 +165,8 @@ fn configuration_valid(config: &Configuration, now: u64) -> bool {
 }
 
 fn configuration_max_until(now: u64) -> Option<u64> {
-    let deadline = contributor_policy::spending_deadline(now)?;
+    let deadline =
+        contributor_policy::spending_deadline(contributor_policy::record_version(now), now)?;
     Some(deadline.min(now.checked_add(MAX_CONFIGURATION_SECONDS)?))
 }
 
@@ -185,8 +190,8 @@ pub fn validate_configuration_proposal(
 }
 
 /// Gregorian conversion and EU BST transitions used by Europe/London since
-/// 1996 (IANA tzdb europe). The short dated pricing contract bounds live use.
-fn civil_from_days(days: i64) -> (i64, i64, i64) {
+/// 1996 (IANA tzdb europe). The year range bounds the supported calendar.
+pub(crate) fn civil_from_days(days: i64) -> (i64, i64, i64) {
     let z = days + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
     let doe = z - era * 146_097;
@@ -198,7 +203,7 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
     let m = mp + if mp < 10 { 3 } else { -9 };
     (y + i64::from(m <= 2), m, d)
 }
-fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+pub(crate) fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     let y = y - i64::from(m <= 2);
     let era = (if y >= 0 { y } else { y - 399 }) / 400;
     let yoe = y - era * 400;
@@ -254,6 +259,14 @@ impl Ledger {
             .try_fold(0u64, |sum, q| sum.checked_add(q.amount).ok_or_else(fail))
     }
     fn apply(&mut self, event: &Event, now: u64) -> Result<(), StoreError> {
+        self.apply_at_version(event, now, contributor_policy::record_version(now))
+    }
+    fn apply_at_version(
+        &mut self,
+        event: &Event,
+        now: u64,
+        version: u32,
+    ) -> Result<(), StoreError> {
         if now < self.maximum_time {
             return Err(fail());
         }
@@ -263,7 +276,7 @@ impl Ledger {
                 configuration,
                 reviewed_at,
             } => {
-                if !configuration_valid(configuration, now)
+                if !configuration_valid_at_version(configuration, now, version)
                     || now < *reviewed_at
                     || period(*reviewed_at)? != month
                 {
@@ -274,7 +287,7 @@ impl Ledger {
             }
             Event::Reserve { request } => {
                 let config = self.configuration.as_ref().ok_or_else(fail)?;
-                if !configuration_valid(config, now)
+                if !configuration_valid_at_version(config, now, version)
                     || self.confirmed_period.as_deref() != Some(&month)
                     || self.bound_exceeded
                     || !self.pending.is_empty()
@@ -310,7 +323,7 @@ impl Ledger {
             Event::Dispatch { request } => {
                 let quote = self.pending.get_mut(request).ok_or_else(fail)?;
                 if quote.dispatched
-                    || !configuration_valid(&quote.configuration, now)
+                    || !configuration_valid_at_version(&quote.configuration, now, version)
                     || quote.period != month
                     || self.confirmed_period.as_deref() != Some(&month)
                     || self.bound_exceeded
@@ -393,7 +406,11 @@ impl Budget {
         let mut sorted = BTreeMap::new();
         for (_, bytes) in records {
             let record: Record = serde_json::from_slice(&bytes).map_err(|_| StoreError::Corrupt)?;
-            if record.version != 1 || sorted.insert(record.sequence, (record, bytes)).is_some() {
+            if !(record.version == 1
+                || (record.version == 2
+                    && contributor_policy::record_version(record.timestamp) == 2))
+                || sorted.insert(record.sequence, (record, bytes)).is_some()
+            {
                 return Err(StoreError::Corrupt);
             }
         }
@@ -405,7 +422,7 @@ impl Budget {
                 return Err(StoreError::Corrupt);
             }
             ledger
-                .apply(&record.event, record.timestamp)
+                .apply_at_version(&record.event, record.timestamp, record.version)
                 .map_err(|_| StoreError::Corrupt)?;
             sequence += 1;
             head = hash(&bytes);
@@ -440,7 +457,7 @@ impl Budget {
         let mut candidate = self.ledger.clone();
         candidate.apply(&event, now)?;
         let record = Record {
-            version: 1,
+            version: contributor_policy::record_version(now),
             sequence: self.sequence + 1,
             previous: self.head.clone(),
             timestamp: now,
@@ -714,9 +731,18 @@ mod tests {
             validate_configuration_proposal(&proposed, now),
             Err("budget_configuration_invalid")
         );
+        let now = contributor_policy::EXPIRES_AT;
+        proposed.gbp_per_usd_ppm = 800_000;
+        proposed.valid_until_unix = now + MAX_CONFIGURATION_SECONDS;
+        assert_eq!(validate_configuration_proposal(&proposed, now), Ok(()));
+        let mut b = Budget::restore(PrivateStore::memory(Domain::Budget)).unwrap();
+        b.configure(proposed.clone(), now, now).unwrap();
+        assert!(Budget::restore(b.store).unwrap().available(now));
+        assert!(!configuration_valid_at_version(&proposed, now, 1));
+        proposed.valid_until_unix += 1;
         assert_eq!(
-            validate_configuration_proposal(&proposed, contributor_policy::EXPIRES_AT),
-            Err("contributor_policy_expired")
+            validate_configuration_proposal(&proposed, now),
+            Err("budget_expiry_out_of_range")
         );
     }
     #[test]

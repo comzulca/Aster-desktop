@@ -53,14 +53,19 @@ impl Contributor {
         }
         let (mut sequence, mut head, mut accepted, mut time) = (0, String::new(), false, 0);
         for (_, (r, bytes)) in ordered {
-            if r.version != 1
+            if !(r.version == 1
+                || (r.version == 2 && contributor_policy::record_version(r.timestamp) == 2))
                 || r.sequence != sequence + 1
                 || r.previous != head
                 || r.timestamp < time
                 || ![TERMS_REVISION, contributor_policy::LEGACY_REVISION]
                     .contains(&r.revision.as_str())
                 || (r.accepted
-                    && !contributor_policy::accepted_record_valid(&r.revision, r.timestamp))
+                    && !contributor_policy::accepted_record_valid(
+                        r.version,
+                        &r.revision,
+                        r.timestamp,
+                    ))
             {
                 return Err(StoreError::Corrupt);
             }
@@ -95,7 +100,7 @@ impl Contributor {
             return Err(StoreError::Denied);
         }
         let r = Record {
-            version: 1,
+            version: contributor_policy::record_version(now),
             sequence: self.sequence + 1,
             previous: self.head.clone(),
             revision: TERMS_REVISION.into(),
@@ -136,11 +141,13 @@ mod tests {
         c.set(true, now).unwrap();
         let mut c = Contributor::restore(c.store).unwrap();
         assert!(c.status(now).accepted);
-        assert!(!c.status(contributor_policy::EXPIRES_AT).accepted);
+        assert!(c.status(contributor_policy::EXPIRES_AT).accepted);
         assert!(!c.status(now - 1).accepted);
         c.set(false, now).unwrap();
         assert!(!c.status(now).accepted);
-        assert!(c.set(true, contributor_policy::EXPIRES_AT).is_err());
+        c.set(true, contributor_policy::EXPIRES_AT).unwrap();
+        let restored = Contributor::restore(c.store).unwrap();
+        assert!(restored.status(contributor_policy::EXPIRES_AT).accepted);
     }
     #[test]
     fn legacy_acceptance_replays_without_reset_but_requires_fresh_review() {

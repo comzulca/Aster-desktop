@@ -43,7 +43,7 @@ The protected journal reserves conservatively before networking and marks possib
 
 ## Current policy and evidence
 
-[contributor_policy.rs](../../src-tauri/src/contributor_policy.rs) centralises terms 2026-10-09, geography 2026-10-12, review 2026-11-05 and local deadline 2026-12-06T00:00:00Z. Legacy acceptance/financial events retain their original window; current acceptance/configuration needs fresh review. This is Aster's review boundary, not Meta key/service/subscription expiry.
+[Contributor policy](../../src-tauri/src/contributor_policy.rs) records terms 2026-10-09, geography 2026-11-09 and review 2026-11-25. Historical acceptance and finance records retain their original replay windows. [Windows release lifecycle](../qa/RELEASE-LIFECYCLE-20261125.md) replaces the fixed build cutoff, independently of Meta authentication, eligibility and monthly budget. No model, host or pricing change.
 
 Initial complete maintenance run `42109052799`, attempt 1, tested merge `8e92ef7`: all five jobs, 184 frontend/414 Rust cases and the actual fifteen codec/six resource probes PASS. A separately authorised local synthetic stream using the unchanged request envelope returned HTTP 200, final stop, DONE and consistent usage. It did not run Aster's installed native review or qualify account/territorial rights, other modalities, invoice limits, all 42 compound obligations or production. [Observed successor evidence](../qa/SEND-READINESS-20261105.md#observed-successor-verification) and the [PR delivery receipt](https://github.com/comzulca/Aster-desktop/pull/70) distinguish candidate and final main bytes. The previous [57339a6 receipt](../qa/FINAL-ENGINEERING-V024-20261105.md) remains source-bound history.
 

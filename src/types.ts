@@ -56,7 +56,7 @@ export interface AppStatus {
   projectSelected: false;
   projectLabel: null;
   capabilities: { projectRead: false; proposals: false; applyNewFile: false; applyExistingFile: false; attachmentImport: boolean };
-  availability: 'needs_terms' | 'needs_credential' | 'needs_budget' | 'attention_required' | 'ready' | 'busy' | 'unsupported';
+  availability: 'version_expired' | 'needs_terms' | 'needs_credential' | 'needs_budget' | 'attention_required' | 'ready' | 'busy' | 'unsupported';
   contributor: { termsRevision: string; accepted: boolean; eligible: boolean };
   historyAvailable: boolean;
   budget: {

@@ -54,7 +54,7 @@ See the [exact engineering receipt](docs/qa/FINAL-ENGINEERING-V024-20261105.md) 
 
 - The only model is **Muse Spark 1.3 Contributor** through the fixed direct Meta API. Current-key authentication is separate from account eligibility, billing and quota.
 - `+` adds documents to the current unsent selection. Cancelling or atomically rejecting an addition retains the previous selection and draft. The combined batch keeps its four-file and earliest five-minute limits; adding files does not renew custody.
-- The policy review performed on 5 November recognises the 9 October terms and 12 October geographic policy. Aster's local review deadline is **6 December 2026 at 00:00 UTC**. This is not expiry of a Meta key, account or subscription. Existing terms/financial records remain; current native terms and budget review are required.
+- Aster checks its public GitHub Releases for a newer stable Windows installer. Once that version is available, the old build can send new requests for 14 days. A PR, a CI artifact or an offline check does not start that clock. This is not expiry of a Meta key, account or subscription. Owner consent and the monthly financial configuration remain separate. [Lifecycle and rollout notes](docs/qa/RELEASE-LIFECYCLE-20261125.md).
 - Eligible conversations and processed derivatives use protected local storage. Temporary originals and disclosure grants are not restored after restart.
 - Personalization stays local. Skills/Plugins are bounded inert content; the built-in GitHub connector has separately controlled authentication/read routes. Runtime GitHub writes and automatic full-window compaction remain unavailable.
 

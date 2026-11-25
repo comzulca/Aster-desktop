@@ -39,6 +39,7 @@ mod policy;
 mod private_store;
 mod processed_history;
 mod provider;
+mod release_lifecycle;
 mod render_trace;
 mod speech;
 mod startup;
@@ -143,6 +144,7 @@ impl Persistence {
 }
 struct Host {
     credentials: CredentialStore,
+    release_lifecycle: release_lifecycle::Lifecycle,
     credential_validation: Mutex<Result<CredentialValidation, StoreError>>,
     personalization: Mutex<Result<personalization::Personalization, StoreError>>,
     customization: Mutex<Result<customization::Customization, StoreError>>,
@@ -596,6 +598,8 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         "attention_required"
     } else if active {
         "busy"
+    } else if host.release_lifecycle.require_current(time).is_err() {
+        "version_expired"
     } else if !configured || credential_validation != ValidationState::Valid {
         "needs_credential"
     } else if !contributor.accepted {
@@ -794,6 +798,7 @@ async fn accept_contributor_terms(
     trusted(&window)?;
     let guard = host.enter_native_dialog()?;
     host.idle()?;
+    host.release_lifecycle.require_current(now()?)?;
     if !contributor_policy::current(now()?) {
         return Err("contributor_policy_expired".into());
     }
@@ -804,11 +809,12 @@ async fn accept_contributor_terms(
         "spending":"Cancelling, refusing or failing after dispatch does not establish zero cost. Missing usage requires statement-confirmed reconciliation. The £89 local limit does not cap other clients or guarantee Meta's invoice.",
         "terms":"https://dev.meta.ai/legal/terms-of-service","geography":"https://dev.meta.ai/legal/geographic-use-policy",
         "geographyRevision":contributor_policy::GEOGRAPHY_REVISION,"policyReviewedOn":contributor_policy::REVIEWED_ON,
-        "expiry":contributor_policy::EXPIRES_ISO,"expiryMeaning":"Aster policy review deadline; not Meta account, key or subscription expiry."}),
+        "versionExpiryUnix":host.release_lifecycle.deadline(),"versionExpiryMeaning":"This build stops new sends 14 days after a newer stable Windows release becomes available. This is not Meta key or account expiry."}),
     )?;
     if !review(&window, document, &guard).await? {
         return Ok(TermsReceipt { accepted: false });
     }
+    host.release_lifecycle.require_current(now()?)?;
     if !contributor_policy::current(now()?) {
         return Err("contributor_policy_expired".into());
     }
@@ -829,6 +835,7 @@ async fn configure_budget(
     let guard = host.enter_native_dialog()?;
     host.idle()?;
     let time = now()?;
+    host.release_lifecycle.require_current(time)?;
     if !contributor_policy::current(time) {
         return Err("contributor_policy_expired".into());
     }
@@ -843,7 +850,7 @@ async fn configure_budget(
     };
     let document = operation(
         serde_json::json!({"operation":"Confirm bounded financial configuration and London calendar period","configuration":input,"currentLedger":status,"previousPeriodAndClock":period_review,
-        "period":budget::period(time).map_err(code)?,"policyReviewedOn":contributor_policy::REVIEWED_ON,"policyExpiresAt":contributor_policy::EXPIRES_ISO,"statement":"I have checked the actual date and London calendar month. This explicitly activates the displayed period; changing the account alias does not reset charges. Earlier uncertain reservations remain. The declared GBP/USD rate, positive margin, tax and payment costs conservatively bound my invoice until the stated expiry. No exchange rate or tax exemption is verified by Aster.","limitNanoGbp":budget::LIMIT.to_string(),"noReset":true}),
+        "period":budget::period(time).map_err(code)?,"policyReviewedOn":contributor_policy::REVIEWED_ON,"statement":"I have checked the actual date and London calendar month. This explicitly activates the displayed period; changing the account alias does not reset charges. Earlier uncertain reservations remain. The declared GBP/USD rate, positive margin, tax and payment costs conservatively bound my invoice until the stated expiry. No exchange rate or tax exemption is verified by Aster.","limitNanoGbp":budget::LIMIT.to_string(),"noReset":true}),
     )?;
     if !review(&window, document, &guard).await? {
         return Ok(BudgetReceipt { configured: false });
@@ -851,6 +858,7 @@ async fn configure_budget(
     let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
     let p = persistent(&mut state)?;
     let commit_time = now()?;
+    host.release_lifecycle.require_current(commit_time)?;
     budget::validate_configuration_proposal(&input, commit_time).map_err(str::to_owned)?;
     // Bind the native review to its actual London period before any identity
     // mutation. The durable Configure transition checks it again at commit.
@@ -1309,6 +1317,7 @@ async fn send_message_for_origin(
     let effort = ReasoningEffort::parse(&input.reasoning_effort).ok_or("reasoning_denied")?;
     let guard = host.enter_native_dialog()?;
     host.idle()?;
+    host.release_lifecycle.require_current(now()?)?;
     require_valid_credential(&host)?;
     let files = select_send_attachments(origin, &input.attachment_ids, || {
         host.attachments
@@ -1400,6 +1409,7 @@ async fn send_message_for_origin(
         if !review(&window,document,&guard).await?{return Err("disclosure_denied".into());}
         if files.iter().any(|file|!file.still_valid()){return Err("attachment_expired".into());}
         if *admitted.cancellation.borrow(){return Err("cancelled".into());}
+        host.release_lifecycle.require_current(now()?)?;
         let mut state=host.persistent.lock().map_err(|_|"state_unavailable")?;let p=persistent(&mut state)?;
         if !p.contributor.status(now()?).accepted{return Err("contributor_terms_required".into());}
         p.budget.reserve(&input.request_id,now()?).map_err(code)?;reserved=true;
@@ -1412,6 +1422,7 @@ async fn send_message_for_origin(
         host.credential_validation.lock().map_err(|_|"state_unavailable")?.as_ref().map_err(|e|code(*e))?.require(&key).map_err(str::to_owned)?;
         if *admitted.cancellation.borrow(){return Err("cancelled".into());}
         let dispatch_time=now()?;
+        host.release_lifecycle.require_current(dispatch_time)?;
         if files.iter().any(|file|!file.still_valid()){return Err("attachment_expired".into());}
         if !p.contributor.status(dispatch_time).accepted{return Err("contributor_terms_required".into());}
         p.budget.mark_dispatch(&input.request_id,dispatch_time).map_err(code)?;
@@ -1795,7 +1806,14 @@ pub fn run() {
                 // repository, session, approval or automatic network work.
                 github.set_enabled(true).map_err(std::io::Error::other)?;
             }
+            let release_lifecycle = app
+                .path()
+                .local_data_dir()
+                .ok()
+                .and_then(|base| release_lifecycle::Lifecycle::open(&base).ok())
+                .unwrap_or_default();
             app.manage(Host {
+                release_lifecycle: release_lifecycle.clone(),
                 credentials: CredentialStore,
                 credential_validation: Mutex::new(
                     app.path()
@@ -1818,6 +1836,9 @@ pub fn run() {
                 expiry_shutdown: AtomicBool::new(false),
                 window_close: window_guard::CloseState::default(),
             });
+            if cfg!(windows) && std::env::var_os("ASTER_DISABLE_LIVE").is_none() {
+                tauri::async_runtime::spawn(release_lifecycle.watch());
+            }
             // Independent expiry cleanup. Grants deny exactly after their
             // monotonic deadline; allocations are dropped on the next scheduled
             // one-second cleanup tick even if the renderer becomes idle.
@@ -2016,6 +2037,7 @@ mod tests {
     #[test]
     fn native_guard_retained_through_idle_preparation_cleanup_excludes_close() {
         let host = Host {
+            release_lifecycle: release_lifecycle::Lifecycle::default(),
             credentials: CredentialStore,
             credential_validation: Mutex::new(Err(StoreError::Unavailable)),
             personalization: Mutex::new(Err(StoreError::Unavailable)),

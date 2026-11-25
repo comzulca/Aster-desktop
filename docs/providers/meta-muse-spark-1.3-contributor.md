@@ -22,7 +22,7 @@ The recorded 5 November Contributor rate basis remains USD **0.10 input / 0.002 
 
 Aster conservatively reserves USD 0.106496 per admitted maximum request before the owner's explicitly reviewed integer GBP conversion/margin/tax/payment assumptions. Its local £89 London-calendar-month ceiling and £80.10 warning are not account-global invoice guarantees. Unknown spend blocks dispatch, and historical quotes retain their original basis.
 
-The current local policy expires at **2026-12-06T00:00:00Z**. Budget configuration has at most 31-day validity and cannot outlive that boundary. Legacy 2 November expiry remains only for historical events; expired configuration and old terms acceptance are not silently renewed. [Policy](../../src-tauri/src/contributor_policy.rs), [terms](../../src-tauri/src/contributor.rs), [budget](../../src-tauri/src/budget.rs), [ADR-0022](../adr/ADR-0022.md).
+The [Windows release lifecycle](../qa/RELEASE-LIFECYCLE-20261125.md) replaces the fixed review cutoff for new builds. Financial configurations are still explicitly confirmed for the London calendar month and remain valid for at most 31 days. Existing configuration dates, terms records and historical replay windows are not rewritten. [Policy](../../src-tauri/src/contributor_policy.rs), [terms](../../src-tauri/src/contributor.rs), [budget](../../src-tauri/src/budget.rs), [historical ADR](../adr/ADR-0022.md).
 
 ## Verification and historical records
 
