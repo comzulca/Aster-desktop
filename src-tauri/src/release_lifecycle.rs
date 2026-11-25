@@ -105,10 +105,17 @@ impl Release {
             return None;
         }
         let published_at = timestamp(self.published_at.as_deref()?)?;
+        // GitHub can replace spaces with dots in the uploaded asset name.
+        // Match only the two exact spellings, never a display label or URL.
         let name = format!("Aster Desktop_{tag}_x64-setup.exe");
+        let github_name = format!("Aster.Desktop_{tag}_x64-setup.exe");
         self.assets
             .iter()
-            .filter(|asset| asset.state == "uploaded" && asset.size > 0 && asset.name == name)
+            .filter(|asset| {
+                asset.state == "uploaded"
+                    && asset.size > 0
+                    && (asset.name == name || asset.name == github_name)
+            })
             .filter_map(|asset| timestamp(&asset.created_at))
             .map(|uploaded| published_at.max(uploaded))
             .filter(|available| *available <= now)
@@ -309,6 +316,29 @@ mod tests {
         )
         .is_err());
         assert!(serde_json::from_str::<Vec<Release>>(r#"[{"number":90,"merged":true}]"#).is_err());
+    }
+
+    #[test]
+    fn github_sanitized_windows_asset_name_preserves_release_gates() {
+        let mut release = windows_release();
+        let asset = &mut release.assets[0];
+        asset.name = "Aster.Desktop_0.2.6_x64-setup.exe".into();
+        asset.created_at = "2026-11-27T00:00:00Z".into();
+        let available = PUBLISHED + 2 * 86_400;
+        assert_eq!(release.available_at(INSTALLED, available), Some(available));
+        assert_eq!(release.available_at(INSTALLED, available - 1), None);
+        release.assets[0].state = "starter".into();
+        assert_eq!(release.available_at(INSTALLED, available), None);
+        release.assets[0].state = "uploaded".into();
+        for name in [
+            "Aster_Desktop_0.2.6_x64-setup.exe",
+            "Aster.Desktop_0.2.7_x64-setup.exe",
+            "Aster.Desktop_0.2.6_arm64-setup.exe",
+            "Aster.Desktop_0.2.6_x64-setup.exe.zip",
+        ] {
+            release.assets[0].name = name.into();
+            assert_eq!(release.available_at(INSTALLED, available), None);
+        }
     }
 
     #[test]
