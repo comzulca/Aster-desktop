@@ -476,17 +476,83 @@ mod tests {
     }
 
     #[cfg(windows)]
+    struct VaultFixture {
+        base: PathBuf,
+        vault: PathBuf,
+        app: PathBuf,
+        state: Vault,
+    }
+
+    #[cfg(windows)]
+    impl VaultFixture {
+        fn new() -> Self {
+            // As with the workspace fixtures, TEMP may use an ineligible
+            // volume, namespace or parent. Try only disposable directories,
+            // and require normal production admission for both siblings.
+            let mut failures = Vec::new();
+            for (location, candidate) in [
+                ("checkout", std::env::current_dir().ok()),
+                (
+                    "local app data",
+                    std::env::var_os("LOCALAPPDATA").map(PathBuf::from),
+                ),
+                ("temp", Some(std::env::temp_dir())),
+            ] {
+                let Some(candidate) = candidate else { continue };
+                let base = candidate.join(format!(
+                    "aster-obsidian-test-{}",
+                    windows_fs::random_nonce().unwrap()
+                ));
+                if let Err(err) = std::fs::create_dir(&base) {
+                    failures.push(format!("{location}: create root: {:?}", err.kind()));
+                    continue;
+                }
+                let vault = base.join("Vault");
+                let app = base.join("LocalData");
+                let state = Vault::default();
+                let ready = std::fs::create_dir(&vault)
+                    .and_then(|_| std::fs::create_dir(&app))
+                    .map_err(|err| format!("create siblings: {:?}", err.kind()))
+                    .and_then(|()| state.select(vault.clone(), app.clone()).map(|_| ()));
+                match ready {
+                    Ok(()) => {
+                        return Self {
+                            base,
+                            vault,
+                            app,
+                            state,
+                        }
+                    }
+                    Err(reason) => {
+                        failures.push(format!("{location}: {reason}"));
+                        drop(state);
+                        std::fs::remove_dir_all(&base).unwrap();
+                    }
+                }
+            }
+            panic!("No eligible local NTFS vault fixture: {failures:?}");
+        }
+    }
+
+    #[cfg(windows)]
+    impl Drop for VaultFixture {
+        fn drop(&mut self) {
+            // Close the selected root and all ancestor handles first.
+            drop(std::mem::take(&mut self.state));
+            let cleanup = std::fs::remove_dir_all(&self.base);
+            if !std::thread::panicking() {
+                cleanup.expect("remove disposable vault fixture");
+            }
+        }
+    }
+
+    #[cfg(windows)]
     #[test]
     fn windows_fixture_is_bounded_to_the_selected_topic_and_native_scope() {
-        let base =
-            std::env::temp_dir().join(format!("aster-obs-{}", windows_fs::random_nonce().unwrap()));
-        std::fs::create_dir(&base).unwrap();
-        let vault = base.join("Vault");
-        let app = base.join("LocalData");
-        let docs = vault.join("Python");
-        std::fs::create_dir_all(&docs).unwrap();
-        std::fs::create_dir_all(vault.join("Rust")).unwrap();
-        std::fs::create_dir(&app).unwrap();
+        let fixture = VaultFixture::new();
+        let docs = fixture.vault.join("Python");
+        std::fs::create_dir(&docs).unwrap();
+        std::fs::create_dir(fixture.vault.join("Rust")).unwrap();
         for index in 1..=4 {
             std::fs::write(
                 docs.join(format!("Atlas {index}.md")),
@@ -494,11 +560,12 @@ mod tests {
             )
             .unwrap();
         }
-        std::fs::write(vault.join("Rust/Atlas 0.md"), "Other topic").unwrap();
+        std::fs::write(fixture.vault.join("Rust/Atlas 0.md"), "Other topic").unwrap();
         std::fs::write(docs.join(".Atlas.md"), "Hidden").unwrap();
-        let state = Vault::default();
-        assert!(state.select(base.clone(), app.clone()).is_err());
-        state.select(vault, app).unwrap();
+        let state = &fixture.state;
+        assert!(state
+            .select(fixture.base.clone(), fixture.app.clone())
+            .is_err());
         let result = state
             .search(Search {
                 topic: "Python".into(),
@@ -533,8 +600,6 @@ mod tests {
                 relative_path: "Python/Atlas 1.md".into()
             })
             .is_err());
-        drop(state);
-        std::fs::remove_dir_all(base).unwrap();
     }
 
     #[cfg(windows)]
@@ -542,17 +607,9 @@ mod tests {
     fn windows_fixture_requires_exact_native_review_and_never_replaces_notes() {
         use crate::native_review::{NativeApproval, ReviewDocument};
 
-        let base = std::env::temp_dir().join(format!(
-            "aster-obs-write-{}",
-            windows_fs::random_nonce().unwrap()
-        ));
-        std::fs::create_dir(&base).unwrap();
-        let vault = base.join("Vault");
-        let app = base.join("LocalData");
-        std::fs::create_dir(&vault).unwrap();
-        std::fs::create_dir(&app).unwrap();
-        let state = Vault::default();
-        state.select(vault.clone(), app.clone()).unwrap();
+        let fixture = VaultFixture::new();
+        let state = &fixture.state;
+        let vault = &fixture.vault;
         let intent = || CreateTopic {
             topic: "Rust".into(),
         };
@@ -575,7 +632,7 @@ mod tests {
             title: "Atlas".into(),
             content: "# Exact note".into(),
         };
-        let note = state.prepare_note(&intent(), app.clone()).unwrap();
+        let note = state.prepare_note(&intent(), fixture.app.clone()).unwrap();
         let document = ReviewDocument::proposal(&note.diff).unwrap();
         let accepted = NativeApproval::for_fixture(document.binding_sha256());
         assert_eq!(
@@ -586,14 +643,12 @@ mod tests {
             std::fs::read_to_string(vault.join("Rust/Atlas.md")).unwrap(),
             "# Exact note"
         );
-        assert!(state.prepare_note(&intent(), app).is_err());
+        assert!(state.prepare_note(&intent(), fixture.app.clone()).is_err());
         assert_eq!(
             std::fs::read_to_string(vault.join("Rust/Atlas.md")).unwrap(),
             "# Exact note"
         );
         state.clear().unwrap();
-        drop(state);
-        std::fs::remove_dir_all(base).unwrap();
     }
 
     #[test]
