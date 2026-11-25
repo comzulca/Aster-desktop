@@ -13,6 +13,7 @@ pub(crate) enum Domain {
     Personalization,
     Customization,
     CredentialProof,
+    ReleaseLifecycle,
     #[cfg(test)]
     GithubMutations,
 }
@@ -27,6 +28,7 @@ impl Domain {
             Self::Personalization => "personalization-v1",
             Self::Customization => "customization-v1",
             Self::CredentialProof => "credential-proof-v1",
+            Self::ReleaseLifecycle => "release-lifecycle-v1",
             #[cfg(test)]
             Self::GithubMutations => "github-mutations-v1",
         }
@@ -41,6 +43,7 @@ impl Domain {
             Self::Personalization => (64 * 1024, 4 * 1024 * 1024, 512),
             Self::Customization => (128 * 1024, 16 * 1024 * 1024, 512),
             Self::CredentialProof => (16 * 1024, 1024 * 1024, 128),
+            Self::ReleaseLifecycle => (1024, 64 * 1024, 64),
             #[cfg(test)]
             Self::GithubMutations => (16 * 1024, 4 * 1024 * 1024, 512),
         }

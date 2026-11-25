@@ -24,7 +24,7 @@ export function validStatus(v: unknown): v is AppStatus {
       v.projectSelected !== false || v.projectLabel !== null || !Array.isArray(v.models) || v.models.length !== 1 ||
       !record(v.models[0]) || !exact(v.models[0], ['id','label']) || v.models[0].id !== DEFAULT_MODEL ||
       typeof v.models[0].label !== 'string' || v.models[0].label.length > 100 ||
-      !['needs_terms','needs_credential','needs_budget','attention_required','ready','busy','unsupported'].includes(String(v.availability))) return false;
+      !['version_expired','needs_terms','needs_credential','needs_budget','attention_required','ready','busy','unsupported'].includes(String(v.availability))) return false;
   const c = v.capabilities, t = v.contributor, b = v.budget;
   if (!record(c) || !exact(c, ['projectRead','proposals','applyNewFile','applyExistingFile','attachmentImport']) || typeof c.attachmentImport !== 'boolean' || ['projectRead','proposals','applyNewFile','applyExistingFile'].some(key => c[key] !== false) ||
       !record(t) || !exact(t, ['termsRevision','accepted','eligible']) || typeof t.termsRevision !== 'string' || t.termsRevision.length > 100 || typeof t.accepted !== 'boolean' || typeof t.eligible !== 'boolean' ||

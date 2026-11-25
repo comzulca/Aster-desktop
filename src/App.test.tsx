@@ -27,13 +27,23 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     expect(fake.bridge.verifyCredential).not.toHaveBeenCalled();
   });
 
-  it('explains expired policy without claiming a Windows or credential failure (T-097)', async () => {
+  it('blocks sending when the installed version expires without changing key status', async () => {
+    const fake = fakeBridge({ ...baseline, availability: 'version_expired' });
+    render(<App bridge={fake.bridge}/>);
+    await screen.findByText(/Install the current stable Windows version/);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message for Aster' }), { target: { value: 'A synthetic draft' } });
+    expect((screen.getByRole('button', { name: 'Send message' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
+    expect(fake.bridge.verifyCredential).not.toHaveBeenCalled();
+  });
+
+  it('explains an unavailable policy window without claiming a credential failure (T-097)', async () => {
     const fake = fakeBridge();
     vi.mocked(fake.bridge.acceptContributorTerms).mockRejectedValue('contributor_policy_expired');
     render(<App bridge={fake.bridge}/>); await ready();
     await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
     await userEvent.click(screen.getByRole('button', { name: 'Review terms and eligibility in Windows' }));
-    await screen.findByText("This build's Contributor policy review has expired. Install a reviewed engineering update; accepting again cannot extend it.");
+    await screen.findByText("The Windows date is outside the supported Contributor policy window. Check the local clock.");
     expect(fake.bridge.sendMessage).not.toHaveBeenCalled();
     expect(fake.bridge.configureCredential).not.toHaveBeenCalled();
   });
