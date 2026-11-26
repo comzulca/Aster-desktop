@@ -7,6 +7,7 @@ use std::path::Path;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum Domain {
     History,
+    Projects,
     Budget,
     Terms,
     ProcessedMedia,
@@ -22,6 +23,7 @@ impl Domain {
     fn name(self) -> &'static str {
         match self {
             Self::History => "history-v1",
+            Self::Projects => "projects-v1",
             Self::Budget => "budget-v1",
             Self::Terms => "terms-v1",
             Self::ProcessedMedia => "processed-media-v1",
@@ -37,6 +39,7 @@ impl Domain {
     fn limits(self) -> (usize, usize, usize) {
         match self {
             Self::History => (4 * 1024 * 1024, 64 * 1024 * 1024, 8192),
+            Self::Projects => (4096, 4 * 1024 * 1024, 1024),
             Self::Budget => (64 * 1024, 32 * 1024 * 1024, 32768),
             Self::Terms => (16 * 1024, 1024 * 1024, 512),
             Self::ProcessedMedia => (6 * 1024 * 1024, 128 * 1024 * 1024, 512),

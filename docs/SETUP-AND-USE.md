@@ -64,6 +64,14 @@ Saved conversations and processed derivatives use separate protected local domai
 
 Personalization is retained locally and excluded from provider, generation and tool payloads. Skills/Plugins are bounded inert packages; generated content is an unsaved draft until explicitly saved. Enabling an entry does not grant tools or execute scripts.
 
+### Projects and a local Markdown vault (v0.2.6 preparation)
+
+In the v0.2.6 development candidate, use the **+** beside **Projects** to create a local project. Use the project controls to associate the open saved conversation explicitly. Selecting a project filters the sidebar; it does not attach a folder, add request context, or move data to another account. The composer **+** still adds attachments.
+
+Open **Settings → Aster_obsidian** and choose one local Markdown folder in the native Windows picker. Reconnect the folder after restarting Aster; the notes remain on disk. Enter a topic (for example, `Python`) and optionally filter note titles. A lookup searches one topic and displays at most three matching notes, so narrow the filter if results are limited. Opening a result shows the note in a separate native viewer. Use the topic or note creation buttons to review the exact local change before confirming. An existing note is never overwritten by the creation route. The folder is ordinary Markdown; Obsidian is optional. These notes are not encrypted or synced by Aster. For private notes, use a folder with suitable Windows access controls that is not already synced by another app; do not store credentials.
+
+Importing the `Aster_obsidian` skill package still adds instructions only. This preparation does not automatically retrieve notes for a conversation, send note contents to Meta, or let Aster edit an existing note. This workflow is a development candidate pending installed Windows acceptance, not a feature of the published v0.2.5 source described above.
+
 For the built-in connector, use **Customize → Plugins → GitHub**, enable its catalogue preference, then start the explicit dedicated-App connection flow. Aster's own account/repository confirmations and credentials are separate from Codex's connection. Reconnect explicitly after expiry/restart; automatic token rotation/account restoration is unavailable. GitHub authentication/read sources are implemented, but actual live connection is not established by hosted fixtures. Runtime file changes, issues, PR creation and merging remain unavailable (`mutationsAvailable=false`). The [registration guide](setup/GITHUB-APP-V024.md) distinguishes historical owner decisions from current unverified account state.
 
 See [current status](ENGINEERING-STATUS.md) for the remaining full-window compaction, 4-GiB migration, startup/flicker, native/live and production obligations.

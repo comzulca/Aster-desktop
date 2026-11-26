@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { nativeBridge } from './bridge';
+import { Projects } from './Projects';
 import { formatGbp, parseGbp, MAX_CONVERSATION_BYTES, MAX_MESSAGE_BYTES, MODEL_LABEL, REASONING_EFFORTS, utf8Bytes, validAttachmentSummaries, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
 import { DEFAULT_MODEL, type AppStatus, type AttachmentSummary, type Bridge, type BudgetIntent, type Conversation, type ConversationEntry, type ConversationSummary, type DataClass, type GenerationBinding, type GenerationFinished, type ReasoningEffort, type RendererTracePhase, type WindowAction } from './types';
 import wordmark from './assets/aster-wordmark.png';
 import readyArtwork from './assets/aster-ready.png';
 import { DraftMemory, editSelection, findMatches, helpTitles, menuGroups, shortcutAction, type HelpPage, type LocalAction, type MenuName } from './local-ui';
 import packageInfo from '../package.json';
+import { VaultSettings } from './VaultSettings';
 import { Personalization } from './Personalization';
 import { Customization } from './Customization';
 import { RenderingDiagnostics } from './RenderingDiagnostics';
@@ -269,7 +271,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const [search, setSearch] = useState('');
   const [menu, setMenu] = useState<MenuName | null>(null);
   const [dialog, setDialog] = useState<'settings' | 'help' | 'quit' | null>(null);
-  const [settingsTab, setSettingsTab] = useState<'providers' | 'personalization' | 'usage' | 'local' | 'customize' | 'about'>('providers');
+  const [settingsTab, setSettingsTab] = useState<'providers' | 'personalization' | 'usage' | 'local' | 'obsidian' | 'customize' | 'about'>('providers');
   const [workspace, setWorkspace] = useState<'chat' | 'customize'>('chat');
   const workspaceRef = useRef<'chat' | 'customize'>('chat');
   const [customizationBlocked, setCustomizationBlocked] = useState(false);
@@ -278,6 +280,9 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const [profileNavigationBlocked, setProfileNavigationBlocked] = useState(false);
   const profileNavigationBlockedRef = useRef(false);
   const profileNavigation = useCallback((blocked: boolean) => { profileNavigationBlockedRef.current = blocked; setProfileNavigationBlocked(blocked); }, []);
+  const [vaultBusy, setVaultBusy] = useState(false);
+  const vaultBusyRef = useRef(false);
+  const vaultActivity = useCallback((busy: boolean) => { vaultBusyRef.current = busy; setVaultBusy(busy); }, []);
   const workspaceReturn = useRef<HTMLButtonElement>(null);
   const [budgetFields, setBudgetFields] = useState({ rate: '', margin: '', tax: '', payment: '', validUntil: '' });
   const [reconciliationCharges, setReconciliationCharges] = useState<Record<string, string>>({});
@@ -778,8 +783,11 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     editTarget.current = null; copiedSelection.current = '';
     requestAnimationFrame(() => draftRef.current?.focus());
   }
+  function closeDialog() {
+    if (!vaultBusyRef.current) setDialog(null);
+  }
   function dialogKeys(event: KeyboardEvent<HTMLElement>) {
-    if (event.key === 'Escape') { event.preventDefault(); setDialog(null); }
+    if (event.key === 'Escape') { event.preventDefault(); closeDialog(); }
     if (event.key !== 'Tab') return;
     const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)') ?? []).filter(control => !control.closest('[hidden]'));
     if (!controls.length) return;
@@ -802,9 +810,9 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     next.focus(); next.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }
   function captureEdit(element: EventTarget | null) {
-    if (element instanceof HTMLElement && element.closest('.personalization-page')) {
-      // Profile editing belongs exclusively to its local component. Never
-      // read its value into global draft/edit-history/clipboard buffers.
+    if (element instanceof HTMLElement && (element.closest('.personalization-page') || element.closest('.obsidian-page'))) {
+      // Profile and vault editing belong exclusively to their local components. Never
+      // read their values into global draft/edit-history/clipboard buffers.
       editTarget.current = null; copiedSelection.current = ''; return;
     }
     if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) || element.type === 'password' || element.selectionStart === null || element.selectionEnd === null) return;
@@ -816,7 +824,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     const selection = window.getSelection();
     const anchor = selection?.anchorNode;
     const anchorElement = anchor instanceof Element ? anchor : anchor?.parentElement;
-    if (anchorElement?.closest('.personalization-page')) {
+    if (anchorElement?.closest('.personalization-page') || anchorElement?.closest('.obsidian-page')) {
       editTarget.current = null; copiedSelection.current = ''; return;
     }
     const text = selection?.toString() ?? '';
@@ -884,6 +892,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     finally { markBusy(false); }
   }
   function requestQuit() {
+    if (vaultBusyRef.current) return;
     if (isLocked() || dialogStateRef.current || !bridge.windowAction || (workspaceRef.current === 'customize' && customizationBlockedRef.current)) return;
     setMenu(null);
     if (draftValue.current.length || drafts.current.hasDrafts || attachmentState.current.items.length) openDialog('quit', document.activeElement instanceof HTMLElement ? document.activeElement : document.body);
@@ -1011,10 +1020,14 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       <div className="brand-slot"><img src={wordmark} alt="Aster AI" className="brand-image"/></div>
       <div className="sidebar-tools"><button className="icon-button" aria-label="New conversation" title="New conversation (Ctrl+N)" onClick={() => void newConversation()} disabled={locked || !status?.historyAvailable || status.credentialValidation !== 'valid'}><Icon name="new"/></button><button className="icon-button" aria-label="Search conversations" title="Search conversations (Ctrl+K)" disabled={locked} onClick={() => { setSearchOpen(current => !current); requestAnimationFrame(() => searchRef.current?.focus()); }}><Icon name="search"/></button></div>
       {searchOpen && <label className="search-field"><span className="visually-hidden">Search saved conversations</span><input ref={searchRef} data-edit-key="search" type="search" value={search} maxLength={256} disabled={locked} onChange={event => setSearch(event.target.value.slice(0,256))} placeholder="Search conversations"/></label>}
-      <div className="section-label">Conversations <span>{summaries.length}</span></div>
-      <nav ref={historyRef} className="history-list" aria-label="Saved conversations" tabIndex={0}>
-        {filteredSummaries.length ? filteredSummaries.map(item => <button key={item.id} className={`history-row ${conversation?.id === item.id ? 'selected' : ''}`} aria-current={conversation?.id === item.id ? 'page' : undefined} onClick={() => void chooseConversation(item.id)} disabled={locked} title={item.title || 'Untitled conversation'}><span>{item.title || 'Untitled conversation'}</span><small>{item.entryCount} {item.entryCount === 1 ? 'message' : 'messages'}</small></button>) : <p className="muted-line">{search ? 'No matching conversations.' : status?.historyAvailable ? 'No saved conversations yet.' : 'Saved history unavailable.'}</p>}
-      </nav>
+      <Projects bridge={bridge} ready={hostState === 'ready'} disabled={locked || Boolean(dialog)} conversationId={conversation?.id}>
+        {(projectIds, catalogueEmpty) => {
+          const projectSummaries = projectIds ? filteredSummaries.filter(item => projectIds.has(item.id)) : filteredSummaries;
+          return <nav ref={historyRef} className="history-list" aria-label="Saved conversations" tabIndex={0}>
+            {projectSummaries.length ? projectSummaries.map(item => <button key={item.id} className={`history-row ${conversation?.id === item.id ? 'selected' : ''}`} aria-current={conversation?.id === item.id ? 'page' : undefined} onClick={() => void chooseConversation(item.id)} disabled={locked} title={item.title || 'Untitled conversation'}><span>{item.title || 'Untitled conversation'}</span><small>{item.entryCount} {item.entryCount === 1 ? 'message' : 'messages'}</small></button>) : !(catalogueEmpty && !search && status?.historyAvailable && !summaries.length) && <p className="muted-line">{search ? 'No matching conversations.' : projectIds ? 'No conversations in this project.' : status?.historyAvailable ? 'No saved conversations yet.' : 'Saved history unavailable.'}</p>}
+          </nav>;
+        }}
+      </Projects>
       <footer className="sidebar-footer"><p>{status?.historyAvailable ? 'History is saved on this Windows account.' : 'Saved history is currently unavailable.'}<br/>Responses are generated by Meta.</p><button ref={settingsButton} className="settings-button" onClick={event => openDialog('settings', event.currentTarget)}><Icon name="settings"/><span>Settings</span></button></footer>
     </aside>
     <main className="main-panel" id="main" tabIndex={-1} hidden={workspace !== 'chat'} inert={workspace !== 'chat'}>
@@ -1066,7 +1079,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       <nav className="workspace-rail" aria-label="Local workspace navigation"><button ref={workspaceReturn} className="icon-button" aria-label="Return to chat" title={customizationBlocked ? 'Finish or cancel the open editor or account popup before returning.' : 'Return without changing the conversation, draft or attachments.'} disabled={locked || Boolean(dialog) || customizationBlocked} onClick={returnToChat}><span aria-hidden="true">←</span></button><button className="icon-button" aria-label="Open workspace Settings" disabled={locked || Boolean(dialog) || customizationBlocked} onClick={event => openDialog('settings', event.currentTarget)}><Icon name="settings"/></button></nav>
       <Customization bridge={bridge} locked={locked || Boolean(dialog)} credentialValidated={status?.credentialValidation === 'valid'} onGenerationBound={generationBound} onGenerationFinished={generationFinished} onNavigationBlockedChange={customizationNavigation}/>
     </main>}
-    {dialog && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setDialog(null); }}><section ref={dialogRef} className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onKeyDown={dialogKeys}><header className="settings-header"><h2 id="dialog-title">{dialog === 'settings' ? 'Settings and privacy' : dialog === 'quit' ? 'Unsent drafts' : helpTitles[helpPage]}</h2><button className="icon-button" aria-label="Close dialogue" onClick={() => setDialog(null)}><Icon name="close"/></button></header>
+    {dialog && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) closeDialog(); }}><section ref={dialogRef} className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onKeyDown={dialogKeys}><header className="settings-header"><h2 id="dialog-title">{dialog === 'settings' ? 'Settings and privacy' : dialog === 'quit' ? 'Unsent drafts' : helpTitles[helpPage]}</h2><button className="icon-button" aria-label="Close dialogue" disabled={vaultBusy} onClick={closeDialog}><Icon name="close"/></button></header>
       {speechPhase !== 'idle' && <p className="notice" role="status">{speechStatus[speechPhase]}</p>}
       {notice && <div className="notice" role="status"><span>{notice}</span><button className="icon-button" aria-label="Dismiss notice" onClick={() => setNotice(null)}><Icon name="close" size={16}/></button></div>}
       {dialog === 'quit' ? <div className="help-copy"><p>Quitting will discard unsent drafts and temporary attachments held in this process. Saved conversations, credentials and spending records will not be removed or reset.</p><div className="settings-actions"><button className="secondary-action" data-default-cancel onClick={() => setDialog(null)}>Keep working</button><button className="primary-action" disabled={locked || !bridge.windowAction} onClick={() => { dialogStateRef.current = null; setDialog(null); void windowAction('close'); }}>Discard drafts and quit</button></div></div> : dialog === 'help' ? <div className="help-copy">
@@ -1086,12 +1099,13 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
           <p>Ctrl + mouse wheel, main-key and keypad shortcuts retain bounded interface zoom and one-second percentage feedback. Existing branding assets and blue send/stop treatment are retained; the owner-reference layout, not predecessor geometry, governs this version.</p>
         </>}
         {helpPage === 'troubleshooting' && <><p>If the host, history or spending needs attention, read the local notice and Settings. Do not reset protected records, remove unresolved charges or repeatedly retry a failed request.</p><p>Enter a key only in the native Windows dialogue. Do not paste keys into chat or diagnostic reports. A configured key does not prove a live connection.</p><p>If Windows or security software blocks the app, retain the exact alert and seek review. Do not disable protection or add exclusions. Opening help does not submit files, logs or a Meta request.</p><p>Use Keep working to cancel quitting. If clipboard access fails, ordinary editing remains local; no alternative global reader is attempted.</p></>}
-        {helpPage === 'status' && <><p>Native host: {hostState === 'ready' ? 'Available; protocol 5.' : 'Unavailable or not yet verified.'}</p><p>Live inference, billing and capacity: unverified. No request or probe is made by this view.</p><p>Credential: {status?.configured ? 'Configured; bytes are not available here.' : 'Not configured or unavailable.'}</p><p>Authentication: {credentialGuidance}</p><p>Saved history: {status?.historyAvailable ? 'Available for this Windows account.' : 'Unavailable or unverified.'}</p><p>Contributor eligibility: {status?.contributor.eligible ? 'Recorded locally; not a live entitlement check.' : 'Unconfirmed.'}</p><p>Spending policy: {status?.budget.configured ? 'Configured locally; not a provider billing balance.' : 'Not configured or unavailable.'} {status?.budget.requiresReconciliation ? 'Pending reconciliation blocks sending.' : 'No current reconciliation flag; no zero-charge claim is made.'}</p><p>Native-selected attachment import: {status?.capabilities.attachmentImport && bridge.selectAttachments && bridge.removeAttachment ? 'Available; every disclosure still needs native review.' : 'Unavailable or unverified.'}</p><p>Main-chat/model tools, local project reads and file writes, shell, browser and general web access: disabled. GitHub uses a separate reviewed native account/read route; its live acceptance is not established by this view. Mutations and merges remain unavailable.</p><p>Window controls: {bridge.windowAction ? 'Native bounded actions available; installed behaviour requires acceptance.' : 'Unavailable in this host.'}</p></>}
+        {helpPage === 'status' && <><p>Native host: {hostState === 'ready' ? 'Available; protocol 5.' : 'Unavailable or not yet verified.'}</p><p>Live inference, billing and capacity: unverified. No request or probe is made by this view.</p><p>Credential: {status?.configured ? 'Configured; bytes are not available here.' : 'Not configured or unavailable.'}</p><p>Authentication: {credentialGuidance}</p><p>Saved history: {status?.historyAvailable ? 'Available for this Windows account.' : 'Unavailable or unverified.'}</p><p>Contributor eligibility: {status?.contributor.eligible ? 'Recorded locally; not a live entitlement check.' : 'Unconfirmed.'}</p><p>Spending policy: {status?.budget.configured ? 'Configured locally; not a provider billing balance.' : 'Not configured or unavailable.'} {status?.budget.requiresReconciliation ? 'Pending reconciliation blocks sending.' : 'No current reconciliation flag; no zero-charge claim is made.'}</p><p>Native-selected attachment import: {status?.capabilities.attachmentImport && bridge.selectAttachments && bridge.removeAttachment ? 'Available; every disclosure still needs native review.' : 'Unavailable or unverified.'}</p><p>Main-chat/model tools, general filesystem access, shell, browser and general web access: disabled. Aster_obsidian is a separate local Settings workspace; it does not supply request context. GitHub uses a separate reviewed native account/read route; its live acceptance is not established by this view. Mutations and merges remain unavailable.</p><p>Window controls: {bridge.windowAction ? 'Native bounded actions available; installed behaviour requires acceptance.' : 'Unavailable in this host.'}</p></>}
         {helpPage === 'about' && <><p>Aster Desktop v{packageInfo.version}</p><p>Unsigned engineering build for Windows 11 x64. This is not a production or live-provider acceptance claim.</p><p>{MODEL_LABEL} is the sole admitted model. Responses are generated by Meta.</p><p>British English interface. History is protected for this Windows account; unsent drafts remain process memory only.</p></>}
       </div> : <div className="settings-layout">
-        <nav className="settings-navigation" aria-label="Settings sections">{([['providers','Providers'],['personalization','Personalization'],['usage','Usage'],['local','Local data'],['customize','Customize'],['about','About']] as const).map(([value,label]) => <button key={value} aria-current={settingsTab === value ? 'page' : undefined} onClick={() => setSettingsTab(value)}>{label}</button>)}</nav>
+        <nav className="settings-navigation" aria-label="Settings sections">{([['providers','Providers'],['personalization','Personalization'],['usage','Usage'],['local','Local data'],['obsidian','Aster_obsidian'],['customize','Customize'],['about','About']] as const).map(([value,label]) => <button key={value} aria-current={settingsTab === value ? 'page' : undefined} disabled={vaultBusy} onClick={() => { if (!vaultBusyRef.current) setSettingsTab(value); }}>{label}</button>)}</nav>
         <div className="settings-content">
         {versionExpired && (settingsTab === 'providers' || settingsTab === 'usage') && <p className="inline-state">This Aster build has expired. Contributor terms and spending configuration are unavailable until you update. You can still review pending charges.</p>}
+        {settingsTab === 'obsidian' && <VaultSettings bridge={bridge} locked={locked} onBusyChange={vaultActivity}/>}
         <div hidden={settingsTab !== 'personalization'}><Personalization bridge={bridge} locked={locked} onNavigationBlockedChange={profileNavigation}/></div>
         <section hidden={settingsTab !== 'customize'} className="settings-section"><h3>Customize workspace</h3><p>Skills and Plugins have a full-page local workspace. Opening it preserves the chat, its draft, classification and temporary attachments. Personalization stays separately in Settings and is never used to generate a package.</p><p>Save or clear any changed Personalization before opening Customize. Alternatively, explicitly close Settings to discard unsaved profile edits, then reopen it. A local profile change in progress must finish first.</p><button className="primary-action" disabled={locked || profileNavigationBlocked || workspace === 'customize'} onClick={openCustomize}>Open Customize workspace</button></section>
         <section hidden={settingsTab !== 'about'} className="settings-section"><h3>About Aster</h3><p>Aster Desktop v{packageInfo.version}. Unsigned engineering development; native, installed and live acceptance remain separate.</p><p>Personalization is exclusively local. Skills and imported plugins are inert instructions, not permissions. Context compaction is not available until its provider accounting and migration are qualified.</p><p>The owner-reported flicker remains under investigation. Startup delays are not evidence of a cure.</p><RenderingDiagnostics bridge={bridge}/></section>
