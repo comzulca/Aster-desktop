@@ -16,28 +16,60 @@ export function validMessage(text: string): boolean {
   // Reject unpaired surrogates rather than changing the bytes that are reviewed.
   return Boolean(text.trim()) && !text.includes('\0') && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(text) && utf8Bytes(text) <= MAX_MESSAGE_BYTES;
 }
+export const MONTHLY_CAP_MAX_PENCE = 1_000_000;
+export const DEFAULT_FIRST_REMAINING_BPS = 1000;
+export const DEFAULT_SECOND_REMAINING_BPS = 500;
+export const DEFAULT_UK_VAT_BPS = 2000;
+function validMonthlyPolicy(value: unknown, limit: unknown): boolean {
+  if (value === null) return limit === '89000000000'; // Read-only historical ledger view before review.
+  if (!record(value) || !exact(value, ['limitPence','firstRemainingBps','secondRemainingBps','taxBps'])) return false;
+  const { limitPence, firstRemainingBps, secondRemainingBps, taxBps } = value;
+  return safeInteger(limitPence) && limitPence > 0 && limitPence <= MONTHLY_CAP_MAX_PENCE &&
+    limit === (BigInt(limitPence) * 10_000_000n).toString() &&
+    safeInteger(firstRemainingBps) && firstRemainingBps > 0 && firstRemainingBps < 10_000 &&
+    safeInteger(secondRemainingBps) && secondRemainingBps > 0 && secondRemainingBps < firstRemainingBps &&
+    safeInteger(taxBps) && taxBps <= 10_000;
+}
+export function monthlyCapPence(value: string): number | null {
+  if (!/^(0|[1-9][0-9]{0,4})(\.[0-9]{1,2})?$/.test(value)) return null;
+  const [whole, fraction = ''] = value.split('.');
+  const pennies = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  return pennies > 0 && pennies <= MONTHLY_CAP_MAX_PENCE ? pennies : null;
+}
+export function percentBasisPoints(value: string): number | null {
+  if (!/^(0|[1-9][0-9]{0,2})(\.[0-9]{1,2})?$/.test(value)) return null;
+  const [whole, fraction = ''] = value.split('.');
+  const basis = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  return basis <= 10_000 ? basis : null;
+}
 export function validStatus(v: unknown): v is AppStatus {
   if (!record(v) || !exact(v, ['protocolVersion','policyVersion','configured','credentialAvailable','credentialValidation','defaultModel','models','activeRequest','projectSelected','projectLabel','capabilities','availability','contributor','historyAvailable','budget'])) return false;
-  if (v.protocolVersion !== 5 || v.policyVersion !== 4 || v.defaultModel !== DEFAULT_MODEL ||
+  if (v.protocolVersion !== 6 || v.policyVersion !== 4 || v.defaultModel !== DEFAULT_MODEL ||
       !['configured','credentialAvailable','activeRequest','historyAvailable'].every(k => typeof v[k] === 'boolean') ||
       !['missing','unverified','valid','invalid','unavailable'].includes(String(v.credentialValidation)) ||
       v.projectSelected !== false || v.projectLabel !== null || !Array.isArray(v.models) || v.models.length !== 1 ||
       !record(v.models[0]) || !exact(v.models[0], ['id','label']) || v.models[0].id !== DEFAULT_MODEL ||
       typeof v.models[0].label !== 'string' || v.models[0].label.length > 100 ||
-      !['version_expired','needs_terms','needs_credential','needs_budget','attention_required','ready','busy','unsupported'].includes(String(v.availability))) return false;
+      !['version_expired','needs_terms','needs_credential','needs_budget','budget_limit_reached','attention_required','ready','busy','unsupported'].includes(String(v.availability))) return false;
   const c = v.capabilities, t = v.contributor, b = v.budget;
   if (!record(c) || !exact(c, ['projectRead','proposals','applyNewFile','applyExistingFile','attachmentImport']) || typeof c.attachmentImport !== 'boolean' || ['projectRead','proposals','applyNewFile','applyExistingFile'].some(key => c[key] !== false) ||
       !record(t) || !exact(t, ['termsRevision','accepted','eligible']) || typeof t.termsRevision !== 'string' || t.termsRevision.length > 100 || typeof t.accepted !== 'boolean' || typeof t.eligible !== 'boolean' ||
-      !record(b) || !exact(b, ['accountId','pending','configured','period','limitNanoGbp','spentNanoGbp','reservedNanoGbp','remainingNanoGbp','warning','requiresReconciliation','configurationExpiresAt','configurationMaxUntil']) ||
+      !record(b) || !exact(b, ['accountId','pending','configured','period','limitNanoGbp','spentNanoGbp','reservedNanoGbp','remainingNanoGbp','warningLevel','limitReached','monthResetsAt','monthlyPolicy','fiscalProfileConfigured','requiresReconciliation','configurationExpiresAt','configurationMaxUntil']) ||
       !(b.accountId === null || (typeof b.accountId === 'string' && /^[a-f0-9]{32}$/.test(b.accountId))) ||
-      !['configured','warning','requiresReconciliation'].every(k => typeof b[k] === 'boolean') ||
+      !['configured','limitReached','fiscalProfileConfigured','requiresReconciliation'].every(k => typeof b[k] === 'boolean') ||
       !(b.period === null || (typeof b.period === 'string' && /^\d{4}-\d{2}$/.test(b.period))) ||
       !['limitNanoGbp','spentNanoGbp','reservedNanoGbp','remainingNanoGbp'].every(k => integerString(b[k])) ||
-      b.limitNanoGbp !== '89000000000' || !(b.configurationExpiresAt === null || safeInteger(b.configurationExpiresAt)) ||
+      !validMonthlyPolicy(b.monthlyPolicy, b.limitNanoGbp) || !(b.configurationExpiresAt === null || safeInteger(b.configurationExpiresAt)) ||
+      !(b.warningLevel === 0 || b.warningLevel === 1 || b.warningLevel === 2) ||
+      !(b.monthResetsAt === null || (safeInteger(b.monthResetsAt) && b.monthResetsAt > 0 && b.monthResetsAt <= 8_640_000_000_000)) ||
+      ((b.period === null) !== (b.monthResetsAt === null)) ||
+      (b.limitReached && (b.monthResetsAt === null || b.monthlyPolicy === null || b.remainingNanoGbp !== '0')) ||
+      (b.configured && (b.monthlyPolicy === null || !b.fiscalProfileConfigured)) ||
+      (b.fiscalProfileConfigured && (b.accountId === null || b.configurationExpiresAt === null)) ||
       !(b.configurationMaxUntil === null || (safeInteger(b.configurationMaxUntil) && b.configurationMaxUntil > 0 && b.configurationMaxUntil <= 8_640_000_000_000))) return false;
   if (!Array.isArray(b.pending) || b.pending.length > 1024 || !b.pending.every(item => record(item) && exact(item, ['requestId','period','reservationNanoGbp','dispatched']) && validId(item.requestId) && typeof item.period === 'string' && /^\d{4}-\d{2}$/.test(item.period) && integerString(item.reservationNanoGbp) && typeof item.dispatched === 'boolean') || new Set(b.pending.map(item => item.requestId)).size !== b.pending.length) return false;
   if (v.credentialValidation === 'valid' && (!v.configured || !v.credentialAvailable)) return false;
-  if (v.availability === 'ready' && (v.credentialValidation !== 'valid' || !v.configured || !v.credentialAvailable || !v.historyAvailable || !t.accepted || !t.eligible || !b.configured || b.configurationMaxUntil === null || b.requiresReconciliation || v.activeRequest)) return false;
+  if (v.availability === 'ready' && (v.credentialValidation !== 'valid' || !v.configured || !v.credentialAvailable || !v.historyAvailable || !t.accepted || !t.eligible || !b.configured || b.configurationMaxUntil === null || b.requiresReconciliation || b.limitReached || v.activeRequest)) return false;
   return true;
 }
 // Only inert metadata crosses this seam. A renderer path, original bytes or
@@ -88,8 +120,8 @@ export function formatGbp(nano: string): string {
   return `£${(pennies / 100n).toLocaleString('en-GB')}.${(pennies % 100n).toString().padStart(2, '0')}`;
 }
 export function parseGbp(value: string): string | null {
-  if (!/^(0|[1-9][0-9]{0,2})(\.[0-9]{1,9})?$/.test(value)) return null;
+  if (!/^(0|[1-9][0-9]{0,4})(\.[0-9]{1,9})?$/.test(value)) return null;
   const [pounds, fraction = ''] = value.split('.');
   const nanos = BigInt(pounds) * 1_000_000_000n + BigInt(fraction.padEnd(9, '0'));
-  return nanos <= 89_000_000_000n ? nanos.toString() : null;
+  return nanos <= BigInt(MONTHLY_CAP_MAX_PENCE) * 10_000_000n ? nanos.toString() : null;
 }

@@ -386,7 +386,12 @@ jobs:
           $candidates = @(Get-ChildItem -LiteralPath src-tauri/target/release/bundle/nsis -File -Filter '*-setup.exe' -ErrorAction Stop)
           if ($candidates.Count -ne 1 -or $candidates[0].Length -le 0) { throw 'Expected exactly one nonempty NSIS setup executable.' }
           $installer = $candidates[0]
-          if ($installer.Name -cne 'Aster Desktop_0.2.5_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
+          if ($installer.Name -cne 'Aster Desktop_0.2.5+1_x64-setup.exe') { throw 'NSIS installer filename/version/architecture is not the reviewed engineering-package identity.' }
+          $installerVersion = $installer.VersionInfo
+          if ($installerVersion.ProductMajorPart -ne 0 -or $installerVersion.ProductMinorPart -ne 2 -or
+              $installerVersion.ProductBuildPart -ne 5 -or $installerVersion.ProductPrivatePart -ne 1) {
+            throw 'NSIS numeric product version is not v0.2.5.1.'
+          }
           function Get-AsterBuilderResourceInventory {
             # Exact original inert ZIP-member identities; no manifest-defined replacements.
             return [ordered]@{

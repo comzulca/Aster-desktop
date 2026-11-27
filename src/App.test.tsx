@@ -45,9 +45,10 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     const settings = within(screen.getByRole('dialog'));
     expect(settings.getByText(/Contributor terms and spending configuration are unavailable/)).toBeTruthy();
     expect((settings.getByRole('button', { name: 'Review terms and eligibility in Windows' }) as HTMLButtonElement).disabled).toBe(true);
-    await userEvent.click(settings.getByRole('button', { name: 'Usage' }));
-    expect((settings.getByRole('button', { name: 'Review financial configuration in Windows' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((settings.getByRole('button', { name: 'Review billing profile in Windows' }) as HTMLButtonElement).disabled).toBe(true);
     expect((settings.getByRole('button', { name: 'Review this charge in Windows' }) as HTMLButtonElement).disabled).toBe(false);
+    await userEvent.click(settings.getByRole('button', { name: 'Usage' }));
+    expect((settings.getByRole('button', { name: 'Review monthly spending in Windows' }) as HTMLButtonElement).disabled).toBe(true);
     expect(fake.bridge.acceptContributorTerms).not.toHaveBeenCalled();
     expect(fake.bridge.configureBudget).not.toHaveBeenCalled();
   });
@@ -67,7 +68,7 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     render(<App bridge={fake.bridge}/>); await ready();
     await userEvent.click(screen.getByRole('button', { name: 'Help' })); await userEvent.click(screen.getByRole('menuitem', { name: "What's New" }));
     const news = screen.getByRole('dialog', { name: "What's New" });
-    for (const text of [/v0\.2\.5 adds local whisper\.cpp dictation/, /current-key authentication proof/, /Personalization is exclusively local/, /fresh ordinary local conversation retains the description, prompt and response/, /Save and enable remain separate/, /Enable its catalogue preference before Connect/, /Expiry or restart requires deliberate reconnect, not automatic refresh/, /File changes, issues, pull requests and merges remain unavailable/, /Automatic context compaction is unfinished/, /do not establish compositor completeness or a flicker cure/]) expect(within(news).getByText(text)).toBeTruthy();
+    for (const text of [/v0\.2\.5\.1 includes local whisper\.cpp dictation/, /current-key authentication proof/, /Personalization is exclusively local/, /fresh ordinary local conversation retains the description, prompt and response/, /Save and enable remain separate/, /Enable its catalogue preference before Connect/, /Expiry or restart requires deliberate reconnect, not automatic refresh/, /File changes, issues, pull requests and merges remain unavailable/, /Automatic context compaction is unfinished/, /do not establish compositor completeness or a flicker cure/]) expect(within(news).getByText(text)).toBeTruthy();
     expect(news.textContent).not.toContain('Branding, caption, send/stop geometry and sky-blue colours are unchanged.');
     await userEvent.click(within(news).getByRole('button', { name: 'Close dialogue' }));
     await userEvent.click(screen.getByRole('button', { name: 'Help' })); await userEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));
@@ -133,9 +134,11 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
   });
   it('preserves old records when creating a new conversation and searching titles', async () => {
     const fake = fakeBridge(baseline, [saved('keep', 'Keep this conversation', 3)]); render(<App bridge={fake.bridge}/>); await screen.findByText('Reply for keep');
-    await userEvent.click(screen.getByRole('button', { name: 'New conversation' })); await screen.findByRole('heading', { name: 'Ready when you are.' });
+    await userEvent.click(screen.getByRole('button', { name: 'File' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'New Chat' })); await screen.findByRole('heading', { name: 'Ready when you are.' });
     expect(fake.records.has('keep')).toBe(true); expect(fake.bridge.deleteConversation).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole('button', { name: 'Search conversations' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Search Conversations…' }));
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search saved conversations' }), 'Keep this');
     const nav = screen.getByRole('navigation', { name: 'Saved conversations' }); expect(within(nav).getAllByRole('button')).toHaveLength(1);
   });
@@ -143,7 +146,8 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     const fake = fakeBridge(baseline, [saved('one', 'First conversation', 5), saved('two', 'Second conversation', 1)]); render(<App bridge={fake.bridge}/>); await screen.findByText('Reply for one');
     await prepare(); await userEvent.click(screen.getByRole('button', { name: 'Send message' })); const input = vi.mocked(fake.bridge.sendMessage).mock.calls[0][0];
     for (const row of within(screen.getByRole('navigation', { name: 'Saved conversations' })).getAllByRole('button')) expect((row as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: 'New conversation' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'File' }));
+    expect((screen.getByRole('menuitem', { name: 'New Chat' }) as HTMLButtonElement).disabled).toBe(true);
     await userEvent.keyboard('{Control>}n{/Control}'); expect(fake.bridge.createConversation).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole('button', { name: 'Stop response' })); expect(fake.bridge.cancelMessage).toHaveBeenCalledWith(input.requestId);
     act(() => fake.emit({ requestId: input.requestId, conversationId: input.conversationId, type: 'terminal', status: 'cancelled' }));
@@ -216,7 +220,9 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     const input = vi.mocked(fake.bridge.sendMessage).mock.calls[0][0];
     act(() => fake.emit({ conversationId: input.conversationId, requestId: input.requestId, type: 'terminal', status: 'completed' }));
     await screen.findByText('Completed original reply');
-    await waitFor(() => expect((screen.getByRole('button', { name: 'New conversation' }) as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.click(screen.getByRole('button', { name: 'File' }));
+    await waitFor(() => expect((screen.getByRole('menuitem', { name: 'New Chat' }) as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.keyboard('{Escape}');
     const newerDraft = '  A different draft after completion  ';
     await prepare(newerDraft);
     await selectClassification('public_eligible');
@@ -236,7 +242,8 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     render(<App bridge={fake.bridge}/>); await ready(); await prepare(); await userEvent.click(screen.getByRole('button', { name: 'Send message' }));
     await screen.findByText(/The request was not accepted/); expect(screen.queryByText(/private-key|provider body/)).toBeNull();
     expect(fake.bridge.sendMessage).toHaveBeenCalledOnce();
-    await waitFor(() => expect((screen.getByRole('button', { name: 'New conversation' }) as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.click(screen.getByRole('button', { name: 'File' }));
+    await waitFor(() => expect((screen.getByRole('menuitem', { name: 'New Chat' }) as HTMLButtonElement).disabled).toBe(false));
   });
   it.each([
     ['meta_authentication_failed', /Meta did not accept the credential\. Check the key through the native Windows settings/],
@@ -280,7 +287,7 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Delete' })); expect((screen.getByRole('textbox', { name: 'Message for Aster' }) as HTMLTextAreaElement).value).toBe('');
     const opener = screen.getByRole('button', { name: 'Settings' }); await user.click(opener);
     const close = screen.getByRole('button', { name: 'Close dialogue' }); expect(document.activeElement).toBe(close);
-    await user.tab({ shift: true }); expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Remove key…' }));
+    await user.tab({ shift: true }); expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Review billing profile in Windows' }));
     await user.tab(); expect(document.activeElement).toBe(close); await user.keyboard('{Control>}n{/Control}'); expect(fake.bridge.createConversation).not.toHaveBeenCalled();
     await user.keyboard('{Escape}'); expect(document.activeElement).toBe(opener);
     await user.click(screen.getByRole('button', { name: 'Help' })); await user.click(screen.getByRole('menuitem', { name: 'Documentation' }));
@@ -298,17 +305,16 @@ describe('Aster v0.2 renderer journeys (T-049/T-060/T-061)', () => {
     const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-10T10:00:00Z'));
     const fake = fakeBridge(); render(<App bridge={fake.bridge}/>); await ready(); await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(document.querySelector('input[type="password"]')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Usage' }));
-    for (const [label, value] of [['GBP per USD (integer parts per million)','765432'],['Safety margin (basis points)','100'],['Tax (basis points)','0'],['Payment charges (basis points)','0']]) fireEvent.change(screen.getByLabelText(label), { target: { value } });
-    fireEvent.change(screen.getByLabelText(/Valid until/), { target: { value: '2026-10-20T10:00' } }); await userEvent.click(screen.getByRole('button', { name: 'Review financial configuration in Windows' }));
+    for (const [label, value] of [['GBP per USD (integer parts per million)','765432'],['Safety margin (basis points)','100'],['Payment charges (basis points)','0']]) fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    fireEvent.change(screen.getByLabelText(/Valid until/), { target: { value: '2026-10-20T10:00' } }); await userEvent.click(screen.getByRole('button', { name: 'Review billing profile in Windows' }));
     expect(fake.bridge.configureBudget).toHaveBeenCalledOnce(); const input = vi.mocked(fake.bridge.configureBudget).mock.calls[0][0];
-    expect(input).toMatchObject({ accountId: 'a'.repeat(32), gbpPerUsdPpm: 765432, marginBps: 100, taxBps: 0, paymentBps: 0 }); expect(Number.isInteger(input.validUntilUnix)).toBe(true);
+    expect(input).toMatchObject({ accountId: 'a'.repeat(32), gbpPerUsdPpm: 765432, marginBps: 100, paymentBps: 0 }); expect(Number.isInteger(input.validUntilUnix)).toBe(true);
     expect(JSON.stringify(input)).not.toMatch(/spent|reserved|reset/); clock.mockRestore();
   });
   it('proposes statement-confirmed pending charges with exact decimal arithmetic, not a reset', async () => {
     const status = { ...baseline, availability: 'attention_required' as const, budget: { ...baseline.budget, requiresReconciliation: true, pending: [{ requestId: 'pending_request', period: '2026-10', reservationNanoGbp: '100000000', dispatched: true }] } };
     const fake = fakeBridge(status); render(<App bridge={fake.bridge}/>); await screen.findByText('Attention required. Check Settings; sending is unavailable.');
-    await userEvent.click(screen.getByRole('button', { name: 'Settings' })); await userEvent.click(screen.getByRole('button', { name: 'Usage' })); fireEvent.change(screen.getByLabelText('Statement-confirmed charge in GBP for pending_request'), { target: { value: '0.012345678' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' })); fireEvent.change(screen.getByLabelText('Statement-confirmed charge in GBP for pending_request'), { target: { value: '0.012345678' } });
     await userEvent.click(screen.getByRole('button', { name: 'Review this charge in Windows' })); expect(fake.bridge.reconcileBudget).toHaveBeenCalledWith({ requestId: 'pending_request', confirmedChargeNanoGbp: '12345678' });
     expect(fake.bridge.configureBudget).not.toHaveBeenCalled(); expect(fake.bridge.deleteConversation).not.toHaveBeenCalled();
   });

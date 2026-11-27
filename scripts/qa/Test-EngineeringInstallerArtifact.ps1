@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory = $true)][ValidatePattern('^[0-9]+$')][string]$ExpectedRunId,
     [Parameter(Mandatory = $true)][ValidatePattern('^[1-9][0-9]*$')][string]$ExpectedRunAttempt,
     [Parameter(Mandatory = $true)][string]$Destination,
+    [ValidateSet('0.2.5', '0.2.5+1')][string]$ExpectedInstallerVersion = '0.2.5+1',
     [Parameter(Mandatory = $true, ParameterSetName = 'DiagnosticPullRequest')]
     [ValidatePattern('^[1-9][0-9]*$')][string]$DiagnosticPullRequestNumber
 )
@@ -15,6 +16,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Get-SpeechResourceInventory.ps1')
+$ExpectedInstallerName = "Aster Desktop_${ExpectedInstallerVersion}_x64-setup.exe"
 function Assert-InstallerProvenance($Manifest, [string]$SourceRevision, [string]$RunId, [string]$RunAttempt, [string]$DiagnosticPrNumber) {
     if ($Manifest -isnot [pscustomobject]) { throw 'Installer provenance must be a JSON object.' }
     foreach ($field in @('source_revision', 'workflow_run_id', 'workflow_run_attempt', 'classification', 'workflow_ref', 'workflow_event')) {
@@ -161,14 +163,14 @@ try {
     if ($actualZipSha256 -cne $ExpectedZipSha256) { throw 'GitHub artifact ZIP digest mismatch.' }
     $zipStream.Position = 0
     $archive = [System.IO.Compression.ZipArchive]::new($zipStream, [System.IO.Compression.ZipArchiveMode]::Read, $false)
-    $expectedNames = @('manifest.json', 'Aster Desktop_0.2.5_x64-setup.exe', 'THIRD-PARTY-NOTICES.txt', 'third-party-notice-inventory.json', 'installer-payload-list.txt')
+    $expectedNames = @('manifest.json', $ExpectedInstallerName, 'THIRD-PARTY-NOTICES.txt', 'third-party-notice-inventory.json', 'installer-payload-list.txt')
     if ($archive.Entries.Count -ne 5) { throw 'Artifact must have exactly five entries.' }
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($entry in $archive.Entries) {
         if ($expectedNames -cnotcontains $entry.FullName -or -not $seen.Add($entry.FullName)) { throw 'Artifact contains an unexpected or duplicate entry.' }
         $attributeBits = [System.BitConverter]::ToUInt32([System.BitConverter]::GetBytes([int]$entry.ExternalAttributes), 0)
         if ((($attributeBits -shr 16) -band 0xF000) -eq 0xA000 -or ($attributeBits -band 0x400) -ne 0) { throw 'Artifact contains a link or reparse entry.' }
-        $limit = switch ($entry.FullName) { 'manifest.json' { 16384 }; 'Aster Desktop_0.2.5_x64-setup.exe' { 134217728 }; 'THIRD-PARTY-NOTICES.txt' { 33554432 }; default { 4194304 } }
+        $limit = switch ($entry.FullName) { 'manifest.json' { 16384 }; { $_ -ceq $ExpectedInstallerName } { 134217728 }; 'THIRD-PARTY-NOTICES.txt' { 33554432 }; default { 4194304 } }
         if ($entry.Length -le 0 -or $entry.Length -gt $limit) { throw 'Artifact entry exceeds its size limit or is empty.' }
         $stream = $entry.Open()
         $memory = [System.IO.MemoryStream]::new()
@@ -183,13 +185,13 @@ try {
             $bytes=$memory.ToArray()
         } finally { $stream.Dispose(); $memory.Dispose() }
         if ($bytes.LongLength -ne $entry.Length) { throw 'Artifact entry length mismatch.' }
-        if ($entry.FullName -ceq 'manifest.json') { $manifestBytes=$bytes } elseif ($entry.FullName -ceq 'Aster Desktop_0.2.5_x64-setup.exe') { $installerBytes=$bytes } else { $evidenceBytes[$entry.FullName]=$bytes }
+        if ($entry.FullName -ceq 'manifest.json') { $manifestBytes=$bytes } elseif ($entry.FullName -ceq $ExpectedInstallerName) { $installerBytes=$bytes } else { $evidenceBytes[$entry.FullName]=$bytes }
     }
 } finally { if ($null -ne $archive) { $archive.Dispose() } else { $zipStream.Dispose() } }
 $strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
 $manifest = $strictUtf8.GetString($manifestBytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
 $provenanceMode = Assert-InstallerProvenance $manifest $ExpectedSourceRevision $ExpectedRunId $ExpectedRunAttempt $DiagnosticPullRequestNumber
-if ($manifest.filename -cne 'Aster Desktop_0.2.5_x64-setup.exe' -or
+if ($manifest.filename -cne $ExpectedInstallerName -or
     [long]$manifest.byte_count -ne $installerBytes.LongLength -or
     $manifest.authenticode_status -cne 'NotSigned' -or $manifest.runner -cne 'Windows' -or
     $manifest.sha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Installer manifest byte/signature binding does not match the expected CI artifact.' }

@@ -1,5 +1,9 @@
 # Current engineering status
 
+## 27 November 2026: v0.2.5.1 engineering candidate
+
+See the [v0.2.5.1 candidate contract and pre-CI evidence](qa/V0251-ENGINEERING-CANDIDATE.md). For this draft only, the numeric Windows product version is 0.2.5.1 and the spending IPC version is 6; the deployed main and its previous artifacts retain the identities below. The full-window work remains an offline qualification path and no Windows installer or live feature is implied by these local results.
+
 ## 25 November 2026: Windows release lifecycle
 
 [PR #90](https://github.com/comzulca/Aster-desktop/pull/90) reached main at [`e40943d`](https://github.com/comzulca/Aster-desktop/commit/e40943d0cecefd6ec64c9f87daf3a331f3c3b3a3). The [change contract](qa/RELEASE-LIFECYCLE-20261125.md) replaces the fixed 6 December cutoff in new builds with a 14-day grace period after a newer stable Windows release has a matching installer. All five jobs passed on [PR candidate `c602f83`](https://github.com/comzulca/Aster-desktop/actions/runs/45565643154). Its installer is an unsigned PR artifact, not an installed copy, a stable release or the [separate main build](https://github.com/comzulca/Aster-desktop/actions/runs/45570054196).

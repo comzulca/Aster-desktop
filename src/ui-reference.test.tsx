@@ -80,7 +80,9 @@ describe('owner-reference local workspace conformance (T-084/T-088/T-089)', () =
     await openWorkspace();
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Return to chat' })));
     fireEvent.keyDown(mainInput, { key: 'Enter' });
-    fireEvent.click(document.querySelector('.sidebar-tools button')!);
+    await userEvent.click(screen.getByRole('button', { name: 'File' }));
+    expect((screen.getByRole('menuitem', { name: 'New Chat' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.keyboard('{Escape}');
     await userEvent.keyboard('{Control>}n{/Control}{Control>}k{/Control}{Control>}f{/Control}{Control>}{PageDown}{/Control}');
     expect(fake.bridge.createConversation).not.toHaveBeenCalled(); expect(fake.bridge.sendMessage).not.toHaveBeenCalled(); expect(fake.bridge.selectAttachments).not.toHaveBeenCalled(); expect(fake.bridge.loadConversation).toHaveBeenCalledOnce();
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search skills' }), { target: { value: 'synthetic fixture' } });
@@ -143,7 +145,8 @@ describe('owner-reference local workspace conformance (T-084/T-088/T-089)', () =
     const ordinarySelect = new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true, cancelable: true }); nickname.dispatchEvent(ordinarySelect);
     expect(ordinarySelect.defaultPrevented).toBe(false); expect(nickname.value).toBe('PRIVATE_GLOBAL_CAPTURE_CANARY');
     await userEvent.click(screen.getByRole('button', { name: 'Close dialogue' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Search conversations' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Search Conversations…' }));
     const search = await screen.findByRole('searchbox', { name: 'Search saved conversations' }); search.focus();
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect((screen.getByRole('menuitem', { name: 'Undo' }) as HTMLButtonElement).disabled).toBe(true);

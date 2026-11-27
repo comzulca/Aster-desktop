@@ -35,6 +35,7 @@ fn main() {
             "get_render_trace",
             "accept_contributor_terms",
             "configure_budget",
+            "configure_monthly_spending",
             "reconcile_budget",
             "list_projects",
             "create_project",

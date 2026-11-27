@@ -39,7 +39,9 @@ describe('v0.2.4 first-chat authentication renderer denials (T-085)', () => {
     const fake = fakeBridge({ ...baseline, credentialValidation, configured: credentialValidation !== 'missing', availability: 'needs_credential', capabilities: { ...baseline.capabilities, attachmentImport: true } }, [saved('prior', 'Prior eligible conversation')]);
     fake.bridge.selectAttachments = vi.fn(async () => []); fake.bridge.removeAttachment = vi.fn(async () => ({ removed: true }));
     render(<App bridge={fake.bridge}/>); await screen.findByText('Reply for prior');
-    expect((screen.getByRole('button', { name: 'New conversation' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'File' }));
+    expect((screen.getByRole('menuitem', { name: 'New Chat' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.keyboard('{Escape}');
     expect((screen.getByRole('button', { name: 'Add attachments' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByRole('textbox', { name: 'Message for Aster' }), { target: { value: 'Synthetic draft retained locally' } }); await selectClassification('synthetic');
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Message for Aster' }), { key: 'Enter' });

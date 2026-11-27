@@ -39,6 +39,7 @@
     "allow-get-render-trace",
     "allow-accept-contributor-terms",
     "allow-configure-budget",
+    "allow-configure-monthly-spending",
     "allow-reconcile-budget",
     "allow-list-projects",
     "allow-create-project",

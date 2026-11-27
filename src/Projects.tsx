@@ -54,6 +54,7 @@ export function Projects({ bridge, ready, disabled, conversationId, children }: 
   const [issue, setIssue] = useState('');
   const [notice, setNotice] = useState('');
   const id = useId();
+  const toggle = useRef<HTMLButtonElement>(null);
   const plus = useRef<HTMLButtonElement>(null);
   const manage = useRef<HTMLButtonElement>(null);
   const nameField = useRef<HTMLInputElement>(null);
@@ -156,7 +157,7 @@ export function Projects({ bridge, ready, disabled, conversationId, children }: 
   return <>
     <section className="projects-sidebar" aria-label="Projects">
       <div className="projects-heading">
-        <button type="button" className="projects-toggle" aria-expanded={expanded} aria-controls={id}
+        <button ref={toggle} type="button" className="projects-toggle" aria-expanded={expanded} aria-controls={id}
           onClick={() => setExpanded(value => !value)} disabled={disabled || pending}>Projects<span className={!expanded ? 'projects-chevron-collapsed' : ''}><ProjectGlyph symbol="chevron"/></span></button>
         <button ref={manage} type="button" className="icon-button project-icon" aria-label="Manage project assignment" title="Manage project assignment"
           aria-expanded={panel === 'manage'} disabled={disabled || pending || !snapshot?.projects.length || !bridge.assignConversationProject}
@@ -183,13 +184,12 @@ export function Projects({ bridge, ready, disabled, conversationId, children }: 
       {issue && <p role="alert" className="projects-line">{issue}</p>}
       {notice && <span className="visually-hidden" role="status">{notice}</span>}
       <div id={id} className="projects-items" hidden={!expanded}>
-        {snapshot?.projects.length ? <>
-          <button className="project-row" type="button" aria-pressed={!currentSelection} disabled={disabled || pending}
-            onClick={() => setSelected(undefined)}>All conversations</button>
-          {snapshot.projects.map(project => <button key={project.id} type="button" className="project-row" aria-pressed={currentSelection?.id === project.id}
-            disabled={disabled || pending} title={project.name} onClick={() => setSelected(project.id)}>{project.name}</button>)}
-        </> : !issue && <p className="projects-line">{snapshot ? 'No projects' : canList ? 'Loading projects…' : 'Projects unavailable'}</p>}
+        {snapshot?.projects.length ? snapshot.projects.map(project => <button key={project.id} type="button" className="project-row" aria-pressed={currentSelection?.id === project.id}
+          disabled={disabled || pending} title={project.name} onClick={() => setSelected(currentSelection?.id === project.id ? undefined : project.id)}>{project.name}</button>)
+          : !issue && <p className="projects-line">{snapshot ? 'No projects' : canList ? 'Loading projects…' : 'Projects unavailable'}</p>}
       </div>
+      {currentSelection && <button type="button" className="clear-project-filter" disabled={disabled || pending}
+        onClick={() => { setSelected(undefined); toggle.current?.focus(); }}>Clear project filter</button>}
     </section>
     {children(filtered, snapshot?.projects.length === 0)}
   </>;

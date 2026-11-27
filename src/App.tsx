@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { nativeBridge } from './bridge';
 import { Projects } from './Projects';
-import { formatGbp, parseGbp, MAX_CONVERSATION_BYTES, MAX_MESSAGE_BYTES, MODEL_LABEL, REASONING_EFFORTS, utf8Bytes, validAttachmentSummaries, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
-import { DEFAULT_MODEL, type AppStatus, type AttachmentSummary, type Bridge, type BudgetIntent, type Conversation, type ConversationEntry, type ConversationSummary, type DataClass, type GenerationBinding, type GenerationFinished, type ReasoningEffort, type RendererTracePhase, type WindowAction } from './types';
+import { formatGbp, parseGbp, monthlyCapPence, percentBasisPoints, DEFAULT_FIRST_REMAINING_BPS, DEFAULT_SECOND_REMAINING_BPS, DEFAULT_UK_VAT_BPS, MAX_CONVERSATION_BYTES, MAX_MESSAGE_BYTES, MODEL_LABEL, REASONING_EFFORTS, utf8Bytes, validAttachmentSummaries, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
+import { DEFAULT_MODEL, type AppStatus, type AttachmentSummary, type Bridge, type BudgetIntent, type MonthlyBudgetIntent, type Conversation, type ConversationEntry, type ConversationSummary, type DataClass, type GenerationBinding, type GenerationFinished, type ReasoningEffort, type RendererTracePhase, type WindowAction } from './types';
 import wordmark from './assets/aster-wordmark.png';
 import readyArtwork from './assets/aster-ready.png';
 import { DraftMemory, editSelection, findMatches, helpTitles, menuGroups, shortcutAction, type HelpPage, type LocalAction, type MenuName } from './local-ui';
@@ -20,6 +20,7 @@ const availabilityText: Record<AppStatus['availability'], string> = {
   needs_terms: 'Review Contributor terms in Settings before sending.',
   needs_credential: 'Set up Meta in Settings before sending.',
   needs_budget: 'Configure the spending policy in Settings before sending.',
+  budget_limit_reached: 'The monthly spending limit has been reached. Provider calls resume no earlier than the next London calendar month.',
   attention_required: 'Attention required. Check Settings; sending is unavailable.',
   ready: 'Ready for separately reviewed requests.',
   busy: 'A request is in progress.',
@@ -40,13 +41,15 @@ const errorText: Record<string, string> = {
   terms_required: 'Review the current Contributor terms in Settings.',
   account_ineligible: 'Account eligibility has not been confirmed.',
   budget_unconfigured: 'Configure the spending policy in Settings.',
-  budget_expiry_not_future: 'Choose a future expiry in Usage and review the financial configuration again.',
-  budget_expiry_out_of_range: 'The chosen expiry exceeds the current host limit. Choose an earlier date shown in Usage and review again.',
-  budget_configuration_invalid: 'Check the financial integers and their displayed ranges in Usage. The configuration was not activated.',
+  budget_expiry_not_future: 'Choose a future expiry in the provider billing profile and review it again.',
+  budget_expiry_out_of_range: 'The chosen expiry exceeds the current host limit. Choose an earlier date shown in the provider billing profile and review again.',
+  budget_configuration_invalid: 'Check the billing-profile values and their displayed ranges in Providers. The configuration was not activated.',
   budget_review_declined: 'The financial review was not confirmed. The existing policy was not changed.',
   budget_configuration_unconfirmed: 'The host did not confirm financial configuration. Check the policy status in Usage before sending.',
   budget_expired: 'The spending configuration has expired. Review it in Settings.',
-  budget_exceeded: 'The request would exceed the £89 admission ceiling.',
+  budget_exceeded: 'The request would exceed the confirmed monthly spending limit.',
+  budget_limit_reached: availabilityText.budget_limit_reached,
+  monthly_spending_invalid: 'Check the amount, VAT percentage and the order of both warnings.',
   reconciliation_required: 'Spending is unresolved. Sending remains blocked.',
   busy: 'Another request or native review is in progress.',
   history_unavailable: 'Saved conversations are unavailable. Nothing was overwritten.',
@@ -130,10 +133,8 @@ function safeError(error: unknown, fallback: string): string {
   const code = typeof error === 'string' ? error : error instanceof Error ? error.message : '';
   return Object.prototype.hasOwnProperty.call(errorText, code) ? errorText[code] : fallback;
 }
-function Icon({ name, size = 20 }: { name: 'new' | 'search' | 'settings' | 'send' | 'stop' | 'close' | 'menu' | 'trash' | 'plus'; size?: number }) {
+function Icon({ name, size = 20 }: { name: 'settings' | 'send' | 'stop' | 'close' | 'menu' | 'trash' | 'plus'; size?: number }) {
   const paths: Record<typeof name, ReactNode> = {
-    new: <><path d="M13 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8"/><path d="m10 14 1-4L20 1l3 3-9 9-4 1"/></>,
-    search: <><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></>,
     settings: <><circle cx="12" cy="12" r="3"/><path d="m9 3 6 0 1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z"/></>,
     send: <path d="M12 20V4m-7 7 7-7 7 7"/>,
     stop: <rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" stroke="none"/>,
@@ -284,7 +285,8 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
   const vaultBusyRef = useRef(false);
   const vaultActivity = useCallback((busy: boolean) => { vaultBusyRef.current = busy; setVaultBusy(busy); }, []);
   const workspaceReturn = useRef<HTMLButtonElement>(null);
-  const [budgetFields, setBudgetFields] = useState({ rate: '', margin: '', tax: '', payment: '', validUntil: '' });
+  const [budgetFields, setBudgetFields] = useState({ rate: '', margin: '', payment: '', validUntil: '' });
+  const [monthlyFields, setMonthlyFields] = useState<Partial<Record<'cap' | 'first' | 'second' | 'vat', string>>>({});
   const [reconciliationCharges, setReconciliationCharges] = useState<Record<string, string>>({});
   const newAccountId = useRef(uuid().replaceAll('-', ''));
   const activeRef = useRef<string | null>(null);
@@ -538,6 +540,33 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     window.addEventListener('focus', syncOnFocus);
     return () => { disposed = true; window.removeEventListener('focus', syncOnFocus); unsubscribe?.(); };
   }, [bridge]);
+  useEffect(() => {
+    const boundary = status?.budget.limitReached && status.budget.monthResetsAt;
+    if (!boundary) return;
+    let disposed = false;
+    let timer: ReturnType<typeof window.setTimeout> | null = null;
+    const schedule = (delay: number) => { timer = window.setTimeout(check, delay); };
+    async function check() {
+      const previous = statusRef.current;
+      if (disposed || !previous?.budget.limitReached || previous.budget.monthResetsAt !== boundary) return;
+      if (isLocked() || dictating.current) { schedule(60_000); return; }
+      try {
+        const value: unknown = await bridge.getStatus();
+        if (!validStatus(value)) throw new Error('incompatible_host');
+        if (disposed) return;
+        if (statusRef.current !== previous) { schedule(60_000); return; }
+        statusRef.current = value;
+        setStatus(value);
+        setHostState('ready');
+        if (value.budget.limitReached && value.budget.monthResetsAt === boundary) schedule(60_000);
+      } catch {
+        // Preserve the known hard stop if local status could not be checked.
+        if (!disposed) schedule(60_000);
+      }
+    }
+    schedule(Math.max(1_000, Math.min(2_000_000_000, boundary * 1000 - Date.now())));
+    return () => { disposed = true; if (timer !== null) window.clearTimeout(timer); };
+  }, [bridge, status?.budget.limitReached, status?.budget.monthResetsAt]);
   useEffect(() => {
     let disposed = false; let unsubscribe: (() => void) | undefined;
     void bridge.subscribeClose?.(() => quitRef.current()).then(value => { if (disposed) value(); else unsubscribe = value; }).catch(() => setNotice('Native close notifications are unavailable. Use Quit Aster; no draft was discarded.'));
@@ -942,13 +971,49 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     for (const span of findMatches(text, find).spans) { chunks.push(text.slice(cursor, span.start), <mark key={span.start}>{text.slice(span.start, span.end)}</mark>); cursor = span.end; }
     chunks.push(text.slice(cursor)); return chunks;
   }
+  function closeHistorySearch() {
+    setSearchOpen(false);
+    setSearch('');
+    historyRef.current?.focus();
+  }
+  const monthlyPolicy = status?.budget.monthlyPolicy;
+  const monthlyAmount = monthlyFields.cap ?? (monthlyPolicy ? (monthlyPolicy.limitPence / 100).toFixed(2) : '');
+  const firstRemaining = monthlyFields.first ?? (monthlyPolicy ? String(monthlyPolicy.firstRemainingBps / 100) : '');
+  const secondRemaining = monthlyFields.second ?? (monthlyPolicy ? String(monthlyPolicy.secondRemainingBps / 100) : '');
+  const vat = monthlyFields.vat ?? (monthlyPolicy ? String(monthlyPolicy.taxBps / 100) : '');
+  function submitMonthlyBudget() {
+    if (statusRef.current?.availability === 'version_expired') return;
+    const limitPence = monthlyCapPence(monthlyAmount.trim());
+    if (limitPence === null) { setNotice('Enter a monthly limit from £0.01 to £10,000.00.'); return; }
+    const first = firstRemaining.trim() ? percentBasisPoints(firstRemaining.trim()) : DEFAULT_FIRST_REMAINING_BPS;
+    const second = secondRemaining.trim() ? percentBasisPoints(secondRemaining.trim()) : DEFAULT_SECOND_REMAINING_BPS;
+    const tax = vat.trim() ? percentBasisPoints(vat.trim()) : DEFAULT_UK_VAT_BPS;
+    if (first === null || second === null || tax === null || !(0 < second && second < first && first < 10_000)) {
+      setNotice(errorText.monthly_spending_invalid); return;
+    }
+    const input: MonthlyBudgetIntent = {
+      limitPence,
+      ...(firstRemaining.trim() ? { firstRemainingBps: first } : {}),
+      ...(secondRemaining.trim() ? { secondRemainingBps: second } : {}),
+      ...(vat.trim() ? { taxBps: tax } : {}),
+    };
+    void nativeAction(async () => {
+      const receipt = await bridge.configureMonthlyBudget(input);
+      if (!receipt || typeof receipt.configured !== 'boolean') throw new Error('budget_configuration_unconfirmed');
+      if (!receipt.configured) throw new Error('budget_review_declined');
+      setMonthlyFields({});
+    }, 'The spending policy was not accepted. Existing reservations remain unchanged.', latest => latest.budget.limitReached
+      ? availabilityText.budget_limit_reached
+      : latest.budget.fiscalProfileConfigured
+        ? 'Monthly spending policy saved.'
+        : 'Monthly spending policy saved. Confirm the billing profile in Providers before sending.');
+  }
   function submitBudget() {
     if (statusRef.current?.availability === 'version_expired') return;
-    const values = [budgetFields.rate, budgetFields.margin, budgetFields.tax, budgetFields.payment];
+    const values = [budgetFields.rate, budgetFields.margin, budgetFields.payment];
     const ranges = [
       [1, 10000000, 'GBP per USD must be an integer from 1 to 10000000 parts per million.'],
       [1, 10000, 'Safety margin must be an integer from 1 to 10000 basis points.'],
-      [0, 10000, 'Tax must be an integer from 0 to 10000 basis points.'],
       [0, 10000, 'Payment charges must be an integer from 0 to 10000 basis points.'],
     ] as const;
     for (let index = 0; index < values.length; index++) {
@@ -963,18 +1028,18 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     if (!budgetFields.validUntil || !Number.isSafeInteger(expires) || expires <= now || expires > deadline) {
       setNotice(`Choose an expiry after now and no later than ${displayLocalTime(deadline)} (local Windows time). The policy deadline and 31-day maximum both apply.`); return;
     }
-    const input: BudgetIntent = { accountId: status?.budget.accountId ?? newAccountId.current, gbpPerUsdPpm: Number(values[0]), marginBps: Number(values[1]), taxBps: Number(values[2]), paymentBps: Number(values[3]), validUntilUnix: expires };
+    const input: BudgetIntent = { accountId: status?.budget.accountId ?? newAccountId.current, gbpPerUsdPpm: Number(values[0]), marginBps: Number(values[1]), paymentBps: Number(values[2]), validUntilUnix: expires };
     void nativeAction(async () => {
       const receipt = await bridge.configureBudget(input);
       if (!receipt || typeof receipt.configured !== 'boolean') throw new Error('budget_configuration_unconfirmed');
       if (!receipt.configured) throw new Error('budget_review_declined');
-    }, 'The spending configuration was not accepted. Existing reservations remain unchanged.', latest => latest.budget.configured
-      ? 'The spending policy is active. Close Settings, write a message and classify its content before sending.'
-      : 'The spending policy is still inactive. Review its expiry and any pending charges in Usage.');
+    }, 'The billing profile was not accepted. Existing reservations remain unchanged.', latest => latest.budget.fiscalProfileConfigured
+      ? 'Billing profile saved.'
+      : 'The billing profile is inactive. Check its expiry and any pending charges in Providers.');
   }
   function reconcile(requestId: string) {
     const confirmedChargeNanoGbp = parseGbp(reconciliationCharges[requestId] ?? '');
-    if (confirmedChargeNanoGbp === null) { setNotice('Enter the statement-confirmed GBP charge from £0 to £89, with no more than nine decimal places.'); return; }
+    if (confirmedChargeNanoGbp === null) { setNotice('Enter the statement-confirmed GBP charge, with no more than nine decimal places.'); return; }
     void nativeAction(() => bridge.reconcileBudget({ requestId, confirmedChargeNanoGbp }), 'The pending charge was not reconciled. Existing reservations remain unchanged.');
   }
 
@@ -1018,14 +1083,18 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
     {workspace === 'chat' && sidebarOpen && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setSidebarOpen(false)}/>}
     <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`} hidden={workspace !== 'chat'} aria-label="Conversation navigation" aria-hidden={!navigationVisible} inert={!navigationVisible}>
       <div className="brand-slot"><img src={wordmark} alt="Aster AI" className="brand-image"/></div>
-      <div className="sidebar-tools"><button className="icon-button" aria-label="New conversation" title="New conversation (Ctrl+N)" onClick={() => void newConversation()} disabled={locked || !status?.historyAvailable || status.credentialValidation !== 'valid'}><Icon name="new"/></button><button className="icon-button" aria-label="Search conversations" title="Search conversations (Ctrl+K)" disabled={locked} onClick={() => { setSearchOpen(current => !current); requestAnimationFrame(() => searchRef.current?.focus()); }}><Icon name="search"/></button></div>
-      {searchOpen && <label className="search-field"><span className="visually-hidden">Search saved conversations</span><input ref={searchRef} data-edit-key="search" type="search" value={search} maxLength={256} disabled={locked} onChange={event => setSearch(event.target.value.slice(0,256))} placeholder="Search conversations"/></label>}
       <Projects bridge={bridge} ready={hostState === 'ready'} disabled={locked || Boolean(dialog)} conversationId={conversation?.id}>
         {(projectIds, catalogueEmpty) => {
           const projectSummaries = projectIds ? filteredSummaries.filter(item => projectIds.has(item.id)) : filteredSummaries;
-          return <nav ref={historyRef} className="history-list" aria-label="Saved conversations" tabIndex={0}>
+          return <>
+            {searchOpen && <div className="history-search">
+              <label className="search-field"><span className="visually-hidden">Search saved conversations</span><input ref={searchRef} data-edit-key="search" type="search" value={search} maxLength={256} disabled={locked || Boolean(dialog)} onChange={event => setSearch(event.target.value.slice(0,256))} placeholder="Search conversations" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeHistorySearch(); } }}/></label>
+              <button type="button" className="icon-button" aria-label="Close conversation search" disabled={locked || Boolean(dialog)} onClick={closeHistorySearch}><Icon name="close" size={16}/></button>
+            </div>}
+            <nav ref={historyRef} className="history-list" aria-label="Saved conversations" tabIndex={0}>
             {projectSummaries.length ? projectSummaries.map(item => <button key={item.id} className={`history-row ${conversation?.id === item.id ? 'selected' : ''}`} aria-current={conversation?.id === item.id ? 'page' : undefined} onClick={() => void chooseConversation(item.id)} disabled={locked} title={item.title || 'Untitled conversation'}><span>{item.title || 'Untitled conversation'}</span><small>{item.entryCount} {item.entryCount === 1 ? 'message' : 'messages'}</small></button>) : !(catalogueEmpty && !search && status?.historyAvailable && !summaries.length) && <p className="muted-line">{search ? 'No matching conversations.' : projectIds ? 'No conversations in this project.' : status?.historyAvailable ? 'No saved conversations yet.' : 'Saved history unavailable.'}</p>}
-          </nav>;
+            </nav>
+          </>;
         }}
       </Projects>
       <footer className="sidebar-footer"><p>{status?.historyAvailable ? 'History is saved on this Windows account.' : 'Saved history is currently unavailable.'}<br/>Responses are generated by Meta.</p><button ref={settingsButton} className="settings-button" onClick={event => openDialog('settings', event.currentTarget)}><Icon name="settings"/><span>Settings</span></button></footer>
@@ -1053,6 +1122,8 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       </div>
       <div className="composer-zone">
         {status && status.credentialValidation !== 'valid' && <div className="credential-notice" role="status"><span>{credentialGuidance}</span><button onClick={event => { setSettingsTab('providers'); openDialog('settings', event.currentTarget); }}>Open Settings</button></div>}
+        {!dialog && !status?.budget.limitReached && status?.budget.warningLevel === 1 && monthlyPolicy && <p className="notice" role="alert">First spending warning: at least {(10_000 - monthlyPolicy.firstRemainingBps) / 100}% of the monthly limit has been used.</p>}
+        {!dialog && !status?.budget.limitReached && status?.budget.warningLevel === 2 && monthlyPolicy && <p className="notice" role="alert">Second spending warning: at least {(10_000 - monthlyPolicy.secondRemainingBps) / 100}% of the monthly limit has been used.</p>}
         {!dialog && notice && <div className="notice" role="status"><span>{notice}</span><button className="icon-button" aria-label="Dismiss notice" onClick={() => setNotice(null)}><Icon name="close" size={16}/></button></div>}
         <div className="composer"><label className="visually-hidden" htmlFor="message-input">Message for Aster</label><textarea ref={draftRef} id="message-input" placeholder="Ask Aster" value={draft} onChange={event => changeDraft(event.target.value)} disabled={locked || Boolean(dialog)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} rows={2} aria-describedby="composer-guidance message-limit"/>
           {Boolean(attachments.length) && <ul className="attachment-list" aria-label="Temporary attachments">{attachments.map(item => <li key={item.id}><span className="attachment-label">{item.label}</span><span className="attachment-details">{item.kind === 'pdf' ? `${item.pageCount} ${item.pageCount === 1 ? 'page' : 'pages'}` : item.kind === 'image' ? 'Image' : 'Text'} · {item.processedBytes.toLocaleString('en-GB')} bytes</span><button className="icon-button" aria-label={`Remove attachment ${item.label}`} disabled={locked || Boolean(dialog)} onClick={() => void removeAttachment(item.id)}><Icon name="close" size={14}/></button></li>)}</ul>}
@@ -1071,7 +1142,7 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
           <button type="button" disabled={Boolean(dialog)} onClick={() => setDataClass('synthetic')}>Synthetic</button>
           <button type="button" disabled={Boolean(dialog)} onClick={() => setDataClass('public_eligible')}>Eligible public</button>
         </div>}
-        {status?.availability === 'needs_budget' && <button className="secondary-action budget-setup-action" disabled={locked || Boolean(dialog)} onClick={event => { setSettingsTab('usage'); openDialog('settings', event.currentTarget); }}>Review spending policy</button>}
+        {status?.availability === 'needs_budget' && <button className="secondary-action budget-setup-action" disabled={locked || Boolean(dialog)} onClick={event => { setSettingsTab(status.budget.monthlyPolicy && !status.budget.fiscalProfileConfigured ? 'providers' : 'usage'); openDialog('settings', event.currentTarget); }}>Review spending policy</button>}
       </div>
     </main>
     {workspace === 'customize' && <main id="customize-main" className="customize-workspace" tabIndex={-1} aria-label="Customize workspace">
@@ -1085,10 +1156,10 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
       {dialog === 'quit' ? <div className="help-copy"><p>Quitting will discard unsent drafts and temporary attachments held in this process. Saved conversations, credentials and spending records will not be removed or reset.</p><div className="settings-actions"><button className="secondary-action" data-default-cancel onClick={() => setDialog(null)}>Keep working</button><button className="primary-action" disabled={locked || !bridge.windowAction} onClick={() => { dialogStateRef.current = null; setDialog(null); void windowAction('close'); }}>Discard drafts and quit</button></div></div> : dialog === 'help' ? <div className="help-copy">
         {helpPage === 'documentation' && <p>Choosing files with + adds to the current temporary attachment batch. Cancelling retains the previous selection and your text draft. The combined batch stays within four files and its original five-minute lifetime; adding files does not extend that lifetime. Processed text is already included in the saved user message. View processed pages is a local native viewer for image/PDF derivatives, not an original-file reader or disclosure approval.</p>}
         {helpPage === 'documentation' && <p>The combined native PDF-original and normalised-image bytes sent inline must fit 16 MiB before base64 encoding; the complete serialised reviewed request must fit 24 MiB. These additional mixed-egress limits can refuse a batch that fits the separate source and processed-image limits; nothing is silently truncated. Encrypted processed history is limited to 16 MiB cumulative processed content per conversation, including inert text and PNG pages, without automatic eviction or quota reset.</p>}
-        {helpPage === 'documentation' && <><p>Aster uses one model: {MODEL_LABEL}. Responses are generated externally, not on this laptop.</p><p>Use only synthetic examples or public material whose rights and eligibility are established. Personal, confidential, sensitive and unknown content is prohibited. A public source can still contain personal information. Each full outgoing conversation needs fresh native disclosure review.</p><p>Ctrl+N creates a conversation; Ctrl+K searches saved conversation titles. Enter sends and Shift+Enter adds a line. Stop ends the visible request, not a possible charge. Failed, stopped, refused, truncated and interrupted responses are not automatically reused as context.</p><p>Saved history is encrypted for this Windows account. Other processes under the same account remain a risk. Removing a conversation hides it from history; encrypted recovery records remain and disk capacity is not reclaimed. Credentials, spending and file-recovery records are not removed.</p><p>Use + for a native Windows file selection only when the host admits attachment import. Direct formats are TXT, MD, JSON, XML, YAML, CSV, TSV, PNG, JPG, JPEG, static GIF and PDF; no more than four temporary attachments are admitted. Adding a file does not send it, approve it or grant project access.</p><p>Each original is limited to 8 MiB and the current batch to 16 MiB. PDFs are limited to 20 pages per batch; every admitted page is processed for local preview at 150 DPI. Images are limited to 4,096 pixels per dimension and 4,194,304 decoded pixels; GIF must have one frame. A file's processed image output must fit 4 MiB. The complete prompt and text attachment context must fit the 32,768-byte message limit.</p><p>DOCX, XLSX and PPTX are not imported directly. Convert the complete document to PDF externally with your own trusted tool, such as your own LibreOffice installation, and check every page, sheet, print range and visual before attaching it. Aster does not invoke or require an Office converter. Unsupported, excessive or unsafe files are refused rather than silently truncated.</p><p>A PDF is sent natively to Meta from its immutable temporary copy, only after the complete native disclosure review. Processed page-images are a local preview/history representation, not a replacement for that native PDF request. The full original can contain metadata and hidden content that the page preview does not show; confirm eligibility of the complete source, not just its visible pages.</p><p>Originals are temporary and are not restored after restart. Removing an attachment or switching chats discards its temporary identifier. Encrypted history retains only processed content, all processed PDF pages and responses. View processed pages opens a local native view without a Meta request. These pages are not automatically resent, and no original, file-read permission or disclosure approval is reconstructed. Reattach the original PDF for another complete native reading.</p><p>To dictate, select the microphone beside the reasoning selector and approve recording in Windows. Select Finish dictation to transcribe locally with whisper.cpp. Review the editable draft and classify it before sending.</p><p>Main-chat/model tools, local project reads and file writes, browser, shell and general web access remain disabled. The separate GitHub popup supports explicit native-reviewed account/repository selection and bounded file reading only; it grants no write, merge or Meta disclosure permission. The £89 monthly admission ceiling is not a provider billing balance and does not cover activity outside Aster.</p><p>Unsent text drafts stay in memory while switching chats. They are not saved between restarts. Quit reviews unsent draft and temporary attachment loss with Keep working selected by default.</p><p>Find counts literal case-insensitive matches in the visible conversation. At most the first 512 matches in each message are highlighted; no protected-store or network search occurs.</p></>}
+        {helpPage === 'documentation' && <><p>Aster uses one model: {MODEL_LABEL}. Responses are generated externally, not on this laptop.</p><p>Use only synthetic examples or public material whose rights and eligibility are established. Personal, confidential, sensitive and unknown content is prohibited. A public source can still contain personal information. Each full outgoing conversation needs fresh native disclosure review.</p><p>Ctrl+N creates a conversation; Ctrl+K searches saved conversation titles. Enter sends and Shift+Enter adds a line. Stop ends the visible request, not a possible charge. Failed, stopped, refused, truncated and interrupted responses are not automatically reused as context.</p><p>Saved history is encrypted for this Windows account. Other processes under the same account remain a risk. Removing a conversation hides it from history; encrypted recovery records remain and disk capacity is not reclaimed. Credentials, spending and file-recovery records are not removed.</p><p>Use + for a native Windows file selection only when the host admits attachment import. Direct formats are TXT, MD, JSON, XML, YAML, CSV, TSV, PNG, JPG, JPEG, static GIF and PDF; no more than four temporary attachments are admitted. Adding a file does not send it, approve it or grant project access.</p><p>Each original is limited to 8 MiB and the current batch to 16 MiB. PDFs are limited to 20 pages per batch; every admitted page is processed for local preview at 150 DPI. Images are limited to 4,096 pixels per dimension and 4,194,304 decoded pixels; GIF must have one frame. A file's processed image output must fit 4 MiB. The complete prompt and text attachment context must fit the 32,768-byte message limit.</p><p>DOCX, XLSX and PPTX are not imported directly. Convert the complete document to PDF externally with your own trusted tool, such as your own LibreOffice installation, and check every page, sheet, print range and visual before attaching it. Aster does not invoke or require an Office converter. Unsupported, excessive or unsafe files are refused rather than silently truncated.</p><p>A PDF is sent natively to Meta from its immutable temporary copy, only after the complete native disclosure review. Processed page-images are a local preview/history representation, not a replacement for that native PDF request. The full original can contain metadata and hidden content that the page preview does not show; confirm eligibility of the complete source, not just its visible pages.</p><p>Originals are temporary and are not restored after restart. Removing an attachment or switching chats discards its temporary identifier. Encrypted history retains only processed content, all processed PDF pages and responses. View processed pages opens a local native view without a Meta request. These pages are not automatically resent, and no original, file-read permission or disclosure approval is reconstructed. Reattach the original PDF for another complete native reading.</p><p>To dictate, select the microphone beside the reasoning selector and approve recording in Windows. Select Finish dictation to transcribe locally with whisper.cpp. Review the editable draft and classify it before sending.</p><p>Main-chat/model tools, local project reads and file writes, browser, shell and general web access remain disabled. The separate GitHub popup supports explicit native-reviewed account/repository selection and bounded file reading only; it grants no write, merge or Meta disclosure permission. The monthly spending limit is not a provider billing balance and does not cover activity outside Aster.</p><p>Unsent text drafts stay in memory while switching chats. They are not saved between restarts. Quit reviews unsent draft and temporary attachment loss with Keep working selected by default.</p><p>Find counts literal case-insensitive matches in the visible conversation. At most the first 512 matches in each message are highlighted; no protected-store or network search occurs.</p></>}
         {helpPage === 'shortcuts' && <><p>Shortcuts apply to the active Aster field or local view. Busy actions and behind-dialogue shortcuts remain unavailable. Clipboard access can be refused by the WebView; no background clipboard reader is used.</p><p>Ctrl + mouse wheel zooms the local interface. Ctrl++ (including Ctrl+= or keypad plus), Ctrl+- and Ctrl+0 use the same 80–150% range. The current percentage appears for one second after each admitted zoom action.</p><dl className="shortcut-list">{Object.values(menuGroups).flat(2).filter(item => item.shortcut).map(item => <div key={item.action}><dt>{item.label}</dt><dd>{item.shortcut}</dd></div>)}<div><dt>Send / add a line</dt><dd>Enter / Shift+Enter</dd></div><div><dt>Menu navigation</dt><dd>Arrow keys, Home, End, Escape</dd></div></dl></>}
         {helpPage === 'news' && <>
-          <p>Aster Desktop v{packageInfo.version} adds local whisper.cpp dictation to the composer. Select the microphone, confirm in Windows, then finish dictation to edit the text before classifying and sending it.</p>
+          <p>Aster Desktop v{packageInfo.version.replace('+', '.')} includes local whisper.cpp dictation in the composer. Select the microphone, confirm in Windows, then finish dictation to edit the text before classifying and sending it.</p>
           <p>New conversations, attachment import and sends require current-key authentication proof. A configured key alone is not proof; successful validation does not establish inference, billing, quota or capacity. Saved history remains locally viewable.</p>
           <p>Personalization is exclusively local and never becomes provider, summary, package, GitHub or diagnostic context. The local catalogue supports bounded inert editors, JSON import and enable preferences, including the read-only Aster Builder instructions; scripts, hooks and third-party MCP execution remain unavailable.</p>
           <p>Muse Spark generation uses only an explicitly classified eligible description and a separate native review. Its fresh ordinary local conversation retains the description, prompt and response. Only a completed valid result opens an unsaved draft; Save and enable remain separate.</p>
@@ -1099,8 +1170,8 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
           <p>Ctrl + mouse wheel, main-key and keypad shortcuts retain bounded interface zoom and one-second percentage feedback. Existing branding assets and blue send/stop treatment are retained; the owner-reference layout, not predecessor geometry, governs this version.</p>
         </>}
         {helpPage === 'troubleshooting' && <><p>If the host, history or spending needs attention, read the local notice and Settings. Do not reset protected records, remove unresolved charges or repeatedly retry a failed request.</p><p>Enter a key only in the native Windows dialogue. Do not paste keys into chat or diagnostic reports. A configured key does not prove a live connection.</p><p>If Windows or security software blocks the app, retain the exact alert and seek review. Do not disable protection or add exclusions. Opening help does not submit files, logs or a Meta request.</p><p>Use Keep working to cancel quitting. If clipboard access fails, ordinary editing remains local; no alternative global reader is attempted.</p></>}
-        {helpPage === 'status' && <><p>Native host: {hostState === 'ready' ? 'Available; protocol 5.' : 'Unavailable or not yet verified.'}</p><p>Live inference, billing and capacity: unverified. No request or probe is made by this view.</p><p>Credential: {status?.configured ? 'Configured; bytes are not available here.' : 'Not configured or unavailable.'}</p><p>Authentication: {credentialGuidance}</p><p>Saved history: {status?.historyAvailable ? 'Available for this Windows account.' : 'Unavailable or unverified.'}</p><p>Contributor eligibility: {status?.contributor.eligible ? 'Recorded locally; not a live entitlement check.' : 'Unconfirmed.'}</p><p>Spending policy: {status?.budget.configured ? 'Configured locally; not a provider billing balance.' : 'Not configured or unavailable.'} {status?.budget.requiresReconciliation ? 'Pending reconciliation blocks sending.' : 'No current reconciliation flag; no zero-charge claim is made.'}</p><p>Native-selected attachment import: {status?.capabilities.attachmentImport && bridge.selectAttachments && bridge.removeAttachment ? 'Available; every disclosure still needs native review.' : 'Unavailable or unverified.'}</p><p>Main-chat/model tools, general filesystem access, shell, browser and general web access: disabled. Aster_obsidian is a separate local Settings workspace; it does not supply request context. GitHub uses a separate reviewed native account/read route; its live acceptance is not established by this view. Mutations and merges remain unavailable.</p><p>Window controls: {bridge.windowAction ? 'Native bounded actions available; installed behaviour requires acceptance.' : 'Unavailable in this host.'}</p></>}
-        {helpPage === 'about' && <><p>Aster Desktop v{packageInfo.version}</p><p>Unsigned engineering build for Windows 11 x64. This is not a production or live-provider acceptance claim.</p><p>{MODEL_LABEL} is the sole admitted model. Responses are generated by Meta.</p><p>British English interface. History is protected for this Windows account; unsent drafts remain process memory only.</p></>}
+        {helpPage === 'status' && <><p>Native host: {hostState === 'ready' ? 'Available; protocol 6.' : 'Unavailable or not yet verified.'}</p><p>Live inference, billing and capacity: unverified. No request or probe is made by this view.</p><p>Credential: {status?.configured ? 'Configured; bytes are not available here.' : 'Not configured or unavailable.'}</p><p>Authentication: {credentialGuidance}</p><p>Saved history: {status?.historyAvailable ? 'Available for this Windows account.' : 'Unavailable or unverified.'}</p><p>Contributor eligibility: {status?.contributor.eligible ? 'Recorded locally; not a live entitlement check.' : 'Unconfirmed.'}</p><p>Spending policy: {status?.budget.configured ? 'Configured locally; not a provider billing balance.' : 'Not configured or unavailable.'} {status?.budget.requiresReconciliation ? 'Pending reconciliation blocks sending.' : 'No current reconciliation flag; no zero-charge claim is made.'}</p><p>Native-selected attachment import: {status?.capabilities.attachmentImport && bridge.selectAttachments && bridge.removeAttachment ? 'Available; every disclosure still needs native review.' : 'Unavailable or unverified.'}</p><p>Main-chat/model tools, general filesystem access, shell, browser and general web access: disabled. Aster_obsidian is a separate local Settings workspace; it does not supply request context. GitHub uses a separate reviewed native account/read route; its live acceptance is not established by this view. Mutations and merges remain unavailable.</p><p>Window controls: {bridge.windowAction ? 'Native bounded actions available; installed behaviour requires acceptance.' : 'Unavailable in this host.'}</p></>}
+        {helpPage === 'about' && <><p>Aster Desktop v{packageInfo.version.replace('+', '.')}</p><p>Unsigned engineering build for Windows 11 x64. This is not a production or live-provider acceptance claim.</p><p>{MODEL_LABEL} is the sole admitted model. Responses are generated by Meta.</p><p>British English interface. History is protected for this Windows account; unsent drafts remain process memory only.</p></>}
       </div> : <div className="settings-layout">
         <nav className="settings-navigation" aria-label="Settings sections">{([['providers','Providers'],['personalization','Personalization'],['usage','Usage'],['local','Local data'],['obsidian','Aster_obsidian'],['customize','Customize'],['about','About']] as const).map(([value,label]) => <button key={value} aria-current={settingsTab === value ? 'page' : undefined} disabled={vaultBusy} onClick={() => { if (!vaultBusyRef.current) setSettingsTab(value); }}>{label}</button>)}</nav>
         <div className="settings-content">
@@ -1108,13 +1179,32 @@ export function App({ bridge = nativeBridge }: { bridge?: Bridge }) {
         {settingsTab === 'obsidian' && <VaultSettings bridge={bridge} locked={locked} onBusyChange={vaultActivity}/>}
         <div hidden={settingsTab !== 'personalization'}><Personalization bridge={bridge} locked={locked} onNavigationBlockedChange={profileNavigation}/></div>
         <section hidden={settingsTab !== 'customize'} className="settings-section"><h3>Customize workspace</h3><p>Skills and Plugins have a full-page local workspace. Opening it preserves the chat, its draft, classification and temporary attachments. Personalization stays separately in Settings and is never used to generate a package.</p><p>Save or clear any changed Personalization before opening Customize. Alternatively, explicitly close Settings to discard unsaved profile edits, then reopen it. A local profile change in progress must finish first.</p><button className="primary-action" disabled={locked || profileNavigationBlocked || workspace === 'customize'} onClick={openCustomize}>Open Customize workspace</button></section>
-        <section hidden={settingsTab !== 'about'} className="settings-section"><h3>About Aster</h3><p>Aster Desktop v{packageInfo.version}. Unsigned engineering development; native, installed and live acceptance remain separate.</p><p>Personalization is exclusively local. Skills and imported plugins are inert instructions, not permissions. Context compaction is not available until its provider accounting and migration are qualified.</p><p>The owner-reported flicker remains under investigation. Startup delays are not evidence of a cure.</p><RenderingDiagnostics bridge={bridge}/></section>
+        <section hidden={settingsTab !== 'about'} className="settings-section"><h3>About Aster</h3><p>Aster Desktop v{packageInfo.version.replace('+', '.')}. Unsigned engineering development; native, installed and live acceptance remain separate.</p><p>Personalization is exclusively local. Skills and imported plugins are inert instructions, not permissions. Context compaction is not available until its provider accounting and migration are qualified.</p><p>The owner-reported flicker remains under investigation. Startup delays are not evidence of a cure.</p><RenderingDiagnostics bridge={bridge}/></section>
         <div hidden={settingsTab !== 'providers'}>
         <section className="settings-section"><h3>Contributor terms and eligibility</h3><p>Terms revision: {status?.contributor.termsRevision ?? 'Unavailable'}. {status?.contributor.accepted ? 'Reviewed locally.' : 'Not yet reviewed.'} {status?.contributor.eligible ? 'Owner eligibility declaration recorded.' : 'Eligibility unconfirmed.'}</p><p>Contributor permits training on inputs and responses. Sensitive, personal and confidential content is prohibited; consent cannot make prohibited content admissible.</p><p>Aster checks public GitHub Releases for a newer stable Windows installer. The check sends no keys or conversations, and never downloads or installs updates.</p><button className="primary-action" disabled={locked || !status || versionExpired} onClick={() => void nativeAction(() => bridge.acceptContributorTerms(), 'The Contributor terms or eligibility review was not accepted.')}>Review terms and eligibility in Windows</button></section>
-        <section className="settings-section"><h3>Meta credential</h3><p>{credentialGuidance}</p>{status?.credentialAvailable && <p>Use the Windows dialogue below, or save a generic credential named <code>AsterDesktop/MetaModelAPI/v1</code> in Windows Credential Manager and select Validate key in Windows.</p>}<div className="settings-actions"><button className="primary-action" disabled={locked || !status?.credentialAvailable} onClick={() => void nativeAction(() => bridge.configureCredential(), 'The credential could not be configured. Check the native Windows dialogue.')}>{!status?.credentialAvailable ? 'Credential store unavailable' : status.configured ? 'Change key in Windows' : 'Set up key in Windows'}</button><button className="secondary-action" disabled={locked || !status?.configured || !bridge.verifyCredential} onClick={() => void nativeAction(() => bridge.verifyCredential!(), 'Key validation could not be completed. The existing key was not labelled invalid.')}>Validate key in Windows</button><button className="secondary-action" disabled={locked || !status?.configured} onClick={() => void nativeAction(() => bridge.removeCredential(), 'The credential was not removed. Check the native confirmation.')}>Remove key…</button></div></section>
-        </div><div hidden={settingsTab !== 'usage'}>
-        <section className="settings-section"><h3>Monthly spending policy</h3><dl className="budget-summary"><dt>Policy status</dt><dd>{status?.budget.configured ? 'Active' : 'Not active — complete and confirm the financial review.'}</dd>{status?.budget.configurationExpiresAt != null && <><dt>Confirmed expiry (local Windows time)</dt><dd>{displayLocalTime(status.budget.configurationExpiresAt)}</dd></>}<dt>Period (Edinburgh / London)</dt><dd>{status?.budget.period ?? 'Not configured'}</dd><dt>Admission ceiling</dt><dd>£89.00</dd><dt>Recorded spending</dt><dd>{status ? formatGbp(status.budget.spentNanoGbp) : 'Unavailable'}</dd><dt>Pending reservations</dt><dd>{status ? formatGbp(status.budget.reservedNanoGbp) : 'Unavailable'}</dd><dt>Remaining admission amount</dt><dd>{status ? formatGbp(status.budget.remainingNanoGbp) : 'Unavailable'}</dd></dl>{status?.budget.warning && <p className="inline-state">The 90% spending warning has been reached.</p>}{status?.budget.requiresReconciliation && <p className="inline-state">Reconciliation required. Sending remains blocked; restarting or removing conversations does not free reservations.</p>}<p>Enter conservative values explicitly. One part per million represents 0.000001 GBP per USD; 100 basis points represents 1%. There is no automatic FX estimate or reset.</p><p id="budget-expiry-guidance">{status?.budget.configurationMaxUntil != null ? `Choose a future expiry no later than ${displayLocalTime(status.budget.configurationMaxUntil)} (local Windows time). Financial configurations are valid for at most 31 days.` : 'No current financial review window is available. Check the Windows date and time.'} Entered fields take effect only after native confirmation.</p><div className="financial-fields">{([['rate','GBP per USD (integer parts per million)'],['margin','Safety margin (basis points)'],['tax','Tax (basis points)'],['payment','Payment charges (basis points)']] as const).map(([field,label]) => <label key={field}>{label}<input inputMode="numeric" value={budgetFields[field]} onChange={event => setBudgetFields(current => ({ ...current, [field]: event.target.value }))} disabled={locked}/></label>)}<label>Valid until (local Windows time; maximum 31 days)<input type="datetime-local" min={localDateTime(Math.floor(Date.now() / 1000) + 60)} max={localDateTime(status?.budget.configurationMaxUntil)} aria-describedby="budget-expiry-guidance" value={budgetFields.validUntil} onChange={event => setBudgetFields(current => ({ ...current, validUntil: event.target.value }))} disabled={locked}/></label></div><button className="secondary-action" disabled={locked || !status || versionExpired || status.budget.configurationMaxUntil === null} onClick={submitBudget}>Review financial configuration in Windows</button></section>
+        <section className="settings-section"><h3>Meta credential</h3><p>{credentialGuidance}</p>{status?.credentialAvailable && <p>Use the Windows dialogue below, or save a generic credential named <code>AsterDesktop/MetaModelAPI/v1</code> in Windows Credential Manager and select Validate key in Windows.</p>}<div className="settings-actions"><button className="primary-action" disabled={locked || !status?.credentialAvailable} onClick={() => void nativeAction(() => bridge.configureCredential(), 'The credential could not be configured. Check the native Windows dialogue.')}>{!status?.credentialAvailable ? 'Credential store unavailable' : status.configured ? 'Change key in Windows' : 'Set up key in Windows'}</button><button className="secondary-action" disabled={locked || Boolean(status?.budget.limitReached) || !status?.configured || !bridge.verifyCredential} onClick={() => void nativeAction(() => bridge.verifyCredential!(), 'Key validation could not be completed. The existing key was not labelled invalid.')}>Validate key in Windows</button><button className="secondary-action" disabled={locked || !status?.configured} onClick={() => void nativeAction(() => bridge.removeCredential(), 'The credential was not removed. Check the native confirmation.')}>Remove key…</button></div></section>
+        <section className="settings-section">
+          <h3>Provider billing profile</h3>
+          <p>{status?.budget.fiscalProfileConfigured && status.budget.configurationExpiresAt != null
+            ? `Active through ${displayLocalTime(status.budget.configurationExpiresAt)} (local Windows time).`
+            : 'Not active — complete and confirm the financial review.'} The monthly limit and VAT are set in Usage. Confirm these separate bounds because Meta bills in US dollars.</p>
+          <p id="budget-expiry-guidance">{status?.budget.configurationMaxUntil != null ? `Choose a future expiry no later than ${displayLocalTime(status.budget.configurationMaxUntil)} (local Windows time).` : 'No financial review window is currently available.'} The profile lasts up to 31 days.</p>
+          <div className="financial-fields">{([['rate','GBP per USD (integer parts per million)'],['margin','Safety margin (basis points)'],['payment','Payment charges (basis points)']] as const).map(([field,label]) => <label key={field}>{label}<input inputMode="numeric" value={budgetFields[field]} onChange={event => setBudgetFields(current => ({ ...current, [field]: event.target.value }))} disabled={locked}/></label>)}
+          <label>Valid until (local Windows time; maximum 31 days)<input type="datetime-local" min={localDateTime(Math.floor(Date.now() / 1000) + 60)} max={localDateTime(status?.budget.configurationMaxUntil)} aria-describedby="budget-expiry-guidance" value={budgetFields.validUntil} onChange={event => setBudgetFields(current => ({ ...current, validUntil: event.target.value }))} disabled={locked}/></label></div>
+          <button className="secondary-action" disabled={locked || !status || versionExpired || status.budget.configurationMaxUntil === null} onClick={submitBudget}>Review billing profile in Windows</button>
+        </section>
         {Boolean(status?.budget.pending.length) && <section className="settings-section"><h3>Pending request charges</h3><p>Use your Meta statement or dashboard to confirm each charge. This is owner-confirmed reconciliation, not API-measured usage. Each proposal needs a separate native confirmation; no balance reset is available.</p>{status?.budget.pending.map(item => <div className="pending-charge" key={item.requestId}><p>Request: {item.requestId}<br/>Period: {item.period} · Reserved: {formatGbp(item.reservationNanoGbp)} · {item.dispatched ? 'Dispatch may have occurred' : 'Not marked dispatched'}</p><label>Statement-confirmed charge in GBP for {item.requestId}<input inputMode="decimal" value={reconciliationCharges[item.requestId] ?? ''} onChange={event => setReconciliationCharges(current => ({ ...current, [item.requestId]: event.target.value }))} disabled={locked}/></label><button className="secondary-action" disabled={locked} onClick={() => reconcile(item.requestId)}>Review this charge in Windows</button></div>)}</section>}
+        </div><div hidden={settingsTab !== 'usage'}>
+          <section className="settings-section">
+            <h3>Monthly spending policy</h3>
+            <div className="financial-fields">
+              <label>Monthly limit (£)<input inputMode="decimal" value={monthlyAmount} onChange={event => setMonthlyFields(current => ({ ...current, cap: event.target.value }))} disabled={locked}/></label>
+              <label>First warning (% remaining)<input inputMode="decimal" placeholder="10" value={firstRemaining} onChange={event => setMonthlyFields(current => ({ ...current, first: event.target.value }))} disabled={locked}/></label>
+              <label>Second warning (% remaining)<input inputMode="decimal" placeholder="5" value={secondRemaining} onChange={event => setMonthlyFields(current => ({ ...current, second: event.target.value }))} disabled={locked}/></label>
+              <label>UK VAT (%)<input inputMode="decimal" placeholder="20" value={vat} onChange={event => setMonthlyFields(current => ({ ...current, vat: event.target.value }))} disabled={locked}/></label>
+            </div>
+            <button className="secondary-action" disabled={locked || !status || versionExpired || status.budget.configurationMaxUntil === null} onClick={submitMonthlyBudget}>Review monthly spending in Windows</button>
+          </section>
         </div><div hidden={settingsTab !== 'local'}><section className="settings-section"><h3>Saved conversations</h3><p>Host-owned, encrypted history persists across restarts. Loading it restores processed display content and responses, never original files, approvals, active requests or financial authority. Historical page views are local only; reattach a PDF for another complete native reading. No history import or export is enabled.</p><button className="secondary-action" disabled={locked || !conversation} onClick={() => void removeConversation()}><Icon name="trash" size={15}/> Remove this conversation from history…</button><p>Removal needs native confirmation. Encrypted recovery records remain and disk capacity is not reclaimed. Spending, credentials and file-recovery records are unchanged.</p></section></div>
         </div>
       </div>}
