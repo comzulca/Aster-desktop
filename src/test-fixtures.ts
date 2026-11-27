@@ -4,13 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { DEFAULT_MODEL, type AppStatus, type Bridge, type Conversation, type StreamEvent } from './types';
 
 export const baseline: AppStatus = {
-  protocolVersion: 5, policyVersion: 4, configured: true, credentialAvailable: true,
+  protocolVersion: 6, policyVersion: 4, configured: true, credentialAvailable: true,
   credentialValidation: 'valid',
   defaultModel: DEFAULT_MODEL, models: [{ id: DEFAULT_MODEL, label: 'Muse Spark 1.3 · Contributor' }],
   activeRequest: false, projectSelected: false, projectLabel: null,
   capabilities: { projectRead: false, proposals: false, applyNewFile: false, applyExistingFile: false, attachmentImport: false },
   availability: 'ready', contributor: { termsRevision: '2026-10-09', accepted: true, eligible: true }, historyAvailable: true,
-  budget: { accountId: 'a'.repeat(32), pending: [], configured: true, period: '2026-10', limitNanoGbp: '89000000000', spentNanoGbp: '0', reservedNanoGbp: '0', remainingNanoGbp: '89000000000', warning: false, requiresReconciliation: false, configurationExpiresAt: 1790964000, configurationMaxUntil: 1796515200 },
+  budget: { accountId: 'a'.repeat(32), pending: [], configured: true, period: '2026-10', limitNanoGbp: '89000000000', spentNanoGbp: '0', reservedNanoGbp: '0', remainingNanoGbp: '89000000000', warningLevel: 0, limitReached: false, monthResetsAt: 1793491200, monthlyPolicy: { limitPence: 8900, firstRemainingBps: 1000, secondRemainingBps: 500, taxBps: 2000 }, fiscalProfileConfigured: true, requiresReconciliation: false, configurationExpiresAt: 1790964000, configurationMaxUntil: 1796515200 },
 };
 export async function selectClassification(value: 'synthetic' | 'public_eligible') {
   await userEvent.click(screen.getByRole('button', { name: 'Reasoning effort' }));
@@ -36,6 +36,7 @@ export function fakeBridge(status: AppStatus = baseline, initial: Conversation[]
     verifyCredential: vi.fn(async () => ({ state: 'valid' as const })),
     acceptContributorTerms: vi.fn(async () => ({ accepted: true })),
     configureBudget: vi.fn(async () => ({ configured: true })),
+    configureMonthlyBudget: vi.fn(async () => ({ configured: true })),
     reconcileBudget: vi.fn(async () => ({ reconciled: true })),
     listConversations: vi.fn(async () => [...records.values()].map(item => ({ id: item.id, title: item.title, updatedAt: item.updatedAt, entryCount: item.entries.length }))),
     createConversation: vi.fn(async () => { const item: Conversation = { id: `new_${++sequence}`, title: 'Untitled conversation', updatedAt: sequence, entries: [] }; records.set(item.id, item); return structuredClone(item); }),

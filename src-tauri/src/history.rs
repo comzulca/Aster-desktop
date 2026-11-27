@@ -8,7 +8,7 @@ use crate::processed_history::{validate_binding, ProcessedBinding};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     path::Path,
 };
 
@@ -186,7 +186,9 @@ fn text_bytes(conversation: &Conversation) -> Result<usize, StoreError> {
     })
 }
 
-fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
+fn index_validated_entries(
+    conversation: &StoredConversation,
+) -> Result<HashMap<&str, &Entry>, StoreError> {
     let display = &conversation.display;
     if !matches!(conversation.version, 1 | 2)
         || conversation.provider != PROVIDER
@@ -202,7 +204,7 @@ fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
     {
         return Err(StoreError::Corrupt);
     }
-    let mut entry_ids = HashSet::new();
+    let mut entries = HashMap::with_capacity(display.entries.len());
     let mut attachment_ids = HashSet::new();
     let mut processed_total = 0usize;
     for entry in &display.entries {
@@ -210,7 +212,7 @@ fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
             || !valid_id(&entry.request_id)
             || !matches!(entry.role.as_str(), "user" | "assistant")
             || entry.content.contains('\0')
-            || !entry_ids.insert(entry.id.as_str())
+            || entries.insert(entry.id.as_str(), entry).is_some()
         {
             return Err(StoreError::Corrupt);
         }
@@ -253,10 +255,8 @@ fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
         {
             return Err(StoreError::Corrupt);
         }
-        let user = display
-            .entries
-            .iter()
-            .find(|entry| entry.id == turn.user_entry)
+        let user = entries
+            .get(turn.user_entry.as_str())
             .ok_or(StoreError::Corrupt)?;
         if user.role != "user"
             || user.request_id != turn.request_id
@@ -282,11 +282,7 @@ fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
                 if !claimed.insert(id.as_str()) {
                     return Err(StoreError::Corrupt);
                 }
-                let answer = display
-                    .entries
-                    .iter()
-                    .find(|entry| entry.id == *id)
-                    .ok_or(StoreError::Corrupt)?;
+                let answer = entries.get(id.as_str()).ok_or(StoreError::Corrupt)?;
                 if answer.role != "assistant" || answer.request_id != turn.request_id {
                     return Err(StoreError::Corrupt);
                 }
@@ -325,7 +321,11 @@ fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
     {
         return Err(StoreError::Corrupt);
     }
-    Ok(())
+    Ok(entries)
+}
+
+fn validate(conversation: &StoredConversation) -> Result<(), StoreError> {
+    index_validated_entries(conversation).map(|_| ())
 }
 
 pub(crate) struct History {
@@ -737,21 +737,14 @@ impl History {
     pub(crate) fn eligible_pairs(&self, id: &str) -> Result<Vec<EligiblePair>, StoreError> {
         self.ensure_current()?;
         let conversation = self.conversations.get(id).ok_or(StoreError::Denied)?;
-        validate(conversation)?;
+        let entries = index_validated_entries(conversation)?;
         let mut pairs = Vec::new();
         for turn in conversation.turns.iter().filter(|turn| turn.eligible) {
-            let prompt = conversation
-                .display
-                .entries
-                .iter()
-                .find(|entry| entry.id == turn.user_entry)
+            let prompt = entries
+                .get(turn.user_entry.as_str())
                 .ok_or(StoreError::Corrupt)?;
-            let answer = conversation
-                .display
-                .entries
-                .iter()
-                .find(|entry| Some(&entry.id) == turn.assistant_entry.as_ref())
-                .ok_or(StoreError::Corrupt)?;
+            let answer_id = turn.assistant_entry.as_deref().ok_or(StoreError::Corrupt)?;
+            let answer = entries.get(answer_id).ok_or(StoreError::Corrupt)?;
             pairs.push(EligiblePair {
                 prompt: prompt.content.clone(),
                 answer: answer.content.clone(),
@@ -759,6 +752,56 @@ impl History {
             });
         }
         Ok(pairs)
+    }
+
+    // This is deliberately a test-only bridge from real host-authored history
+    // to the future text-only adapter. Never use legacy display DTOs, attachment
+    // derivatives, stale revisions, or incomplete requests as a replay source.
+    #[cfg(test)]
+    fn snapshot_text_replay(
+        &self,
+        id: &str,
+        credential_generation: u64,
+    ) -> Result<([u8; 32], Vec<EligiblePair>), StoreError> {
+        self.ensure_current()?;
+        if credential_generation == 0 {
+            return Err(StoreError::Denied);
+        }
+        let conversation = self.conversations.get(id).ok_or(StoreError::Denied)?;
+        let entries = index_validated_entries(conversation)?;
+        if conversation.pending_request.is_some() {
+            return Err(StoreError::Conflict);
+        }
+        let mut hasher = Sha256::new();
+        hasher.update(b"aster-host-text-replay-fixture-v1\0");
+        hasher.update(id.as_bytes());
+        hasher.update(self.sequence.to_be_bytes());
+        hasher.update(credential_generation.to_be_bytes());
+        let mut pairs = Vec::new();
+        for turn in conversation.turns.iter().filter(|turn| turn.eligible) {
+            let prompt = entries
+                .get(turn.user_entry.as_str())
+                .ok_or(StoreError::Corrupt)?;
+            let ans_id = turn.assistant_entry.as_deref().ok_or(StoreError::Corrupt)?;
+            let answer = entries.get(ans_id).ok_or(StoreError::Corrupt)?;
+            if !turn.processed_bindings.is_empty() || prompt.processed_attachments.is_some() {
+                return Err(StoreError::Denied);
+            }
+            for part in [
+                turn.request_id.as_str(),
+                &turn.data_class,
+                &prompt.content,
+                &answer.content,
+            ] {
+                hasher.update(Sha256::digest(part));
+            }
+            pairs.push(EligiblePair {
+                prompt: prompt.content.clone(),
+                answer: answer.content.clone(),
+                data_class: turn.data_class.clone(),
+            });
+        }
+        Ok((hasher.finalize().into(), pairs))
     }
 
     /// Fixed host-owned local viewer uses the exact visible user entry. An
@@ -826,6 +869,84 @@ impl History {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn text_replay_never_revives_invalidation_and_keeps_display() {
+        let mut store = History::memory();
+        let chat = store.create(10).unwrap().id;
+        let request = new_id().unwrap();
+        store
+            .begin_request(&chat, &request, "first", "synthetic", 11)
+            .unwrap();
+        assert_eq!(
+            store.snapshot_text_replay(&chat, 1).err(),
+            Some(StoreError::Conflict)
+        );
+        let before = store
+            .finish_request(&chat, &request, "answer", EntryState::Completed, true, 12)
+            .unwrap();
+        let (old, pairs) = store.snapshot_text_replay(&chat, 1).unwrap();
+        assert_eq!(
+            pairs.iter().map(|p| p.answer.as_str()).collect::<Vec<_>>(),
+            ["answer"]
+        );
+        assert_ne!(old, store.snapshot_text_replay(&chat, 2).unwrap().0);
+        assert_eq!(
+            store.snapshot_text_replay(&chat, 0).err(),
+            Some(StoreError::Denied)
+        );
+        store.invalidate_continuation(13).unwrap();
+        let (new, pairs) = store.snapshot_text_replay(&chat, 2).unwrap();
+        assert_ne!(old, new);
+        assert!(pairs.is_empty());
+        assert_eq!(store.load(&chat).unwrap(), before);
+        store.remove_after_native_confirmation(&chat, 14).unwrap();
+        assert_eq!(
+            store.snapshot_text_replay(&chat, 2).err(),
+            Some(StoreError::Denied)
+        );
+    }
+
+    #[test]
+    fn text_replay_rejects_approved_media_and_skips_failed_turns_without_deleting_them() {
+        let mut store = History::memory();
+        let chat = store.create(20).unwrap().id;
+        let request = new_id().unwrap();
+        store
+            .begin_request(&chat, &request, "failed", "synthetic", 21)
+            .unwrap();
+        store
+            .finish_request(&chat, &request, "partial", EntryState::Failed, false, 22)
+            .unwrap();
+        assert!(store.snapshot_text_replay(&chat, 1).unwrap().1.is_empty());
+        let media = new_id().unwrap();
+        store
+            .begin_request_with_attachments(
+                &chat,
+                &media,
+                "media",
+                "synthetic",
+                23,
+                vec![processed_metadata()],
+            )
+            .unwrap();
+        let display = store
+            .finish_request(
+                &chat,
+                &media,
+                "media derivative",
+                EntryState::Completed,
+                true,
+                24,
+            )
+            .unwrap();
+        assert_eq!(
+            store.snapshot_text_replay(&chat, 1).err(),
+            Some(StoreError::Denied)
+        );
+        assert_eq!(store.load(&chat).unwrap(), display);
+        assert_eq!(display.entries.len(), 4);
+    }
 
     fn processed_metadata() -> ProcessedBinding {
         ProcessedBinding {

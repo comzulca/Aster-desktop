@@ -29,11 +29,17 @@ export interface ConversationEntry {
 export interface ProjectSnapshot { revision: number; projects: { id: string; name: string }[]; assignments: Record<string, string> }
 export interface ConversationSummary { id: string; title: string; updatedAt: number; entryCount: number }
 export interface Conversation extends Omit<ConversationSummary, 'entryCount'> { entries: ConversationEntry[] }
+export interface MonthlyBudgetIntent {
+  limitPence: number;
+  firstRemainingBps?: number;
+  secondRemainingBps?: number;
+  taxBps?: number;
+}
+export type MonthlyBudgetPolicy = Required<MonthlyBudgetIntent>;
 export interface BudgetIntent {
   accountId: string;
   gbpPerUsdPpm: number;
   marginBps: number;
-  taxBps: number;
   paymentBps: number;
   validUntilUnix: number;
 }
@@ -47,7 +53,7 @@ export interface SendMessageIntent {
   attachmentIds?: string[];
 }
 export interface AppStatus {
-  protocolVersion: 5;
+  protocolVersion: 6;
   policyVersion: 4;
   configured: boolean;
   credentialAvailable: boolean;
@@ -58,7 +64,7 @@ export interface AppStatus {
   projectSelected: false;
   projectLabel: null;
   capabilities: { projectRead: false; proposals: false; applyNewFile: false; applyExistingFile: false; attachmentImport: boolean };
-  availability: 'version_expired' | 'needs_terms' | 'needs_credential' | 'needs_budget' | 'attention_required' | 'ready' | 'busy' | 'unsupported';
+  availability: 'version_expired' | 'needs_terms' | 'needs_credential' | 'needs_budget' | 'budget_limit_reached' | 'attention_required' | 'ready' | 'busy' | 'unsupported';
   contributor: { termsRevision: string; accepted: boolean; eligible: boolean };
   historyAvailable: boolean;
   budget: {
@@ -70,7 +76,11 @@ export interface AppStatus {
     spentNanoGbp: string;
     reservedNanoGbp: string;
     remainingNanoGbp: string;
-    warning: boolean;
+    warningLevel: 0 | 1 | 2;
+    limitReached: boolean;
+    monthResetsAt: number | null;
+    monthlyPolicy: MonthlyBudgetPolicy | null;
+    fiscalProfileConfigured: boolean;
     requiresReconciliation: boolean;
     configurationExpiresAt: number | null;
     configurationMaxUntil: number | null;
@@ -174,6 +184,7 @@ export interface Bridge extends ObsidianBridge {
   readGitHubFile?(input: { path: string; branch: string }): Promise<GitHubFile>;
   acceptContributorTerms(): Promise<{ accepted: boolean }>;
   configureBudget(input: BudgetIntent): Promise<{ configured: boolean }>;
+  configureMonthlyBudget(input: MonthlyBudgetIntent): Promise<{ configured: boolean }>;
   reconcileBudget(input: { requestId: string; confirmedChargeNanoGbp: string }): Promise<{ reconciled: boolean }>;
   listProjects?(): Promise<ProjectSnapshot>;
   createProject?(input: { expectedRevision: number; name: string }): Promise<ProjectSnapshot>;

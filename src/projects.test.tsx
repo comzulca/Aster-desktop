@@ -22,6 +22,11 @@ describe('local Projects sidebar', () => {
     render(<App bridge={bridge}/>);
     const projects = screen.getByRole('region', { name: 'Projects' });
     expect(await within(projects).findByText('No projects')).toBeTruthy();
+    expect(projects.previousElementSibling?.querySelector('img')?.alt).toBe('Aster AI');
+    expect(projects.nextElementSibling).toBe(screen.getByRole('navigation', { name: 'Saved conversations' }));
+    expect(screen.queryByText('No saved conversations yet.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New conversation' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Search conversations' })).toBeNull();
     const plus = within(projects).getByRole('button', { name: 'Create project' });
     await user.click(plus);
     const form = within(projects).getByRole('form', { name: 'New project' });
@@ -43,6 +48,7 @@ describe('local Projects sidebar', () => {
     const user = userEvent.setup();
     render(<App bridge={bridge}/>);
     await screen.findByRole('button', { name: 'Atlas' });
+    expect(within(screen.getByRole('navigation', { name: 'Saved conversations' })).getByText('No saved conversations yet.')).toBeTruthy();
     const plus = screen.getByRole('button', { name: 'Create project' });
     await user.click(plus);
     await user.type(screen.getByRole('textbox', { name: 'Project name' }), 'atlas');
@@ -72,8 +78,37 @@ describe('local Projects sidebar', () => {
     await user.click(screen.getByRole('button', { name: 'Atlas' }));
     expect(within(history).getByRole('button', { name: /Draft for Atlas/ })).toBeTruthy();
     expect(within(history).queryByRole('button', { name: /Unrelated chat/ })).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'All conversations' }));
+    expect(screen.queryByText('All conversations')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Atlas' }));
     expect(within(history).getByRole('button', { name: /Unrelated chat/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Clear project filter' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Atlas' }));
+    const projectToggle = screen.getByRole('button', { name: 'Projects' });
+    await user.click(projectToggle);
+    expect(projectToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: 'Atlas' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Clear project filter' }));
+    expect(document.activeElement).toBe(projectToggle);
+    expect(within(history).getByRole('button', { name: /Unrelated chat/ })).toBeTruthy();
+    expect(bridge.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('can open and then close title search from the compact sidebar without leaving a filter behind', async () => {
+    const { bridge } = fakeBridge(baseline, [saved(first, 'Atlas log'), saved(second, 'Luna log')]);
+    bridge.listProjects = vi.fn(async () => empty);
+    const user = userEvent.setup();
+    render(<App bridge={bridge}/>);
+    const history = screen.getByRole('navigation', { name: 'Saved conversations' });
+    await within(history).findByRole('button', { name: /Atlas log/ });
+    await user.keyboard('{Control>}k{/Control}');
+    const field = await screen.findByRole('searchbox', { name: 'Search saved conversations' });
+    await waitFor(() => expect(document.activeElement).toBe(field));
+    await user.type(field, 'Atlas');
+    expect(within(history).getAllByRole('button')).toHaveLength(1);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('searchbox', { name: 'Search saved conversations' })).toBeNull();
+    expect(within(history).getAllByRole('button')).toHaveLength(2);
+    expect(document.activeElement).toBe(history);
     expect(bridge.sendMessage).not.toHaveBeenCalled();
   });
 });

@@ -218,7 +218,15 @@ impl Lifecycle {
 }
 
 fn installed() -> Result<Version, StoreError> {
-    Version::parse(env!("CARGO_PKG_VERSION")).ok_or(StoreError::Corrupt)
+    // The engineering revision uses numeric build metadata for the NSIS
+    // four-part Windows version. Published release tags remain strict triples.
+    let version = env!("CARGO_PKG_VERSION");
+    let release_base = if version == "0.2.5+1" {
+        "0.2.5"
+    } else {
+        version
+    };
+    Version::parse(release_base).ok_or(StoreError::Corrupt)
 }
 
 fn client() -> Result<reqwest::Client, reqwest::Error> {

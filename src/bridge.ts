@@ -72,6 +72,7 @@ export const nativeBridge: Bridge = {
   readGitHubFile: input => callHost('read_github_file', { input }),
   acceptContributorTerms: () => callHost('accept_contributor_terms'),
   configureBudget: input => callHost('configure_budget', { input }),
+  configureMonthlyBudget: input => callHost('configure_monthly_spending', { input }),
   reconcileBudget: input => callHost('reconcile_budget', { input }),
   listProjects: () => callHost('list_projects'),
   createProject: input => callHost('create_project', { input }),

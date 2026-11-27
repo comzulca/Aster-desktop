@@ -17,6 +17,7 @@ mod customization;
 mod customization_generation;
 #[cfg(test)]
 mod full_window_admission; // Content-free capacity core only; no active compaction.
+mod full_window_wire; // Stateless text representation fixtures only.
 mod github_api;
 pub mod github_connection;
 #[allow(dead_code)]
@@ -54,7 +55,7 @@ mod workspace; // Shared privacy error types/frozen recovery, no v0.2 capability
 
 use attachment_processing::ProcessedContent;
 use attachments::{AdmittedAttachment, AttachmentKind, AttachmentMetadata, AttachmentRegistry};
-use budget::{Budget, BudgetStatus, Configuration};
+use budget::{Budget, BudgetStatus, Configuration, FiscalIntent, MonthlyIntent};
 use contributor::{Contributor, ContributorStatus};
 use credential::CredentialStore;
 use credential_validation::{CredentialValidation, ValidationState};
@@ -118,6 +119,7 @@ const COMMANDS: &[&str] = &[
     "get_render_trace",
     "accept_contributor_terms",
     "configure_budget",
+    "configure_monthly_spending",
     "reconcile_budget",
     "list_projects",
     "create_project",
@@ -769,6 +771,8 @@ struct StreamEvent<'a> {
     error_code: Option<&'a str>,
 }
 
+const APP_STATUS_PROTOCOL: u32 = 6;
+
 #[tauri::command]
 fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppStatus, String> {
     trusted(&window)?;
@@ -803,6 +807,8 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         "busy"
     } else if host.release_lifecycle.require_current(time).is_err() {
         "version_expired"
+    } else if budget.limit_reached {
+        "budget_limit_reached"
     } else if !configured || credential_validation != ValidationState::Valid {
         "needs_credential"
     } else if !contributor.accepted {
@@ -817,7 +823,7 @@ fn get_app_status(window: WebviewWindow, host: State<'_, Host>) -> Result<AppSta
         "ready"
     };
     Ok(AppStatus {
-        protocol_version: 5,
+        protocol_version: APP_STATUS_PROTOCOL,
         policy_version: POLICY_VERSION,
         configured,
         credential_available,
@@ -925,6 +931,18 @@ fn require_valid_credential(host: &Host) -> Result<(), String> {
         .map_err(str::to_owned)
 }
 
+fn require_provider_metadata_budget(host: &Host) -> Result<(), String> {
+    let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
+    if !persistent(&mut state)?
+        .budget
+        .permits_provider_metadata(now()?)
+        .map_err(code)?
+    {
+        return Err("budget_limit_reached".into());
+    }
+    Ok(())
+}
+
 async fn verify_credential_inner(
     window: &WebviewWindow,
     host: &Host,
@@ -936,6 +954,7 @@ async fn verify_credential_inner(
             state: ValidationState::Missing,
         });
     }
+    require_provider_metadata_budget(host)?;
     if !review(window, operation(serde_json::json!({
         "operation":"Verify configured Meta API credential",
         "destination":provider::MODEL_VALIDATION_ENDPOINT,
@@ -954,6 +973,7 @@ async fn verify_credential_inner(
     if !previous_identity_known && !identity_already_reset {
         invalidate_identity_context(host)?;
     }
+    require_provider_metadata_budget(host)?;
     let result = provider::verify_registered_model(key.clone()).await;
     // A concurrent external credential edit cannot validate different bytes.
     let current = host.credentials.read_configured().map_err(|e| e.code())?;
@@ -1009,7 +1029,7 @@ async fn accept_contributor_terms(
         serde_json::json!({"operation":"Contributor owner attestation","termsRevision":contributor::TERMS_REVISION,
         "model":DEFAULT_MODEL,"destination":provider::ENDPOINT,"disclosure":"Meta Contributor may use prompts and answers for training. Personal, sensitive and confidential content, including private source code, must not be sent. Every complete request and prior answer needs fresh native review.",
         "ownerAttestation":"I have checked that my account, territory and intended use are eligible for this direct Meta API. I use a direct API key, not a coding-harness subscription key. Aster has not verified account entitlement.",
-        "spending":"Cancelling, refusing or failing after dispatch does not establish zero cost. Missing usage requires statement-confirmed reconciliation. The £89 local limit does not cap other clients or guarantee Meta's invoice.",
+        "spending":"Cancelling, refusing or failing after dispatch does not establish zero cost. Missing usage requires statement-confirmed reconciliation. Aster's reviewed monthly limit does not cap other clients or guarantee Meta's invoice.",
         "terms":"https://dev.meta.ai/legal/terms-of-service","geography":"https://dev.meta.ai/legal/geographic-use-policy",
         "geographyRevision":contributor_policy::GEOGRAPHY_REVISION,"policyReviewedOn":contributor_policy::REVIEWED_ON,
         "versionExpiryUnix":host.release_lifecycle.deadline(),"versionExpiryMeaning":"This build stops new sends 14 days after a newer stable Windows release becomes available. This is not Meta key or account expiry."}),
@@ -1032,11 +1052,12 @@ async fn accept_contributor_terms(
 async fn configure_budget(
     window: WebviewWindow,
     host: State<'_, Host>,
-    input: Configuration,
+    input: FiscalIntent,
 ) -> Result<BudgetReceipt, String> {
     trusted(&window)?;
     let guard = host.enter_native_dialog()?;
     host.idle()?;
+    let input = Configuration::from(input);
     let time = now()?;
     host.release_lifecycle.require_current(time)?;
     if !contributor_policy::current(time) {
@@ -1052,8 +1073,8 @@ async fn configure_budget(
         )
     };
     let document = operation(
-        serde_json::json!({"operation":"Confirm bounded financial configuration and London calendar period","configuration":input,"currentLedger":status,"previousPeriodAndClock":period_review,
-        "period":budget::period(time).map_err(code)?,"policyReviewedOn":contributor_policy::REVIEWED_ON,"statement":"I have checked the actual date and London calendar month. This explicitly activates the displayed period; changing the account alias does not reset charges. Earlier uncertain reservations remain. The declared GBP/USD rate, positive margin, tax and payment costs conservatively bound my invoice until the stated expiry. No exchange rate or tax exemption is verified by Aster.","limitNanoGbp":budget::LIMIT.to_string(),"noReset":true}),
+        serde_json::json!({"operation":"Confirm bounded Meta billing profile","billingProfile":{"accountId": input.account_id, "gbpPerUsdPpm": input.gbp_per_usd_ppm, "marginBps": input.margin_bps, "paymentBps": input.payment_bps, "validUntilUnix":input.valid_until_unix},"currentLedger":status,"previousPeriodAndClock":period_review,
+        "period":budget::period(time).map_err(code)?,"policyReviewedOn":contributor_policy::REVIEWED_ON,"statement":"I have checked the actual date, London calendar month, GBP/USD exchange rate, positive margin and payment charges. These declared bounds apply only until the stated expiry. The effective VAT rate is set through the separately confirmed monthly Usage policy. This does not change the monthly limit, reset charges or clear reservations. Aster does not independently verify the conversion rate, charges or tax treatment.","noReset":true}),
     )?;
     if !review(&window, document, &guard).await? {
         return Ok(BudgetReceipt { configured: false });
@@ -1080,6 +1101,55 @@ async fn configure_budget(
     Ok(BudgetReceipt { configured: true })
 }
 #[tauri::command]
+async fn configure_monthly_spending(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    input: MonthlyIntent,
+) -> Result<BudgetReceipt, String> {
+    trusted(&window)?;
+    let guard = host.enter_native_dialog()?;
+    host.idle()?;
+    let time = now()?;
+    host.release_lifecycle.require_current(time)?;
+    if !contributor_policy::current(time) {
+        return Err("contributor_policy_expired".into());
+    }
+    let policy = input.validate().map_err(str::to_owned)?;
+    let (status, context) = {
+        let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
+        let p = persistent(&mut state)?;
+        p.budget
+            .validate_monthly_review(&policy, time, time)
+            .map_err(code)?;
+        (
+            p.budget.status(time),
+            p.budget.review_context(None).map_err(code)?,
+        )
+    };
+    let document = operation(serde_json::json!({
+        "operation":"Confirm recurring Aster monthly spending policy",
+        "currentLedger": status,
+        "previousPeriodAndClock": context,
+        "policy": policy,
+        "limitNanoGbp": policy.limit().to_string(),
+        "calendar": "Europe/London",
+        "effect": "Aster only. The limit includes estimated VAT and the separately confirmed FX/margin/payment bounds. Reaching the cap blocks provider calls for the rest of the London calendar month. Editing these settings will not reopen that month, reset any charges or clear uncertain reservations. Billing profile expiry or reconciliation can still block sending in a new month."
+    }))?;
+    if !review(&window, document, &guard).await? {
+        return Ok(BudgetReceipt { configured: false });
+    }
+    host.idle()?;
+    let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
+    let p = persistent(&mut state)?;
+    let commit_time = now()?;
+    host.release_lifecycle.require_current(commit_time)?;
+    p.budget
+        .configure_monthly(policy, time, commit_time)
+        .map_err(code)?;
+    Ok(BudgetReceipt { configured: true })
+}
+
+#[tauri::command]
 async fn reconcile_budget(
     window: WebviewWindow,
     host: State<'_, Host>,
@@ -1090,7 +1160,7 @@ async fn reconcile_budget(
     host.idle()?;
     if !admission::opaque_id(&input.request_id)
         || input.confirmed_charge_nano_gbp.is_empty()
-        || input.confirmed_charge_nano_gbp.len() > 12
+        || input.confirmed_charge_nano_gbp.len() > 14
         || !input
             .confirmed_charge_nano_gbp
             .bytes()
@@ -1599,7 +1669,7 @@ async fn send_message_for_origin(
     }
     let complete_prompt = attachment_prompt(&input.message, &files)?;
     admission::validate_new_message(&input.data_class, &complete_prompt).map_err(str::to_owned)?;
-    let admitted = {
+    let (admitted, charge_review) = {
         let mut state = host.persistent.lock().map_err(|_| "state_unavailable")?;
         let p = persistent(&mut state)?;
         checked_conversation(p, &input.conversation_id)?;
@@ -1609,9 +1679,15 @@ async fn send_message_for_origin(
         if !p.contributor.status(now()?).accepted {
             return Err("contributor_terms_required".into());
         }
-        if !p.budget.available(now()?) {
-            return Err("budget_attention_required".into());
+        let budget_time = now()?;
+        let budget_status = p.budget.status(budget_time);
+        if budget_status.limit_reached {
+            return Err("budget_limit_reached".into());
         }
+        let charge = p
+            .budget
+            .review_charge(budget_time)
+            .map_err(|_| "budget_attention_required")?;
         if !p.history.can_append_request().map_err(code)? {
             return Err("private_store_capacity".into());
         }
@@ -1633,14 +1709,15 @@ async fn send_message_for_origin(
         sessions
             .restore_completed(&input.conversation_id, &turns)
             .map_err(|e| e.code())?;
-        sessions
+        let admitted = sessions
             .reserve(
                 &input.conversation_id,
                 &input.request_id,
                 model,
                 complete_prompt.clone(),
             )
-            .map_err(|e| e.code())?
+            .map_err(|e| e.code())?;
+        (admitted, charge)
     };
     let mut recorded = false;
     let mut reserved = false;
@@ -1665,7 +1742,7 @@ async fn send_message_for_origin(
         }
         let body=provider::exact_body_with_media(model,&admitted.messages,effort,&media).map_err(|e|e.code().to_owned())?;
         let sources:Vec<_> = files.iter().map(|file|serde_json::json!({"metadata":file.metadata,"sourceSha256":file.source_sha256,"egress":if file.metadata.kind==AttachmentKind::Pdf{"Exact native PDF inline"}else if file.metadata.kind==AttachmentKind::Image{"Complete normalised PNG inline"}else{"Complete processed text in newest prompt"}})).collect();
-        let metadata=serde_json::json!({"protocolVersion":5,"policyVersion":POLICY_VERSION,"requestId":input.request_id,"conversationId":input.conversation_id,"dataClass":class.as_str(),"reasoningEffort":input.reasoning_effort,"model":DEFAULT_MODEL,"maximumCompletionTokens":8192,"attachments":sources,"completeOriginalAttestation":"The selected classification applies to the complete original including PDF metadata, embedded or hidden objects, not just visible pages. I have established rights and eligibility. Meta may use inputs and outputs for training. Page preview cannot prove that hidden content is absent.","nativeAuthority":"One exact body only. Original allocations expire after five minutes; no tools, file or browser authority. Processed visual history is local only; reattach for another complete native reading."}).to_string();
+        let metadata=serde_json::json!({"protocolVersion":APP_STATUS_PROTOCOL,"policyVersion":POLICY_VERSION,"requestId":input.request_id,"conversationId":input.conversation_id,"dataClass":class.as_str(),"reasoningEffort":input.reasoning_effort,"model":DEFAULT_MODEL,"maximumCompletionTokens":8192,"estimatedMaximumGbp":charge_review.estimated_maximum_gbp(),"spendingPeriodLondon":charge_review.period(),"priceMeaning":"A conservative per-request estimate using declared conversion, margin, VAT and fees, not the final provider charge or card bill.","attachments":sources,"completeOriginalAttestation":"The selected classification applies to the complete original including PDF metadata, embedded or hidden objects, not just visible pages. I have established rights and eligibility. Meta may use inputs and outputs for training. Page preview cannot prove that hidden content is absent.","nativeAuthority":"One exact body only. Original allocations expire after five minutes; no tools, file or browser authority. Processed visual history is local only; reattach for another complete native reading."}).to_string();
         let document=ReviewDocument::disclosure_with_context(&body,&metadata).map_err(|_|"native_review_unavailable".to_owned())?;
         let document=if previews.is_empty(){document}else{document.with_visuals(previews).map_err(|_|"native_review_unavailable".to_owned())?};
         let document=if let Some(deadline)=files.iter().map(AdmittedAttachment::deadline).min(){document.with_source_deadline(deadline)}else{document};
@@ -1676,7 +1753,7 @@ async fn send_message_for_origin(
         host.release_lifecycle.require_current(now()?)?;
         let mut state=host.persistent.lock().map_err(|_|"state_unavailable")?;let p=persistent(&mut state)?;
         if !p.contributor.status(now()?).accepted{return Err("contributor_terms_required".into());}
-        p.budget.reserve(&input.request_id,now()?).map_err(code)?;reserved=true;
+        p.budget.reserve_reviewed(&input.request_id,now()?,&charge_review).map_err(code)?;reserved=true;
         let bindings=if files.is_empty(){Vec::new()}else{p.processed.as_mut().map_err(|e|code(*e))?.append_batch(&input.conversation_id,&input.request_id,class.as_str(),&files).map_err(code)?};
         p.history.begin_request_with_attachments(&input.conversation_id,&input.request_id,&complete_prompt,class.as_str(),now()?,bindings).map_err(code)?;recorded=true;
         let remaining=p.history.remaining_text(&input.conversation_id).map_err(code)?;
@@ -2161,6 +2238,7 @@ pub fn run() {
             render_trace::get_render_trace,
             accept_contributor_terms,
             configure_budget,
+            configure_monthly_spending,
             reconcile_budget,
             list_projects,
             create_project,

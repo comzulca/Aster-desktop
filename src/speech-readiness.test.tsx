@@ -110,7 +110,8 @@ describe('local dictation', () => {
     await userEvent.click(button('Settings'));
     expect(await within(screen.getByRole('dialog')).findByText(/Check the Windows microphone indicator/)).toBeTruthy();
     await userEvent.click(button('Close dialogue'));
-    await userEvent.click(button('New conversation'));
+    await userEvent.click(button('File'));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'New Chat' }));
     await waitFor(() => expect(fake.bridge.createConversation).toHaveBeenCalled());
     expect(button('Microphone stop unconfirmed').disabled).toBe(true);
     expect(document.body.textContent).not.toContain('private cancel diagnostic');

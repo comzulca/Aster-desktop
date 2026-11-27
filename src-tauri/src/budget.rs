@@ -14,7 +14,12 @@ use std::{
 };
 
 pub const LIMIT: u64 = 89_000_000_000;
-const WARNING: u64 = 80_100_000_000;
+const NANO_GBP_PER_PENNY: u64 = 10_000_000;
+const MAX_LIMIT_PENCE: u64 = 1_000_000; // £10,000, no implicit cap on upgrade.
+const DEFAULT_FIRST_REMAINING_BPS: u64 = 1_000;
+const DEFAULT_SECOND_REMAINING_BPS: u64 = 500;
+// UK standard VAT, not a claim about any individual invoice.
+const DEFAULT_UK_VAT_BPS: u64 = 2_000;
 const MAX_RESERVE_USD: u64 = 106_496_000;
 const MAX_RECORDS: usize = 4096;
 const MAX_PENDING: usize = 1024;
@@ -31,6 +36,92 @@ pub struct Configuration {
     pub valid_until_unix: u64,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FiscalIntent {
+    account_id: String,
+    gbp_per_usd_ppm: u64,
+    margin_bps: u64,
+    payment_bps: u64,
+    valid_until_unix: u64,
+}
+
+impl From<FiscalIntent> for Configuration {
+    fn from(intent: FiscalIntent) -> Self {
+        Self {
+            account_id: intent.account_id,
+            gbp_per_usd_ppm: intent.gbp_per_usd_ppm,
+            margin_bps: intent.margin_bps,
+            tax_bps: DEFAULT_UK_VAT_BPS, // Legacy shape only. Recurring quotes use the separate VAT policy.
+            payment_bps: intent.payment_bps,
+            valid_until_unix: intent.valid_until_unix,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MonthlyIntent {
+    limit_pence: u64,
+    first_remaining_bps: Option<u64>,
+    second_remaining_bps: Option<u64>,
+    tax_bps: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MonthlyPolicy {
+    limit_pence: u64,
+    first_remaining_bps: u64,
+    second_remaining_bps: u64,
+    tax_bps: u64,
+}
+
+impl MonthlyIntent {
+    pub fn validate(self) -> Result<MonthlyPolicy, &'static str> {
+        let policy = MonthlyPolicy {
+            limit_pence: self.limit_pence,
+            first_remaining_bps: self
+                .first_remaining_bps
+                .unwrap_or(DEFAULT_FIRST_REMAINING_BPS),
+            second_remaining_bps: self
+                .second_remaining_bps
+                .unwrap_or(DEFAULT_SECOND_REMAINING_BPS),
+            tax_bps: self.tax_bps.unwrap_or(DEFAULT_UK_VAT_BPS),
+        };
+        if !policy.valid() {
+            return Err("monthly_spending_invalid");
+        }
+        Ok(policy)
+    }
+}
+
+impl MonthlyPolicy {
+    fn valid(&self) -> bool {
+        (1..=MAX_LIMIT_PENCE).contains(&self.limit_pence)
+            && (1..=9_999).contains(&self.first_remaining_bps)
+            && (1..self.first_remaining_bps).contains(&self.second_remaining_bps)
+            && self.tax_bps <= 10_000
+    }
+    pub fn limit(&self) -> u64 {
+        // The ledger validates this bounded value before it can be applied.
+        self.limit_pence * NANO_GBP_PER_PENNY
+    }
+    fn warning_level(&self, spent: u64) -> u8 {
+        let reached = |remaining_bps| {
+            u128::from(spent) * 10_000
+                >= u128::from(self.limit()) * u128::from(10_000 - remaining_bps)
+        };
+        if reached(self.second_remaining_bps) {
+            2
+        } else if reached(self.first_remaining_bps) {
+            1
+        } else {
+            0
+        }
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Quote {
@@ -38,6 +129,7 @@ struct Quote {
     period: String,
     amount: u64,
     dispatched: bool,
+    recurring: bool,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -45,6 +137,8 @@ struct Quote {
 struct Ledger {
     configuration: Option<Configuration>,
     confirmed_period: Option<String>,
+    monthly_policy: Option<MonthlyPolicy>,
+    blocked_periods: BTreeSet<String>,
     spent: BTreeMap<String, u64>,
     pending: BTreeMap<String, Quote>,
     seen: BTreeSet<String>,
@@ -57,6 +151,10 @@ struct Ledger {
 enum Event {
     Configure {
         configuration: Configuration,
+        reviewed_at: u64,
+    },
+    SetMonthlyPolicy {
+        policy: MonthlyPolicy,
         reviewed_at: u64,
     },
     Reserve {
@@ -111,7 +209,11 @@ pub struct BudgetStatus {
     pub spent_nano_gbp: String,
     pub reserved_nano_gbp: String,
     pub remaining_nano_gbp: String,
-    pub warning: bool,
+    pub warning_level: u8,
+    pub limit_reached: bool,
+    pub month_resets_at: Option<u64>,
+    pub monthly_policy: Option<MonthlyPolicy>,
+    pub fiscal_profile_configured: bool,
     pub requires_reconciliation: bool,
     pub configuration_expires_at: Option<u64>,
     pub configuration_max_until: Option<u64>,
@@ -234,6 +336,20 @@ pub fn period(now: u64) -> Result<String, StoreError> {
     );
     Ok(format!("{y:04}-{m:02}"))
 }
+fn month_resets_at(month: &str) -> Option<u64> {
+    let (year, month) = month.split_once('-')?;
+    let year: i64 = year.parse().ok()?;
+    let month: i64 = month.parse().ok()?;
+    let (year, month) = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
+    // London has switched to BST by every 1 April and switched back by
+    // every 1 November in the same supported calendar range as period().
+    let offset = if (4..=10).contains(&month) { 3600 } else { 0 };
+    u64::try_from(days_from_civil(year, month, 1) * 86_400 - offset).ok()
+}
 fn usage_cost(usage: &TokenUsage, config: &Configuration) -> Result<u64, StoreError> {
     if usage.prompt_tokens > 1_048_576
         || usage.completion_tokens > 8192
@@ -253,6 +369,33 @@ fn usage_cost(usage: &TokenUsage, config: &Configuration) -> Result<u64, StoreEr
 }
 
 impl Ledger {
+    fn policy_limit(&self) -> u64 {
+        self.monthly_policy
+            .as_ref()
+            .map_or(LIMIT, MonthlyPolicy::limit)
+    }
+    fn lock_if_spent(&mut self, month: &str, spent: u64) {
+        if self.monthly_policy.is_some() && spent >= self.policy_limit() {
+            self.blocked_periods.insert(month.to_owned());
+        }
+    }
+    fn active_fiscal_configuration(
+        &self,
+        month: &str,
+        now: u64,
+        version: u32,
+    ) -> Option<Configuration> {
+        let mut config = self.configuration.clone()?;
+        if !configuration_valid_at_version(&config, now, version) {
+            return None;
+        }
+        if let Some(policy) = &self.monthly_policy {
+            config.tax_bps = policy.tax_bps;
+        } else if self.confirmed_period.as_deref() != Some(month) {
+            return None;
+        }
+        Some(config)
+    }
     fn total_reserved(&self) -> Result<u64, StoreError> {
         self.pending
             .values()
@@ -285,11 +428,30 @@ impl Ledger {
                 self.configuration = Some(configuration.clone());
                 self.confirmed_period = Some(month);
             }
+            Event::SetMonthlyPolicy {
+                policy,
+                reviewed_at,
+            } => {
+                if version != 2
+                    || !policy.valid()
+                    || now < *reviewed_at
+                    || period(*reviewed_at)? != month
+                {
+                    return Err(fail());
+                }
+                let spent = self.spent.get(&month).copied().unwrap_or(0);
+                // Reducing the limit to spent or lower closes the whole month.
+                // Raising the limit later cannot undo a latch.
+                self.lock_if_spent(&month, spent);
+                self.monthly_policy = Some(policy.clone());
+                self.lock_if_spent(&month, spent);
+            }
             Event::Reserve { request } => {
-                let config = self.configuration.as_ref().ok_or_else(fail)?;
-                if !configuration_valid_at_version(config, now, version)
-                    || self.confirmed_period.as_deref() != Some(&month)
-                    || self.bound_exceeded
+                let config = self
+                    .active_fiscal_configuration(&month, now, version)
+                    .ok_or_else(fail)?;
+                if self.bound_exceeded
+                    || self.blocked_periods.contains(&month)
                     || !self.pending.is_empty()
                     || !opaque_id(request)
                     || self.seen.contains(request)
@@ -297,7 +459,7 @@ impl Ledger {
                 {
                     return Err(fail());
                 }
-                let amount = convert(MAX_RESERVE_USD, config)?;
+                let amount = convert(MAX_RESERVE_USD, &config)?;
                 let used = self
                     .spent
                     .get(&month)
@@ -306,31 +468,49 @@ impl Ledger {
                     .checked_add(self.total_reserved()?)
                     .and_then(|n| n.checked_add(amount))
                     .ok_or_else(fail)?;
-                if used > LIMIT {
+                if used > self.policy_limit() {
                     return Err(fail());
                 }
                 self.seen.insert(request.clone());
                 self.pending.insert(
                     request.clone(),
                     Quote {
-                        configuration: config.clone(),
+                        configuration: config,
                         period: month,
                         amount,
                         dispatched: false,
+                        recurring: self.monthly_policy.is_some(),
                     },
                 );
             }
             Event::Dispatch { request } => {
-                let quote = self.pending.get_mut(request).ok_or_else(fail)?;
+                let quote = self.pending.get(request).ok_or_else(fail)?;
                 if quote.dispatched
                     || !configuration_valid_at_version(&quote.configuration, now, version)
                     || quote.period != month
-                    || self.confirmed_period.as_deref() != Some(&month)
                     || self.bound_exceeded
                 {
                     return Err(fail());
                 }
-                quote.dispatched = true;
+                if quote.recurring {
+                    let spent = self.spent.get(&month).copied().unwrap_or(0);
+                    if self.blocked_periods.contains(&month)
+                        || self
+                            .active_fiscal_configuration(&month, now, version)
+                            .as_ref()
+                            != Some(&quote.configuration)
+                        || spent
+                            .checked_add(quote.amount)
+                            .is_none_or(|total| total > self.policy_limit())
+                    {
+                        return Err(fail());
+                    }
+                } else if self.confirmed_period.as_deref() != Some(&month)
+                    || self.monthly_policy.is_some()
+                {
+                    return Err(fail());
+                }
+                self.pending.get_mut(request).ok_or_else(fail)?.dispatched = true;
             }
             Event::Release { request } => {
                 if self.pending.get(request).is_none_or(|q| q.dispatched) {
@@ -362,12 +542,20 @@ impl Ledger {
                     .unwrap_or(0)
                     .checked_add(charge)
                     .ok_or_else(fail)?;
-                self.spent.insert(quote.period.clone(), next);
+                let period = quote.period.clone();
+                self.spent.insert(period.clone(), next);
+                self.lock_if_spent(&period, next);
                 self.pending.remove(request);
             }
             Event::Reconcile { request, charge } => {
                 let quote = self.pending.get(request).ok_or_else(fail)?;
-                if *charge > LIMIT {
+                if *charge
+                    > if quote.recurring {
+                        MAX_LIMIT_PENCE * NANO_GBP_PER_PENNY
+                    } else {
+                        LIMIT
+                    }
+                {
                     return Err(fail());
                 }
                 let next = self
@@ -377,13 +565,31 @@ impl Ledger {
                     .unwrap_or(0)
                     .checked_add(*charge)
                     .ok_or_else(fail)?;
-                self.bound_exceeded |= *charge > quote.amount || next > LIMIT;
-                self.spent.insert(quote.period.clone(), next);
+                self.bound_exceeded |= *charge > quote.amount || (!quote.recurring && next > LIMIT);
+                let period = quote.period.clone();
+                self.spent.insert(period.clone(), next);
+                self.lock_if_spent(&period, next);
                 self.pending.remove(request);
             }
         }
         self.maximum_time = now;
         Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ReviewedCharge {
+    period: String,
+    ceiling_nano_gbp: u64,
+    head: String,
+}
+impl ReviewedCharge {
+    pub fn period(&self) -> &str {
+        &self.period
+    }
+    pub fn estimated_maximum_gbp(&self) -> String {
+        let pence = self.ceiling_nano_gbp.div_ceil(NANO_GBP_PER_PENNY);
+        format!("£{}.{:02}", pence / 100, pence % 100)
     }
 }
 
@@ -503,7 +709,88 @@ impl Budget {
             now,
         )
     }
-    pub fn reserve(&mut self, request: &str, now: u64) -> Result<(), StoreError> {
+    pub fn validate_monthly_review(
+        &self,
+        policy: &MonthlyPolicy,
+        reviewed_at: u64,
+        now: u64,
+    ) -> Result<(), StoreError> {
+        self.ensure_current()?;
+        let mut candidate = self.ledger.clone();
+        candidate.apply(
+            &Event::SetMonthlyPolicy {
+                policy: policy.clone(),
+                reviewed_at,
+            },
+            now,
+        )
+    }
+    pub fn configure_monthly(
+        &mut self,
+        policy: MonthlyPolicy,
+        reviewed_at: u64,
+        now: u64,
+    ) -> Result<(), StoreError> {
+        self.commit(
+            Event::SetMonthlyPolicy {
+                policy,
+                reviewed_at,
+            },
+            now,
+        )
+    }
+    pub fn permits_provider_metadata(&self, now: u64) -> Result<bool, StoreError> {
+        self.ensure_current()?;
+        if now < self.ledger.maximum_time {
+            return Err(fail());
+        }
+        let month = period(now)?;
+        Ok(!self.ledger.blocked_periods.contains(&month))
+    }
+    pub fn review_charge(&self, now: u64) -> Result<ReviewedCharge, StoreError> {
+        let month = period(now)?;
+        if self.ledger.monthly_policy.is_none()
+            || now < self.ledger.maximum_time
+            || !self.can_append_request()
+            || self.ledger.bound_exceeded
+            || !self.ledger.pending.is_empty()
+            || self.ledger.blocked_periods.contains(&month)
+        {
+            return Err(fail());
+        }
+        let config = self
+            .ledger
+            .active_fiscal_configuration(&month, now, contributor_policy::record_version(now))
+            .ok_or_else(fail)?;
+        let amount = convert(MAX_RESERVE_USD, &config)?;
+        let used = self
+            .ledger
+            .spent
+            .get(&month)
+            .copied()
+            .unwrap_or(0)
+            .checked_add(amount)
+            .filter(|&sum| sum <= self.ledger.policy_limit())
+            .ok_or_else(fail)?;
+        debug_assert!(used >= amount);
+        Ok(ReviewedCharge {
+            period: month,
+            ceiling_nano_gbp: amount,
+            head: self.head.clone(),
+        })
+    }
+    pub fn reserve_reviewed(
+        &mut self,
+        request: &str,
+        now: u64,
+        reviewed: &ReviewedCharge,
+    ) -> Result<(), StoreError> {
+        if self.review_charge(now)? != *reviewed {
+            return Err(fail());
+        }
+        self.reserve(request, now)
+    }
+    fn reserve(&mut self, request: &str, now: u64) -> Result<(), StoreError> {
         self.commit(
             Event::Reserve {
                 request: request.into(),
@@ -561,15 +848,21 @@ impl Budget {
             .and_then(|p| self.ledger.spent.get(p))
             .copied()
             .unwrap_or(0);
-        let reserved = self.ledger.total_reserved().unwrap_or(LIMIT);
-        let configured = healthy
-            && !self.ledger.bound_exceeded
+        let limit = self.ledger.policy_limit();
+        let reserved = self.ledger.total_reserved().unwrap_or(limit);
+        let fiscal_profile_configured = healthy
             && self
                 .ledger
                 .configuration
                 .as_ref()
-                .is_some_and(|c| configuration_valid(c, now))
-            && self.ledger.confirmed_period == current;
+                .is_some_and(|config| configuration_valid(config, now));
+        let configured = fiscal_profile_configured
+            && self.ledger.monthly_policy.is_some()
+            && current.is_some()
+            && !self.ledger.bound_exceeded;
+        let limit_reached = current
+            .as_ref()
+            .is_some_and(|month| self.ledger.blocked_periods.contains(month));
         BudgetStatus {
             account_id: self
                 .ledger
@@ -588,14 +881,28 @@ impl Budget {
                 })
                 .collect(),
             configured,
+            month_resets_at: current.as_deref().and_then(month_resets_at),
             period: current,
-            limit_nano_gbp: LIMIT.to_string(),
+            limit_nano_gbp: limit.to_string(),
             spent_nano_gbp: spent.to_string(),
             reserved_nano_gbp: reserved.to_string(),
-            remaining_nano_gbp: LIMIT
-                .saturating_sub(spent.saturating_add(reserved))
-                .to_string(),
-            warning: spent.saturating_add(reserved) >= WARNING,
+            remaining_nano_gbp: if limit_reached {
+                0
+            } else {
+                limit.saturating_sub(spent.saturating_add(reserved))
+            }
+            .to_string(),
+            warning_level: if healthy {
+                self.ledger
+                    .monthly_policy
+                    .as_ref()
+                    .map_or(0, |policy| policy.warning_level(spent))
+            } else {
+                0
+            },
+            limit_reached,
+            monthly_policy: self.ledger.monthly_policy.clone(),
+            fiscal_profile_configured,
             requires_reconciliation: !healthy
                 || self.ledger.bound_exceeded
                 || !self.ledger.pending.is_empty(),
@@ -616,20 +923,26 @@ impl Budget {
     }
     pub fn available(&self, now: u64) -> bool {
         let status = self.status(now);
-        status.configured
+        !status.limit_reached
             && !status.requires_reconciliation
             && self.can_append_request()
-            && self.ledger.configuration.as_ref().is_some_and(|config| {
-                let spent = status
-                    .period
-                    .as_ref()
-                    .and_then(|month| self.ledger.spent.get(month))
-                    .copied()
-                    .unwrap_or(0);
-                convert(MAX_RESERVE_USD, config)
-                    .ok()
-                    .and_then(|amount| spent.checked_add(amount))
-                    .is_some_and(|total| total <= LIMIT)
+            && status.period.as_ref().is_some_and(|month| {
+                self.ledger
+                    .active_fiscal_configuration(
+                        month,
+                        now,
+                        contributor_policy::record_version(now),
+                    )
+                    .and_then(|config| convert(MAX_RESERVE_USD, &config).ok())
+                    .and_then(|amount| {
+                        self.ledger
+                            .spent
+                            .get(month)
+                            .copied()
+                            .unwrap_or(0)
+                            .checked_add(amount)
+                    })
+                    .is_some_and(|total| total <= self.ledger.policy_limit())
             })
     }
     pub fn can_append_request(&self) -> bool {
@@ -669,6 +982,233 @@ mod tests {
             total_tokens: 120,
             cached_tokens: 30,
             reasoning_tokens: 10,
+        }
+    }
+    fn recurring(now: u64, cap_pence: u64) -> Budget {
+        let mut b = Budget::restore(PrivateStore::memory(Domain::Budget)).unwrap();
+        let mut fiscal = config();
+        fiscal.valid_until_unix = now + 15 * 86_400;
+        b.configure(fiscal, now, now).unwrap();
+        b.configure_monthly(monthly(cap_pence), now, now).unwrap();
+        b
+    }
+    fn monthly(limit_pence: u64) -> MonthlyPolicy {
+        MonthlyIntent {
+            limit_pence,
+            first_remaining_bps: None,
+            second_remaining_bps: None,
+            tax_bps: None,
+        }
+        .validate()
+        .unwrap()
+    }
+    #[test]
+    fn monthly_proposal_applies_uk_defaults_and_rejects_unknown_or_misordered_fields() {
+        let intent: MonthlyIntent = serde_json::from_str(r#"{"limitPence":12000}"#).unwrap();
+        let accepted = intent.validate().unwrap();
+        assert_eq!(accepted.limit(), 120_000_000_000);
+        assert_eq!(
+            (
+                accepted.first_remaining_bps,
+                accepted.second_remaining_bps,
+                accepted.tax_bps
+            ),
+            (1000, 500, 2000)
+        );
+        for input in [
+            r#"{"limitPence":0}"#,
+            r#"{"limitPence":1000001}"#,
+            r#"{"limitPence":200,"firstRemainingBps":500,"secondRemainingBps":500}"#,
+            r#"{"limitPence":200,"firstRemainingBps":10000,"secondRemainingBps":0}"#,
+            r#"{"limitPence":200,"taxBps":10001}"#,
+        ] {
+            assert!(serde_json::from_str::<MonthlyIntent>(input)
+                .unwrap()
+                .validate()
+                .is_err());
+        }
+        assert!(
+            serde_json::from_str::<MonthlyIntent>(r#"{"limitPence":200,"approved":true}"#).is_err()
+        );
+        let adjusted = serde_json::from_str::<MonthlyIntent>(
+            r#"{"limitPence":200,"firstRemainingBps":1234,"secondRemainingBps":123,"taxBps":0}"#,
+        )
+        .unwrap()
+        .validate()
+        .unwrap();
+        assert_eq!(
+            (
+                adjusted.first_remaining_bps,
+                adjusted.second_remaining_bps,
+                adjusted.tax_bps
+            ),
+            (1234, 123, 0)
+        );
+        assert!(serde_json::from_str::<FiscalIntent>(r#"{"accountId":"a","gbpPerUsdPpm":1000,"marginBps":100,"paymentBps":0,"validUntilUnix":1797000000,"taxBps":0}"#).is_err());
+    }
+    #[test]
+    fn warnings_follow_settled_spend_at_exact_90_and_95_percent_not_reservations() {
+        let now = contributor_policy::EXPIRES_AT;
+        let mut b = recurring(now, 1000);
+        for (spent, expected) in [
+            (8_999_999_999, 0),
+            (9_000_000_000, 1),
+            (9_499_999_999, 1),
+            (9_500_000_000, 2),
+        ] {
+            b.ledger.spent.insert(period(now).unwrap(), spent);
+            assert_eq!(b.status(now).warning_level, expected);
+        }
+        b.ledger.spent.insert(period(now).unwrap(), 8_999_999_999);
+        b.reserve(&"1".repeat(32), now).unwrap();
+        assert!(b.ledger.total_reserved().unwrap() > 1);
+        assert_eq!(b.status(now).warning_level, 0);
+    }
+    #[test]
+    fn new_policy_latches_month_on_exact_settlement_survives_restart_and_resumes_at_london_boundary(
+    ) {
+        let now = 1_796_083_199; // 30 November 2026 23:59:59 GMT.
+        let month = period(now).unwrap();
+        assert_eq!(month, "2026-11");
+        let mut b = recurring(now, 20);
+        let amount = b
+            .ledger
+            .active_fiscal_configuration(&month, now, 2)
+            .map(|fiscal| convert(MAX_RESERVE_USD, &fiscal).unwrap())
+            .unwrap();
+        let cap = b.ledger.policy_limit();
+        assert!(cap > amount && cap - amount <= amount);
+        // First settle the exact synthetic statement-confirmed amount that
+        // leaves room for one maximum quote. The second validated usage then
+        // reaches 100% exactly; both entries and the latch survive replay.
+        let id = "a".repeat(32);
+        b.reserve(&id, now).unwrap();
+        b.mark_dispatch(&id, now).unwrap();
+        b.reconcile(&id, cap - amount, now).unwrap();
+        assert!(!b.status(now).limit_reached);
+        let id = "c".repeat(32);
+        let reviewed = b.review_charge(now).unwrap();
+        b.reserve_reviewed(&id, now, &reviewed).unwrap();
+        b.mark_dispatch(&id, now).unwrap();
+        b.settle(
+            &id,
+            TokenUsage {
+                prompt_tokens: 1_048_576,
+                completion_tokens: 8192,
+                total_tokens: 1_048_576 + 8192,
+                cached_tokens: 0,
+                reasoning_tokens: 0,
+            },
+            now,
+        )
+        .unwrap();
+        assert!(b.status(now).limit_reached);
+        assert_eq!(b.status(now).remaining_nano_gbp, "0");
+        b.configure_monthly(monthly(200), now, now).unwrap();
+        let mut b = Budget::restore(b.store).unwrap();
+        assert!(!b.available(now));
+        assert!(!b.permits_provider_metadata(now).unwrap());
+        assert!(b.reserve(&"b".repeat(32), now).is_err());
+        assert_eq!(b.status(now).month_resets_at, Some(now + 1));
+        assert_eq!(b.status(now + 1).period.as_deref(), Some("2026-12"));
+        assert!(!b.status(now + 1).limit_reached);
+        assert!(b.permits_provider_metadata(now + 1).unwrap());
+        assert!(b.available(now + 1));
+        assert_eq!(b.ledger.spent[&month], cap);
+        assert!(b.reserve(&"b".repeat(32), now + 1).is_ok());
+        assert!(b.mark_dispatch(&"b".repeat(32), now + 1).is_ok());
+    }
+    #[test]
+    fn exact_native_charge_review_is_invalidated_by_even_equal_policy_revision_or_month_boundary() {
+        let now = 1_796_083_199;
+        let mut b = recurring(now, 200);
+        let quote = b.review_charge(now).unwrap();
+        assert_eq!(quote.period(), "2026-11");
+        assert_eq!(quote.estimated_maximum_gbp(), "£0.12");
+        let id = "f".repeat(32);
+        assert!(b.reserve_reviewed(&id, now + 1, &quote).is_err());
+        assert!(b.ledger.pending.is_empty());
+        b.configure_monthly(monthly(200), now, now).unwrap();
+        assert!(b.reserve_reviewed(&id, now, &quote).is_err());
+        assert!(b.ledger.pending.is_empty());
+        let updated = b.review_charge(now).unwrap();
+        assert!(b.reserve_reviewed(&id, now, &updated).is_ok());
+        assert!(b.reserve_reviewed(&id, now, &updated).is_err());
+    }
+    #[test]
+    fn old_fiscal_profile_is_not_implicit_authority_for_a_recurring_charge() {
+        let now = contributor_policy::EXPIRES_AT;
+        let mut b = Budget::restore(PrivateStore::memory(Domain::Budget)).unwrap();
+        let mut fiscal = config();
+        fiscal.valid_until_unix = now + 3600;
+        b.configure(fiscal, now, now).unwrap();
+        assert!(b.status(now).fiscal_profile_configured);
+        assert!(!b.status(now).configured);
+        assert!(b.review_charge(now).is_err());
+    }
+    #[test]
+    fn recurring_vat_bound_in_quotes_and_change_before_dispatch_denies() {
+        let now = contributor_policy::EXPIRES_AT;
+        let mut b = recurring(now, 89);
+        let id = "4".repeat(32);
+        b.reserve(&id, now).unwrap();
+        let quote = b.ledger.pending[&id].amount;
+        let mut policy = monthly(89);
+        policy.tax_bps = 0;
+        b.configure_monthly(policy, now, now).unwrap();
+        assert!(b.mark_dispatch(&id, now).is_err());
+        b.release_unsent(&id, now).unwrap();
+        b.reserve(&"5".repeat(32), now).unwrap();
+        assert!(b.ledger.pending["55555555555555555555555555555555"].amount < quote);
+        assert_eq!(
+            b.ledger.pending["55555555555555555555555555555555"]
+                .configuration
+                .tax_bps,
+            0
+        );
+    }
+    #[test]
+    fn cap_preflight_never_blinds_ledgers_or_clears_cross_month_unknown_charges() {
+        let now = 1_796_083_199;
+        let mut b = recurring(now, 200);
+        b.configure_monthly(monthly(1), now, now).unwrap();
+        assert!(!b.available(now));
+        assert!(
+            !b.status(now).limit_reached,
+            "cannot admit a worst-case quote does not mean fully spent"
+        );
+        b.configure_monthly(monthly(200), now, now).unwrap();
+        let id = "b".repeat(32);
+        b.reserve(&id, now).unwrap();
+        b.mark_dispatch(&id, now).unwrap();
+        assert!(b
+            .validate_monthly_review(&monthly(200), now, now + 1)
+            .is_err());
+        let mut b = Budget::restore(b.store).unwrap();
+        assert!(b.status(now + 1).requires_reconciliation);
+        assert!(!b.available(now + 1));
+        assert!(b.reserve(&"c".repeat(32), now + 1).is_err());
+        b.reconcile(&id, 1, now + 1).unwrap();
+        assert!(b.available(now + 1));
+        let next = now + 15 * 86_400;
+        assert!(!b.status(next).fiscal_profile_configured);
+        assert!(!b.available(next));
+        assert!(b.status(next).monthly_policy.is_some());
+    }
+    #[test]
+    fn monthly_calendar_uses_bst_and_gmt_without_extending_legacy_review() {
+        for (origin, next, utc_year, utc_month, offset) in [
+            ("2026-03", "2026-04", 2026, 4, 3600),
+            ("2026-10", "2026-11", 2026, 11, 0),
+            ("2026-12", "2027-01", 2027, 1, 0),
+        ] {
+            let time = month_resets_at(origin).unwrap();
+            assert_eq!(
+                time,
+                (days_from_civil(utc_year, utc_month, 1) * 86_400 - offset) as u64
+            );
+            assert_eq!(period(time - 1).unwrap(), origin);
+            assert_eq!(period(time).unwrap(), next);
         }
     }
     #[test]
@@ -971,7 +1511,7 @@ mod tests {
         b.ledger.spent.insert("2026-10".into(), LIMIT - amount);
         assert!(b.available(NOW));
         b.ledger.spent.insert("2026-10".into(), LIMIT - amount + 1);
-        assert!(b.status(NOW).configured);
+        assert!(b.status(NOW).fiscal_profile_configured);
         assert!(!b.available(NOW));
         assert_eq!(b.ledger.spent["2026-10"], LIMIT - amount + 1);
     }

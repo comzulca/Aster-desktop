@@ -1,3 +1,7 @@
+# Aster-desktop security
+
+For v0.2.5 and later, apply the [security and secure coding policy](./Aster_security.md) throughout this repository. Before changing a capability, identify the applicable rule, where the host enforces it, and the test that verifies what happens when the host denies the operation. Apply the policy’s release criteria when preparing a release.
+
 ## Current dependency baseline
 
 Use the manifests and lockfiles for resolved versions. The [23 November dependency review](docs/ENGINEERING-STATUS.md#23-november-2026) records the current lockfile changes and compatibility constraints. The dated instructions below document earlier maintenance.

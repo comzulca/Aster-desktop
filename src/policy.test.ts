@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { formatGbp, parseGbp, validAttachmentSummaries, validConversation, validMessage, validStatus, validStreamEvent, validSummaries } from './policy';
 import { baseline, saved } from './test-fixtures';
 
-describe('protocol 5 renderer validation (T-055/T-061/T-080/T-105)', () => {
+describe('protocol 6 renderer validation (T-055/T-061/T-080/T-105)', () => {
   it('admits exactly the reviewed fixed model and false capabilities', () => {
     expect(validStatus(baseline)).toBe(true);
-    for (const version of [1, 2, 3, 4, 6]) expect(validStatus({ ...baseline, protocolVersion: version })).toBe(false);
+    for (const version of [1, 2, 3, 4, 5, 7]) expect(validStatus({ ...baseline, protocolVersion: version })).toBe(false);
     expect(validStatus({ ...baseline, policyVersion: 2 })).toBe(false);
     expect(validStatus({ ...baseline, approved: true })).toBe(false);
     for (const model of ['meta/muse-glimmer-30b','nvidia/nemotron-3.5-lightning-30b-a3b','muse-spark-1.3-standard']) expect(validStatus({ ...baseline, models: [{ id: model, label: 'Unsupported' }] })).toBe(false);
@@ -27,6 +27,18 @@ describe('protocol 5 renderer validation (T-055/T-061/T-080/T-105)', () => {
     expect(validStatus({ ...baseline, availability: 'attention_required', budget: { ...baseline.budget, pending: [item], requiresReconciliation: true } })).toBe(true);
     expect(validStatus({ ...baseline, budget: { ...baseline.budget, pending: [item, item] } })).toBe(false);
     expect(validStatus({ ...baseline, budget: { ...baseline.budget, pending: [{ ...item, text: 'secret' }] } })).toBe(false);
+  });
+  it('rejects malformed cap controls and an asserted ready state while the cap is latched', () => {
+    for (const monthlyPolicy of [
+      null,
+      { ...baseline.budget.monthlyPolicy, limitPence: 1_000_001 },
+      { ...baseline.budget.monthlyPolicy, firstRemainingBps: 500 },
+      { ...baseline.budget.monthlyPolicy, taxBps: 10001 },
+      { ...baseline.budget.monthlyPolicy, allowProviderCall: true },
+    ]) expect(validStatus({ ...baseline, budget: { ...baseline.budget, monthlyPolicy } })).toBe(false);
+    const capped = { ...baseline.budget, limitReached: true, remainingNanoGbp: '0', warningLevel: 2 };
+    expect(validStatus({ ...baseline, budget: capped })).toBe(false);
+    expect(validStatus({ ...baseline, availability: 'budget_limit_reached', budget: capped })).toBe(true);
   });
   it('requires exact current authentication status, never syntax or configured presence alone (T-085)', () => {
     expect(validStatus({ ...baseline, credentialValidation: 'valid' })).toBe(true);
@@ -70,7 +82,8 @@ describe('protocol 5 renderer validation (T-055/T-061/T-080/T-105)', () => {
     expect(formatGbp('89000000000')).toBe('£89.00'); expect(formatGbp('10999999')).toBe('£0.01');
     expect(formatGbp('1e9')).toBe('Unavailable'); expect(parseGbp('0.000000001')).toBe('1');
     expect(parseGbp('12.345678901')).toBe('12345678901'); expect(parseGbp('89')).toBe('89000000000');
-    for (const bad of ['89.000000001','90','-1','01','1e2','0.0000000001','NaN','']) expect(parseGbp(bad)).toBeNull();
+    expect(parseGbp('10000')).toBe('10000000000000');
+    for (const bad of ['10000.000000001','10001','-1','01','1e2','0.0000000001','NaN','']) expect(parseGbp(bad)).toBeNull();
   });
   it('matches the host 256-entry display ceiling across interrupted and failed restarts', () => {
     const item = saved('c', 'Bounded failed attempts');

@@ -45,6 +45,17 @@ describe('closed Meta/persistence IPC envelope (T-055)', () => {
     expect(JSON.stringify(vi.mocked(invoke).mock.calls)).not.toMatch(/approved|newContent|apiKey/);
     expect(Object.keys(nativeBridge).filter(key => /Project|Proposal/.test(key)).sort()).toEqual(['assignConversationProject', 'createProject', 'listProjects']);
   });
+  it('keeps recurring spending and fiscal-profile reviews distinct from provider dispatch', async () => {
+    (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+    const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');
+    const monthly = { limitPence: 1234, firstRemainingBps: 1000, secondRemainingBps: 500, taxBps: 0 };
+    await nativeBridge.configureMonthlyBudget(monthly);
+    expect(invoke).toHaveBeenLastCalledWith('configure_monthly_spending', { input: monthly });
+    const fiscal = { accountId: 'a'.repeat(32), gbpPerUsdPpm: 850000, marginBps: 1000, paymentBps: 300, validUntilUnix: 1796515200 };
+    await nativeBridge.configureBudget(fiscal);
+    expect(invoke).toHaveBeenLastCalledWith('configure_budget', { input: fiscal });
+    expect(vi.mocked(invoke)).toHaveBeenCalledTimes(2);
+  });
   it('uses closed project metadata commands without path, disclosure or send authority', async () => {
     (window as typeof window & { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
     const { invoke } = await import('@tauri-apps/api/core'); const { nativeBridge } = await import('./bridge');
