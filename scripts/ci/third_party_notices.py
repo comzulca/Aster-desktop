@@ -427,6 +427,19 @@ def source_packages(
     return sorted(packages, key=lambda item: (item["ecosystem"], item["name"], item["version"], item["source"]))
 
 
+def notice_title(metadata: dict[str, Any]) -> str:
+    root_id = metadata["resolve"]["root"]
+    app = next((package for package in metadata["packages"] if package["id"] == root_id), None)
+    version = app.get("version") if app and app["name"] == "aster-desktop" else None
+    # NSIS maps this exact reviewed numeric build metadata to Windows 0.2.5.1.
+    # This is a notice label, not a change to stable release tag validation.
+    if not isinstance(version, str) or (
+        version != "0.2.5+1" and not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version)
+    ):
+        raise ValueError("Notice title has no valid exact application version")
+    return f"Aster {version} — third-party source notices\n\n"
+
+
 def generate(
     metadata: dict[str, Any], required_metadata: dict[str, Any], project: Path, target: str
 ) -> tuple[bytes, dict[str, Any]]:
@@ -473,16 +486,13 @@ def generate(
     if set(used_overlays) != set(overlays) or any(count != 1 for count in used_overlays.values()):
         raise ValueError("Every reviewed notice overlay must bind exactly one installed locked package")
 
-    root_id = metadata["resolve"]["root"]
-    app = next((package for package in metadata["packages"] if package["id"] == root_id), None)
-    if not app or app["name"] != "aster-desktop" or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", app["version"]):
-        raise ValueError("Notice title has no valid exact application version")
+    title = notice_title(metadata)
     project_notice = read_regular(project / "NOTICE", project, 64 * 1024).decode("utf-8")
     if not project_notice.strip():
         raise ValueError("COMZULCA NOTICE must not be empty")
     sections = [
         "COMZULCA project attribution (NOTICE)\n\n" + project_notice + "\n",
-        f"Aster {app['version']} — third-party source notices\n\n",
+        title,
         "Generated without network access from exact installed locked Rust and npm source packages. "
         "The complete inventory includes build/development sources; requiredForPackagedApp marks the "
         f"normal dependency closure filtered for {target} plus installed production npm dependencies. "
@@ -605,6 +615,22 @@ def self_test() -> None:
         except (OSError, ValueError, KeyError, TypeError, UnicodeError):
             return
         raise AssertionError(f"negative fixture did not fail: {label}")
+
+    def title_for(version: Any, name: str = "aster-desktop") -> str:
+        return notice_title({
+            "resolve": {"root": "application"},
+            "packages": [
+                {"id": "dependency", "name": "aster-desktop", "version": "9.9.9"},
+                {"id": "application", "name": name, "version": version},
+            ],
+        })
+
+    for version in ("0.2.5", "0.2.5+1", "0.2.6"):
+        if title_for(version) != f"Aster {version} — third-party source notices\n\n":
+            raise AssertionError(f"notice title changed the exact Cargo version: {version}")
+    for version in ("0.2.5+2", "0.2.6+1", "0.2.5+01", "0.2.5.1", "0.2.5+1\n", None):
+        must_fail("unapproved notice version", lambda: title_for(version))
+    must_fail("incorrect application identity", lambda: title_for("0.2.5+1", "other-app"))
 
     source_overlays = Path(__file__).resolve(strict=True).parent / "notices"
     with tempfile.TemporaryDirectory(prefix="aster-notice-self-test-") as temporary:
