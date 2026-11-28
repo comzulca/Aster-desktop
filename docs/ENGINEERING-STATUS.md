@@ -4,6 +4,8 @@
 
 [PR #99](https://github.com/comzulca/Aster-desktop/pull/99) reached main at `3115186`. The manifests declare `0.2.5+1`, the numeric Windows product version is 0.2.5.1, and the host reports IPC 6 and policy 4. Projects and the local Markdown vault are included in this source. Live full-window compaction remains disabled. The candidate evidence below records the stage at which it was collected.
 
+The vault settings page waits for the initial host status before enabling folder selection. It discards replies from a previous host session. Both the renderer and the Rust vault operation reject topic and note names beginning with `access_token`, irrespective of ASCII letter case. The [setup guide](SETUP-AND-USE.md#projects-and-a-local-markdown-vault) documents the bounded search.
+
 ## 27 November 2026: v0.2.5.1 engineering candidate
 
 See the [v0.2.5.1 candidate contract and pre-CI evidence](qa/V0251-ENGINEERING-CANDIDATE.md). At the pre-merge checkpoint, the numeric Windows product version is 0.2.5.1 and the spending IPC version is 6; the earlier main and its artifacts retained the identities below. The full-window work remains an offline qualification path and no Windows installer or live feature is implied by these local results.
