@@ -6,6 +6,8 @@
 
 The vault settings page waits for the initial host status before enabling folder selection. It discards replies from a previous host session. Both the renderer and the Rust vault operation reject topic and note names beginning with `access_token`, irrespective of ASCII letter case. The [setup guide](SETUP-AND-USE.md#projects-and-a-local-markdown-vault) documents the bounded search.
 
+The GitHub account popup checks that the reported connection state agrees with the account, selected repository and device authorisation fields. An inconsistent response leaves the account unverified. The native host clears the reconnect flag when it accepts a fresh device response for the current session. The renderer also requires recognised string values for status, attachment, transcript and customisation fields. See the [GitHub connection guide](setup/GITHUB-APP-V024.md#authorisation-and-account-switching-in-the-app).
+
 ## 27 November 2026: v0.2.5.1 engineering candidate
 
 See the [v0.2.5.1 candidate contract and pre-CI evidence](qa/V0251-ENGINEERING-CANDIDATE.md). At the pre-merge checkpoint, the numeric Windows product version is 0.2.5.1 and the spending IPC version is 6; the earlier main and its artifacts retained the identities below. The full-window work remains an offline qualification path and no Windows installer or live feature is implied by these local results.

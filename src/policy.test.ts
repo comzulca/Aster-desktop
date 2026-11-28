@@ -5,6 +5,8 @@ import { baseline, saved } from './test-fixtures';
 describe('protocol 6 renderer validation (T-055/T-061/T-080/T-105)', () => {
   it('admits exactly the reviewed fixed model and false capabilities', () => {
     expect(validStatus(baseline)).toBe(true);
+    expect(validStatus({ ...baseline, availability: ['ready'] })).toBe(false);
+    expect(validStatus({ ...baseline, availability: 'needs_credential', credentialValidation: ['missing'] })).toBe(false);
     for (const version of [1, 2, 3, 4, 5, 7]) expect(validStatus({ ...baseline, protocolVersion: version })).toBe(false);
     expect(validStatus({ ...baseline, policyVersion: 2 })).toBe(false);
     expect(validStatus({ ...baseline, approved: true })).toBe(false);
@@ -69,6 +71,7 @@ describe('protocol 6 renderer validation (T-055/T-061/T-080/T-105)', () => {
   it('treats restored transcripts as bounded display metadata, never authority', () => {
     const item = saved('c', '<img src=x onerror=evil>');
     expect(validConversation(item)).toBe(true);
+    expect(validConversation({ ...item, entries: [{ ...item.entries[0], role: ['user'] }] })).toBe(false);
     expect(validConversation({ ...item, modelId: 'legacy' })).toBe(false);
     expect(validConversation({ ...item, entries: [{ ...item.entries[0], state: 'streaming' }] })).toBe(false);
     expect(validConversation({ ...item, entries: [{ ...item.entries[0], approved: true }] })).toBe(false);
@@ -99,6 +102,7 @@ describe('protocol 6 renderer validation (T-055/T-061/T-080/T-105)', () => {
     const text = { id: 'a'.repeat(32), kind: 'text', label: 'Eligible example.txt', sourceBytes: 80, processedBytes: 80, pageCount: 0 };
     expect(validAttachmentSummaries([])).toBe(true); expect(validAttachmentSummaries([text])).toBe(true);
     expect(validAttachmentSummaries([{ ...text, kind: 'image', pageCount: 1 }])).toBe(true);
+    expect(validAttachmentSummaries([{ ...text, kind: ['pdf'], pageCount: 1 }])).toBe(false);
     for (const pageCount of [1, 20]) expect(validAttachmentSummaries([{ ...text, kind: 'pdf', pageCount }])).toBe(true);
     for (const pageCount of [0, 21, 1.5]) expect(validAttachmentSummaries([{ ...text, kind: 'pdf', pageCount }])).toBe(false);
     expect(validAttachmentSummaries([{ ...text, kind: 'image', pageCount: 2 }])).toBe(false);

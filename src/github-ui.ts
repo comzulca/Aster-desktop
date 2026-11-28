@@ -1,5 +1,5 @@
 import type { GitHubFile, GitHubRepository, GitHubRepositoryIdentity, GitHubStatus } from './types';
-import { utf8Bytes } from './policy';
+import { isStringChoice, utf8Bytes } from './policy';
 import { wellFormedText } from './personalization-ui';
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const exact = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).sort().join('|') === [...keys].sort().join('|');
@@ -10,7 +10,7 @@ export function validGitHubRepositoryIdentity(value: unknown): value is GitHubRe
 }
 export function validGitHubStatus(value: unknown): value is GitHubStatus {
   if (!record(value) || !exact(value, ['enabled','state','account','repository','userCode','verificationUri','nextPollSeconds','inFlight','mutationsAvailable']) ||
-    typeof value.enabled !== 'boolean' || !['disabled','disconnected','authorising','connected','reconnect_required'].includes(String(value.state)) ||
+    typeof value.enabled !== 'boolean' || !isStringChoice(value.state, ['disabled','disconnected','authorising','connected','reconnect_required']) ||
     typeof value.inFlight !== 'boolean' || value.mutationsAvailable !== false || value.verificationUri !== 'https://github.com/login/device' ||
     !Number.isSafeInteger(value.nextPollSeconds) || (value.nextPollSeconds as number) < 0 || (value.nextPollSeconds as number) > 900 ||
     !(value.account === null || record(value.account) && exact(value.account, ['id','login']) && identity(value.account.id) && login(value.account.login)) ||
@@ -20,7 +20,9 @@ export function validGitHubStatus(value: unknown): value is GitHubStatus {
   // Zero means the host's next interval is already due; it is not authority to
   // bypass the host timer. The UI still schedules no faster than once a second.
   if (value.state === 'authorising' && (!value.enabled || value.userCode === null || value.account !== null)) return false;
-  if (value.repository !== null && value.state !== 'connected') return false;
+  if (value.enabled !== (value.state !== 'disabled')) return false;
+  if (value.state !== 'connected' && (value.account !== null || value.repository !== null)) return false;
+  if (value.state !== 'authorising' && (value.userCode !== null || value.nextPollSeconds !== 0)) return false;
   return true;
 }
 export function validGitHubRepositories(value: unknown): value is GitHubRepository[] {

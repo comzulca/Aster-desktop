@@ -6,8 +6,8 @@ use crate::github_api::{
     AccountIdentity, GithubApi, InstallationRecord, RepositoryRecord, TokenPoll,
 };
 use crate::github_connection::{
-    ConnectionState, DeviceSession, DeviceTerminal, PollDecision, PollOutcome, RepositoryIdentity,
-    VERIFICATION_URI,
+    ConnectionState, DeviceResponse, DeviceSession, DeviceTerminal, PollDecision, PollOutcome,
+    RepositoryIdentity, VERIFICATION_URI,
 };
 use crate::github_credential::{GithubCredentialStore, StoredConnection};
 use crate::{operation, review, trusted, Host};
@@ -98,6 +98,26 @@ impl GithubHost {
             return Err("github_stale_generation".into());
         }
         Ok(())
+    }
+
+    fn accept_device_response(
+        &mut self,
+        epoch: u64,
+        request_started: u64,
+        response: DeviceResponse,
+    ) -> Result<GithubStatus, String> {
+        self.check_epoch(epoch)?;
+        let session = DeviceSession::new_received(
+            response,
+            epoch,
+            request_started,
+            self.started.elapsed().as_secs(),
+        )
+        .map_err(|_| "github_contract_rejected")?;
+        self.reconnect_required = false;
+        self.display_code = session.user_code().map(str::to_owned);
+        self.session = Some(session);
+        Ok(self.status())
     }
 
     fn status(&self) -> GithubStatus {
@@ -264,17 +284,7 @@ pub(crate) async fn begin_github_connection(
         }
     };
     let mut state = lock(&host)?;
-    state.check_epoch(epoch)?;
-    let session = DeviceSession::new_received(
-        response,
-        epoch,
-        request_started,
-        state.started.elapsed().as_secs(),
-    )
-    .map_err(|_| "github_contract_rejected")?;
-    state.display_code = session.user_code().map(str::to_owned);
-    state.session = Some(session);
-    Ok(state.status())
+    state.accept_device_response(epoch, request_started, response)
 }
 
 #[tauri::command]
@@ -701,6 +711,28 @@ pub(crate) async fn read_github_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fresh_device_response_resumes_reconnection_only_for_the_current_epoch() {
+        let mut state = GithubHost::default();
+        state.set_enabled(true).unwrap();
+        let old = state.connection.generation();
+        state.cancel().unwrap();
+        state.reconnect_required = true;
+        let epoch = state.connection.begin_account_connection().unwrap();
+        let wire = serde_json::json!({
+            "device_code": "1".repeat(40), "user_code": "ABCD-EFGH",
+            "verification_uri": VERIFICATION_URI, "expires_in": 900, "interval": 5
+        });
+        let bytes = serde_json::to_vec(&wire).unwrap();
+        let response = || DeviceResponse::parse_json(&bytes).unwrap();
+        assert!(state.accept_device_response(old, 0, response()).is_err());
+        assert_eq!(state.status().state, "reconnect_required");
+        let status = state.accept_device_response(epoch, 0, response()).unwrap();
+        assert_eq!(status.state, "authorising");
+        assert_eq!(status.user_code.as_deref(), Some("ABCD-EFGH"));
+        assert!(status.account.is_none() && status.repository.is_none());
+    }
+
     #[test]
     fn temporary_native_token_ownership_keeps_status_consistent_without_restoring_authority() {
         let mut state = GithubHost::default();

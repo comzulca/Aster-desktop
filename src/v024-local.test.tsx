@@ -116,6 +116,11 @@ describe('bounded inert Skills and Plugins catalogue (T-088/T-089)', () => {
   it('rejects active/unknown package and catalogue fields, traversal, bad text and overflow', () => {
     const value: CustomizationDraft = { kind: 'skill', slug: 'synthetic-skill', name: 'Synthetic skill', description: '', instructions: 'Inert instructions.' };
     expect(validCustomizationDraft(value)).toBe(true);
+    expect(validCustomizationDraft({ ...value, kind: ['skill'] })).toBe(false);
+    const entry = localFixture().catalogue().entries[0];
+    for (const patch of [{ kind: ['skill'] }, { availability: ['instructions-only'] }]) {
+      expect(validCustomization({ revision: 0, entries: [{ ...entry, ...patch }] })).toBe(false);
+    }
     for (const slug of ['../escape','a--b','-abc','ABC','a-','a'.repeat(65)]) expect(validCustomizationDraft({ ...value, slug })).toBe(false);
     expect(validCustomizationDraft({ ...value, command: 'powershell' })).toBe(false); expect(validCustomizationDraft({ ...value, instructions: 'x'.repeat(12001) })).toBe(false);
     expect(validCustomizationDraft({ ...value, name: 'x\ny' })).toBe(false);
