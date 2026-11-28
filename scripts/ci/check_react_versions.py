@@ -32,6 +32,9 @@ def verify(manifest, lock):
     keys = re.findall(r"^  (react(?:-dom)?@[^\n]+):$", packages, re.MULTILINE)
     if len(keys) != 2 or set(keys) != {f"react@{version}", f"react-dom@{version}"}:
         raise ValueError("React package resolutions are missing, duplicated or split")
+    snapshot_keys = re.findall(r"^  (react(?:-dom)?@[^:\n]+):", snapshots, re.MULTILINE)
+    if sorted(snapshot_keys) != sorted([f"react@{version}", f"react-dom@{dom}"]):
+        raise ValueError("React snapshots are missing, duplicated or split")
     one(rf"^  react@{re.escape(version)}: \{{\}}$", snapshots)
     dependency = one(rf"^  react-dom@{re.escape(version)}\(react@{re.escape(version)}\):\n    dependencies:\n      react: ([^\n]+)$", snapshots)
     if dependency != version:
@@ -77,6 +80,8 @@ snapshots:
         lock.replace("  react-dom@19.3.0:\n", "  react-dom@19.3.1:\n"),
         lock.replace("      react: 19.3.0\n", "      react: 19.3.1\n"),
         lock.replace("  react@19.3.0: {}", "  react@19.3.0: {}\n  react@19.3.0: {}"),
+        lock + "  react@18.3.1: {}\n",
+        lock + "  react-dom@19.3.0(react@18.3.1):\n    dependencies:\n      react: 18.3.1\n",
         lock.replace("lockfileVersion: '9.0'", "lockfileVersion: '10.0'"),
     ]:
         try:
