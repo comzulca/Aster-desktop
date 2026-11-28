@@ -8,6 +8,9 @@ export const REASONING_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh'] a
 const terminalStates = ['completed', 'failed', 'cancelled', 'truncated', 'refused'] as const;
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).sort().join('|') === [...keys].sort().join('|');
+export function isStringChoice(value: unknown, choices: readonly string[]): boolean {
+  return typeof value === 'string' && choices.includes(value);
+}
 export const validId = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(v);
 const safeInteger = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
 const integerString = (v: unknown): v is string => typeof v === 'string' && /^(0|[1-9][0-9]{0,24})$/.test(v);
@@ -46,11 +49,11 @@ export function validStatus(v: unknown): v is AppStatus {
   if (!record(v) || !exact(v, ['protocolVersion','policyVersion','configured','credentialAvailable','credentialValidation','defaultModel','models','activeRequest','projectSelected','projectLabel','capabilities','availability','contributor','historyAvailable','budget'])) return false;
   if (v.protocolVersion !== 6 || v.policyVersion !== 4 || v.defaultModel !== DEFAULT_MODEL ||
       !['configured','credentialAvailable','activeRequest','historyAvailable'].every(k => typeof v[k] === 'boolean') ||
-      !['missing','unverified','valid','invalid','unavailable'].includes(String(v.credentialValidation)) ||
+      !isStringChoice(v.credentialValidation, ['missing','unverified','valid','invalid','unavailable']) ||
       v.projectSelected !== false || v.projectLabel !== null || !Array.isArray(v.models) || v.models.length !== 1 ||
       !record(v.models[0]) || !exact(v.models[0], ['id','label']) || v.models[0].id !== DEFAULT_MODEL ||
       typeof v.models[0].label !== 'string' || v.models[0].label.length > 100 ||
-      !['version_expired','needs_terms','needs_credential','needs_budget','budget_limit_reached','attention_required','ready','busy','unsupported'].includes(String(v.availability))) return false;
+      !isStringChoice(v.availability, ['version_expired','needs_terms','needs_credential','needs_budget','budget_limit_reached','attention_required','ready','busy','unsupported'])) return false;
   const c = v.capabilities, t = v.contributor, b = v.budget;
   if (!record(c) || !exact(c, ['projectRead','proposals','applyNewFile','applyExistingFile','attachmentImport']) || typeof c.attachmentImport !== 'boolean' || ['projectRead','proposals','applyNewFile','applyExistingFile'].some(key => c[key] !== false) ||
       !record(t) || !exact(t, ['termsRevision','accepted','eligible']) || typeof t.termsRevision !== 'string' || t.termsRevision.length > 100 || typeof t.accepted !== 'boolean' || typeof t.eligible !== 'boolean' ||
@@ -79,7 +82,7 @@ export function validAttachmentSummaries(value: unknown): value is AttachmentSum
   let sourceBytes = 0, processedBytes = 0, pdfPages = 0;
   return value.every(item => {
     if (!(record(item) && exact(item, ['id','kind','label','sourceBytes','processedBytes','pageCount']) &&
-    typeof item.id === 'string' && /^[a-f0-9]{32}$/.test(item.id) && ['text','image','pdf'].includes(String(item.kind)) &&
+    typeof item.id === 'string' && /^[a-f0-9]{32}$/.test(item.id) && isStringChoice(item.kind, ['text','image','pdf']) &&
     typeof item.label === 'string' && Boolean(item.label.trim()) && utf8Bytes(item.label) <= 120 &&
     !/[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff/\\:]/u.test(item.label) &&
     validMessage(item.label) && safeInteger(item.sourceBytes) && item.sourceBytes > 0 && item.sourceBytes <= 8 * 1024 * 1024 &&
@@ -108,7 +111,7 @@ export function validConversation(v: unknown): v is Conversation {
   let bytes = 0;
   const ids = new Set<string>();
   return v.entries.every(e => {
-    if (!record(e) || !exact(e, e.processedAttachments === undefined ? ['id','role','content','requestId','state'] : ['id','role','content','requestId','state','processedAttachments']) || !validId(e.id) || ids.has(e.id) || !validId(e.requestId) || !['user','assistant'].includes(String(e.role)) || typeof e.content !== 'string' || ![...terminalStates, 'interrupted'].includes(e.state as 'completed')) return false;
+    if (!record(e) || !exact(e, e.processedAttachments === undefined ? ['id','role','content','requestId','state'] : ['id','role','content','requestId','state','processedAttachments']) || !validId(e.id) || ids.has(e.id) || !validId(e.requestId) || !isStringChoice(e.role, ['user','assistant']) || typeof e.content !== 'string' || ![...terminalStates, 'interrupted'].includes(e.state as 'completed')) return false;
     if (e.processedAttachments !== undefined && (e.role !== 'user' || !validAttachmentSummaries(e.processedAttachments))) return false;
     ids.add(e.id); bytes += utf8Bytes(e.content);
     return bytes <= MAX_CONVERSATION_BYTES;

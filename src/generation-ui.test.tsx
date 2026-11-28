@@ -4,12 +4,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GenerateCustomization } from './GenerateCustomization';
 import { Customization } from './Customization';
 import { App } from './App';
-import { parseGeneratedDraft, validGenerationDescription, validGenerationReceipt } from './generation-ui';
+import { parseGeneratedDraft, validGenerationDescription, validGenerationIntent, validGenerationReceipt } from './generation-ui';
 import { baseline, fakeBridge, saved } from './test-fixtures';
 import type { CustomizationDraft, CustomizationSnapshot, StreamEvent } from './types';
 
 const draft: CustomizationDraft = { kind: 'skill', slug: 'synthetic-draft', name: 'Synthetic draft', description: 'Public fixture only', instructions: '<script>Inert instructions only</script>' };
 afterEach(() => cleanup());
+it('requires string package and classification values for a generation request', () => {
+  const intent = { requestId: 'a'.repeat(32), kind: 'skill', description: 'Synthetic example', dataClass: 'synthetic' };
+  expect(validGenerationIntent(intent)).toBe(true);
+  for (const patch of [{ kind: ['skill'] }, { dataClass: ['synthetic'] }]) {
+    expect(validGenerationIntent({ ...intent, ...patch })).toBe(false);
+  }
+});
 function fixture() {
   const fake = fakeBridge(); let callback: (event: StreamEvent) => void = () => {};
   let requestId = '';

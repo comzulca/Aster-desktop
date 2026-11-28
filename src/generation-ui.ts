@@ -1,4 +1,4 @@
-import { utf8Bytes, validId } from './policy';
+import { isStringChoice, utf8Bytes, validId } from './policy';
 import { scalarCount, wellFormedText } from './personalization-ui';
 import { validCustomizationDraft } from './customization-ui';
 import type { CustomizationDraft, DataClass, PackageKind } from './types';
@@ -10,7 +10,7 @@ export function validGenerationDescription(value: string): boolean {
 export function validGenerationIntent(value: unknown): value is { requestId: string; kind: PackageKind; description: string; dataClass: DataClass } {
   if (typeof value !== 'object' || value === null || Array.isArray(value) || Object.keys(value).sort().join('|') !== 'dataClass|description|kind|requestId') return false;
   const input = value as Record<string, unknown>;
-  return typeof input.requestId === 'string' && /^[a-f0-9]{32}$/.test(input.requestId) && ['skill', 'plugin'].includes(String(input.kind)) && typeof input.description === 'string' && validGenerationDescription(input.description) && ['synthetic', 'public_eligible'].includes(String(input.dataClass));
+  return typeof input.requestId === 'string' && /^[a-f0-9]{32}$/.test(input.requestId) && isStringChoice(input.kind, ['skill', 'plugin']) && typeof input.description === 'string' && validGenerationDescription(input.description) && isStringChoice(input.dataClass, ['synthetic', 'public_eligible']);
 }
 export function validGenerationReceipt(value: unknown, requestId: string): value is { conversationId: string; requestId: string; accepted: true } {
   return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).sort().join('|') === 'accepted|conversationId|requestId' &&

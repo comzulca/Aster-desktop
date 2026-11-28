@@ -21,16 +21,18 @@ function fixture() {
   return { ...fake, setStatus: (value: GitHubStatus) => { status = value; } };
 }
 describe('strict GitHub account renderer seams (T-090/T-091/T-096)', () => {
-  it.each(['pending', 'failed', 'invalid', 'unavailable'] as const)('does not infer account absence from %s native status', async state => {
+  it.each(['pending', 'failed', 'invalid', 'malformed-state', 'unavailable'] as const)('does not infer account absence from %s native status', async state => {
     const fake = fixture();
     if (state === 'pending') fake.bridge.getGitHubStatus = vi.fn(() => new Promise<GitHubStatus>(() => {}));
     if (state === 'failed') fake.bridge.getGitHubStatus = vi.fn(async () => { throw new Error('synthetic_status_failure'); });
     if (state === 'invalid') fake.bridge.getGitHubStatus = vi.fn(async () => ({ ...disconnected(), unexpected: true } as GitHubStatus));
+    if (state === 'malformed-state') fake.bridge.getGitHubStatus = vi.fn(async () => ({ ...disconnected(), state: ['disconnected'] } as unknown as GitHubStatus));
     if (state === 'unavailable') delete fake.bridge.getGitHubStatus;
     render(<GitHubAccount bridge={fake.bridge} locked={false} onClose={() => {}}/>);
-    if (state === 'failed' || state === 'invalid') await screen.findByText(/native connection status could not be verified/);
+    if (state === 'failed' || state === 'invalid' || state === 'malformed-state') await screen.findByText(/native connection status could not be verified/);
     if (state === 'unavailable') await screen.findByText(/account management is unavailable/);
     expect(screen.getByText(/Connection: unverified.*Active account status is unknown/)).toBeTruthy();
+    expect(screen.queryByText(/Enable the GitHub slider/)).toBeNull();
     expect(document.body.textContent).not.toMatch(/No authenticated account is active|No account was connected|No connection has been made|receipt reports no active authenticated account/);
     expect(fake.bridge.beginGitHubConnection).not.toHaveBeenCalled(); expect(fake.bridge.disconnectGitHub).not.toHaveBeenCalled();
   });
@@ -49,6 +51,10 @@ describe('strict GitHub account renderer seams (T-090/T-091/T-096)', () => {
     for (const patch of [{ accessToken: 'secret' }, { verificationUri: 'https://attacker.invalid/device' }, { mutationsAvailable: true }, { nextPollSeconds: -1 }, { nextPollSeconds: 901 }, { state: 'connected', account: null }, { state: 'authorising', userCode: null }, { account: { id: Number.MAX_SAFE_INTEGER + 1, login: 'synthetic' } }, { repository: identity }]) expect(validGitHubStatus({ ...value, ...patch })).toBe(false);
     expect(validGitHubRepositories([{ identity, private: true, canRead: true, canWrite: false }])).toBe(true);
     expect(validGitHubRepositories([{ identity, private: true, canRead: true, canWrite: false, approved: true }])).toBe(false);
+    for (const patch of [
+      { state: 'disabled', enabled: true }, { state: 'disconnected', enabled: false },
+      { account: { id: 30, login: 'synthetic-account' } }, { userCode: 'ABCD-EFGH' }, { nextPollSeconds: 5 },
+    ]) expect(validGitHubStatus({ ...value, ...patch })).toBe(false);
     const file = { path: 'README.md', branch: 'main', blobSha: 'a'.repeat(40), content: 'Synthetic text' };
     expect(validGitHubFile(file, 'README.md', 'main')).toBe(true); expect(validGitHubFile({ ...file, content: 'x'.repeat(65537) }, 'README.md', 'main')).toBe(false);
     expect(validGitHubFile({ ...file, path: 'other.md' }, 'README.md', 'main')).toBe(false);
