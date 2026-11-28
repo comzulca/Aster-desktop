@@ -30,7 +30,8 @@ export function VaultSettings({ bridge, locked, onBusyChange }: {
   const [content, setContent] = useState('');
   const [notes, setNotes] = useState<ObsidianNotes | null>(null);
   const [busy, setBusy] = useState(false);
-  const mounted = useRef(false);
+  const [checking, setChecking] = useState(true);
+  const session = useRef(0);
   const work = useRef(false);
   const enabled = Boolean(bridge.getObsidianStatus && bridge.selectObsidianVault &&
     bridge.clearObsidianVault && bridge.listObsidianNotes && bridge.readObsidianNote &&
@@ -41,25 +42,38 @@ export function VaultSettings({ bridge, locked, onBusyChange }: {
     setNotices(value.selected ? 'Vault connected for this session.' : 'No vault is connected.');
   }
   useEffect(() => {
-    let cancelled = false;
-    mounted.current = true;
-    if (!enabled) setNotices(messages.obsidian_unavailable);
-    else void bridge.getObsidianStatus!().then(value => {
-      if (!cancelled) updateStatus(value);
-    }).catch(error => { if (!cancelled) { setStatus(null); setNotices(message(error)); } });
-    return () => { cancelled = true; mounted.current = false; };
+    const current = ++session.current;
+    work.current = false;
+    setBusy(false);
+    setStatus(null); setNotes(null); setTopic(''); setQuery(''); setTitle(''); setContent('');
+    setChecking(enabled);
+    setNotices(enabled ? 'Checking for a local vault…' : messages.obsidian_unavailable);
+    if (enabled) void bridge.getObsidianStatus!().then(value => {
+      if (session.current === current) updateStatus(value);
+    }).catch(error => {
+      if (session.current === current) setNotices(message(error));
+    }).finally(() => {
+      if (session.current === current) setChecking(false);
+    });
+    return () => { session.current++; };
   }, [bridge, enabled]);
-  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
+  useEffect(() => () => onBusyChange?.(false), [bridge, onBusyChange]);
   async function run<T>(operation: () => Promise<T>, accept: (value: T) => void) {
-    if (!enabled || locked || work.current) return;
+    if (!enabled || checking || locked || work.current) return;
+    const current = session.current;
     work.current = true; onBusyChange?.(true); setBusy(true); setNotices('');
     try {
       const result = await operation();
-      if (mounted.current) accept(result);
-    } catch (error) { if (mounted.current) setNotices(message(error)); }
-    finally { work.current = false; onBusyChange?.(false); if (mounted.current) setBusy(false); }
+      if (session.current === current) accept(result);
+    } catch (error) {
+      if (session.current === current) setNotices(message(error));
+    } finally {
+      if (session.current === current) {
+        work.current = false; onBusyChange?.(false); setBusy(false);
+      }
+    }
   }
-  const blocked = !enabled || locked || busy;
+  const blocked = !enabled || checking || locked || busy;
   const topicValid = component(topic);
   const queryValid = new TextEncoder().encode(query).byteLength <= 256;
   const noteValid = topicValid && component(title) && !!content.trim() &&
@@ -95,8 +109,8 @@ export function VaultSettings({ bridge, locked, onBusyChange }: {
           if (value !== null) throw new Error('invalid_vault_view_receipt');
           setNotices('Closed the local note viewer.');
         })}>{relativePath}</button>
-      </li>)}</ul> : <p>No matching notes in this topic.</p>)}
-      {notes?.limited && <p>Results are limited. Use a more specific title filter.</p>}
+      </li>)}</ul> : <p>{notes.limited ? 'No matches in the entries checked.' : 'No matching notes in this topic.'}</p>)}
+      {notes?.limited && <p>The lookup is limited to 128 directory entries and three results. A title filter only applies within the entries checked.</p>}
       <h4>Create a Markdown note</h4>
       <p>Windows shows the proposed path and contents for confirmation. Existing notes are not overwritten.</p>
       <label htmlFor={id + '-title'}>New note title (without .md)</label>

@@ -92,7 +92,11 @@ pub(crate) fn error(error: WorkspaceError) -> String {
 }
 
 fn component(value: &str) -> Result<String, WorkspaceError> {
-    if value.starts_with('.') || value.trim() != value || value.chars().count() > 80 {
+    if value.starts_with('.')
+        || value.to_ascii_lowercase().starts_with("access_token")
+        || value.trim() != value
+        || value.chars().count() > 80
+    {
         return Err(WorkspaceError::Denied);
     }
     let mut parts = parse_relative_path(value)?;
@@ -429,6 +433,8 @@ mod tests {
             "Python/.hidden.md",
             "Python/Atlas.md:stream",
             "Python/secret.md",
+            "Python/ACCESS_TOKEN.md",
+            "Access_Tokens/Atlas.md",
             "Python/Atlas.md.",
             "Python/Sub/Atlas.md",
             r"Python\Atlas.md",
