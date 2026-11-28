@@ -1,6 +1,6 @@
-# Set up and use Aster v0.2.5
+# Set up and use Aster v0.2.5.1
 
-This guide covers v0.2.5 source including the dictation and credential fixes in [PR #87](https://github.com/comzulca/Aster-desktop/pull/87) and the Windows version lifecycle in [PR #90](https://github.com/comzulca/Aster-desktop/pull/90). A previously installed v0.2.5 build may not include these changes. See the [dictation specification](specs/SPEC-0009.md).
+This guide covers 0.2.5.1 engineering source including the dictation and credential fixes in [PR #87](https://github.com/comzulca/Aster-desktop/pull/87) and the Windows version lifecycle in [PR #90](https://github.com/comzulca/Aster-desktop/pull/90). A previously installed v0.2.5 build may not include these changes. See the [dictation specification](specs/SPEC-0009.md).
 
 ## Dictate a draft
 
@@ -16,7 +16,7 @@ Windows desktop microphone access and the x64 Microsoft Visual C++ runtime, incl
 
 1. Close Aster normally. Use the current Windows x64 installer from [GitHub Releases](https://github.com/comzulca/Aster-desktop/releases) when a stable release is available. If you are testing v0.2.5 or replacing a build with the old fixed cutoff before a stable release is available, see the [verified engineering installer and its limitations](ENGINEERING-STATUS.md#25-november-2026-windows-release-lifecycle). That unsigned CI package is not a stable release. If the installer detects the same version and offers **Add/Reinstall components**, select it to reinstall without a separate uninstall. Then reopen the installed app.
 2. Open **Settings → Providers**. Configure/change the direct Meta Model API key only in the native Windows dialogue, then use **Validate key in Windows** as needed. Never paste a key in chat, a repository, a prompt or an ordinary settings text field. Successful model retrieval proves current-key authentication/model visibility, not billing, quota or territorial eligibility.
-3. In **Settings → Usage**, enter explicit integer GBP-per-USD conversion, positive safety margin and tax/payment assumptions. Choose a future expiry within the displayed local host limit: at most 31 days. Select **Review financial configuration in Windows**, confirm the exact native proposal and check **Policy status: Active** and its confirmed expiry. Filled fields or a cancelled review do not activate a policy. Account identity and earlier charges are retained, without reset. Confirm a new London calendar month before sending in that month, even if the previous review's displayed expiry has not passed.
+3. In **Settings → Usage**, enter the gross monthly GBP limit. Set the two warnings as percentages of budget remaining (defaults 10% and 5%) and review VAT (default 20%). Choose **Review monthly spending in Windows** and confirm the proposal for the London calendar month. In **Settings → Providers → Provider billing profile**, enter the exchange rate, safety margin, payment charges and a future expiry within the displayed 31-day limit. Choose **Review billing profile in Windows** and confirm. Both reviews are required before sending.
 4. Return to **Providers → Review terms and eligibility in Windows**. Read the complete native proposal and independently check account, territory and direct-API rights before confirming. Coding-harness subscription credentials restricted to that harness must not be reused in Aster.
 5. Write a non-empty eligible message. Open the reasoning menu (initially **Medium**) → **Classify content** → **Synthetic** or **Eligible public**, choosing correctly for the complete message and attachments. Read the composer prerequisite notice if Send is disabled. Send opens a separate complete native disclosure review before dispatch. Personalization remains local-only.
 
@@ -56,7 +56,7 @@ Saved processed pages can be viewed locally through the native processed-page vi
 
 ## Spending, history and errors
 
-The local ceiling is £89 per `Europe/London` calendar month, with an £80.10 warning. It is independent of external clients and Meta's invoice. Cancellation/failure after possible dispatch does not prove zero cost. Missing/invalid usage retains the reservation; any unresolved reservation blocks a new dispatch. Reconcile only against an independently checked final statement/dashboard amount for the exact pending request.
+The local ceiling and two warning thresholds use the policy confirmed for the current `Europe/London` calendar month. It is independent of external clients and Meta's invoice. Cancellation/failure after possible dispatch does not prove zero cost. Missing/invalid usage retains the reservation; any unresolved reservation blocks a new dispatch. Reconcile only against an independently checked final statement/dashboard amount for the exact pending request.
 
 Saved conversations and processed derivatives use separate protected local domains. Conversation removal is a logical tombstone: encrypted recovery records and used quota may remain. It is not secure erasure or physical compaction. Restarting, reinstalling or changing a credential is not a spending reset. Private-store integrity/capacity failures require review rather than deletion of records.
 
@@ -64,13 +64,13 @@ Saved conversations and processed derivatives use separate protected local domai
 
 Personalization is retained locally and excluded from provider, generation and tool payloads. Skills/Plugins are bounded inert packages; generated content is an unsaved draft until explicitly saved. Enabling an entry does not grant tools or execute scripts.
 
-### Projects and a local Markdown vault (v0.2.6 preparation)
+### Projects and a local Markdown vault
 
-In the v0.2.6 development candidate, use the **+** beside **Projects** to create a local project. Use the project controls to associate the open saved conversation explicitly. Selecting a project filters the sidebar; it does not attach a folder, add request context, or move data to another account. The composer **+** still adds attachments.
+Use the **+** beside **Projects** to create a local project. Use the project controls to associate the open saved conversation explicitly. Selecting a project filters the sidebar; it does not attach a folder, add request context, or move data to another account. The composer **+** still adds attachments.
 
 Open **Settings → Aster_obsidian** and choose one local Markdown folder in the native Windows picker. Reconnect the folder after restarting Aster; the notes remain on disk. Enter a topic (for example, `Python`) and optionally filter note titles. A lookup searches one topic and displays at most three matching notes, so narrow the filter if results are limited. Opening a result shows the note in a separate native viewer. Use the topic or note creation buttons to review the exact local change before confirming. An existing note is never overwritten by the creation route. The folder is ordinary Markdown; Obsidian is optional. These notes are not encrypted or synced by Aster. For private notes, use a folder with suitable Windows access controls that is not already synced by another app; do not store credentials.
 
-Importing the `Aster_obsidian` skill package still adds instructions only. This preparation does not automatically retrieve notes for a conversation, send note contents to Meta, or let Aster edit an existing note. This workflow is a development candidate pending installed Windows acceptance, not a feature of the published v0.2.5 source described above.
+Importing the `Aster_obsidian` skill package still adds instructions only. This preparation does not automatically retrieve notes for a conversation, send note contents to Meta, or let Aster edit an existing note. The 0.2.5.1 engineering source includes this workflow. Installed Windows acceptance is tracked separately.
 
 For the built-in connector, use **Customize → Plugins → GitHub**, enable its catalogue preference, then start the explicit dedicated-App connection flow. Aster's own account/repository confirmations and credentials are separate from Codex's connection. Reconnect explicitly after expiry/restart; automatic token rotation/account restoration is unavailable. GitHub authentication/read sources are implemented, but actual live connection is not established by hosted fixtures. Runtime file changes, issues, PR creation and merging remain unavailable (`mutationsAvailable=false`). The [registration guide](setup/GITHUB-APP-V024.md) distinguishes historical owner decisions from current unverified account state.
 

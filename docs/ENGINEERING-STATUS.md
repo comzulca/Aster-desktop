@@ -1,8 +1,12 @@
 # Current engineering status
 
+## 28 November 2026
+
+[PR #99](https://github.com/comzulca/Aster-desktop/pull/99) reached main at `3115186`. The manifests declare `0.2.5+1`, the numeric Windows product version is 0.2.5.1, and the host reports IPC 6 and policy 4. Projects and the local Markdown vault are included in this source. Live full-window compaction remains disabled. The candidate evidence below records the stage at which it was collected.
+
 ## 27 November 2026: v0.2.5.1 engineering candidate
 
-See the [v0.2.5.1 candidate contract and pre-CI evidence](qa/V0251-ENGINEERING-CANDIDATE.md). For this draft only, the numeric Windows product version is 0.2.5.1 and the spending IPC version is 6; the deployed main and its previous artifacts retain the identities below. The full-window work remains an offline qualification path and no Windows installer or live feature is implied by these local results.
+See the [v0.2.5.1 candidate contract and pre-CI evidence](qa/V0251-ENGINEERING-CANDIDATE.md). At the pre-merge checkpoint, the numeric Windows product version is 0.2.5.1 and the spending IPC version is 6; the earlier main and its artifacts retained the identities below. The full-window work remains an offline qualification path and no Windows installer or live feature is implied by these local results.
 
 ## 25 November 2026: Windows release lifecycle
 
@@ -38,12 +42,12 @@ Reconciled 5 November 2026. The previous delivered software snapshot was [`57339
 | --- | --- | --- |
 | Local dictation | Windows x64 v0.2.5, 30-second capture and editable transcript | Hosted CI transcribed a public recording with the extracted decoder. Current source waits for release acknowledgement and assigns the decoder to its Job Object at creation; physical microphone and installed Windows acceptance remain open. |
 | Previous engineering installer | Unsigned Windows x64 v0.2.4 with spending/Send maintenance | Initial candidate: all five jobs, fifteen codec/six resource probes and twelve-resource passive verification PASS. Spending/Send delivery receipt for the earlier main installer: [PR #70](https://github.com/comzulca/Aster-desktop/pull/70). The earlier [57339a6 receipt](qa/FINAL-ENGINEERING-V024-20261105.md) remains historical; owner GUI acceptance is separate. |
-| Policy and authentication | IPC protocol 5 / financial policy 4; sole Meta Contributor pair, current-key model retrieval proof, native terms review | Source and offline tests PASS. Proof is distinct from billing, eligibility, quota and an actual inference. |
+| Policy and authentication | IPC protocol 6 / financial policy 4; sole Meta Contributor pair, current-key model retrieval proof, native terms review | Source and offline tests PASS. Proof is distinct from billing, eligibility, quota and an actual inference. |
 | Historical 5 November policy renewal | Terms 2026-10-09, geography 2026-10-12, reviewed 2026-11-05; local deadline 2026-12-06T00:00:00Z | Legacy terms and financial replay preserved; fresh current review/configuration required. [Primary review](providers/META-POLICY-REVIEW-20261105.md). |
 | Attachments | Additive native selection; previous documents/draft retained on cancellation or atomic rejection | Rust/frontend regressions PASS. Aggregate bounds and earliest five-minute custody remain; malformed/uncertain receipts fail closed. |
 | Text, images and PDFs | Twelve direct extensions; complete eligible PDF originals and normalised images use the fixed media request contract | Actual packaged executable: fifteen codec cases and six resource probes PASS. No owner/live multimodal certification follows. |
 | Protected data | Existing encrypted transcript and separate processed-media domains; originals/grants excluded from restored history | Current-user protection and replay fixtures PASS. OS paging/dumps, filesystem overhead and same-user rollback remain residuals. |
-| Money | £89 local calendar-month ceiling, £80.10 warning, conservative reservation, unknown-spend blocking | Expiry/range/activation, integer/replay/renewal and Send-prerequisite fixtures PASS. Host-bounded date, visible Settings errors and confirmed active/inactive status; no global invoice cap, fabricated FX, silent refund or reset. |
+| Money | User-confirmed gross London calendar-month ceiling and two configurable remaining-budget warnings, conservative reservation, unknown-spend blocking | Expiry/range/activation, integer/replay/renewal and Send-prerequisite fixtures PASS. Host-bounded date, visible Settings errors and confirmed active/inactive status; no global invoice cap, fabricated FX, silent refund or reset. |
 | Personalization | Separate local-only protected profile and local UI | Source/negative fixtures PASS; profile is excluded from provider/generation/tool payloads. Owner native privacy acceptance remains separate. |
 | Skills/Plugins | Bounded inert catalogue/editor/import and isolated Muse-assisted draft generation | No general script, installer hook or arbitrary MCP execution; generation uses a separate native-reviewed ordinary request. |
 | GitHub | Built-in dedicated-App authentication, account/repository selection and bounded read routes | Implemented source and synthetic checks; actual Aster live account connection is not inferred from Codex's connection. `mutationsAvailable=false`. |
@@ -54,7 +58,7 @@ Reconciled 5 November 2026. The previous delivered software snapshot was [`57339
 
 | Limit | Value / interpretation | Source |
 | --- | --- | --- |
-| Policy / IPC protocol | 4 / 5 | [policy.rs](../src-tauri/src/policy.rs), [host](../src-tauri/src/lib.rs) |
+| Policy / IPC protocol | 4 / 6 | [policy.rs](../src-tauri/src/policy.rs), [host](../src-tauri/src/lib.rs) |
 | User message | 32 KiB UTF-8; composed processed text must also fit admission | [policy.rs](../src-tauri/src/policy.rs), [host](../src-tauri/src/lib.rs) |
 | Runtime continuation | 20 completed prior turns / 512 KiB text context | [policy.rs](../src-tauri/src/policy.rs) |
 | Text-only serialised request | 512 KiB | [provider.rs](../src-tauri/src/provider.rs) |

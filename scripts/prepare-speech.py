@@ -52,22 +52,37 @@ def guard_path(path):
         raise ValueError("Symlinks cannot supply speech resources")
 
 
+def guard_directory(folder):
+    for parent in reversed(folder.absolute().parents):
+        guard_path(parent)
+    guard_path(folder)
+
+
+def publish_bytes(path, data):
+    staging = tempfile.NamedTemporaryFile(dir=path.parent, delete=False)
+    temporary = Path(staging.name)
+    try:
+        with staging:
+            staging.write(data)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def public_fixture():
-    guard_path(FIXTURE.parent)
+    guard_directory(FIXTURE.parent)
     guard_path(FIXTURE)
     if FIXTURE.exists():
         if not FIXTURE.is_file() or FIXTURE.stat().st_size != FIXTURE_SIZE:
             raise ValueError("Unexpected public audio fixture")
         return validate(FIXTURE.read_bytes(), FIXTURE_SIZE, FIXTURE_SHA256)
     data = download(f"{WHISPER}/samples/jfk.wav", FIXTURE_SIZE, FIXTURE_SHA256)
-    with tempfile.NamedTemporaryFile(dir=FIXTURE.parent, delete=False) as staging:
-        staging.write(data)
-    os.replace(staging.name, FIXTURE)
+    publish_bytes(FIXTURE, data)
     return data
 
 
 def verify(folder):
-    guard_path(folder)
+    guard_directory(folder)
     if {entry.name for entry in folder.iterdir()} != set(ASSETS):
         raise ValueError("Unexpected speech directory inventory")
     for name, spec in ASSETS.items():
@@ -80,8 +95,7 @@ def verify(folder):
 
 def prepare():
     folder = ROOT / "reports/speech"
-    guard_path(folder.parent)
-    guard_path(folder)
+    guard_directory(folder)
     folder.mkdir(parents=True, exist_ok=True)
     archive = None
     for name, spec in ASSETS.items():
@@ -98,9 +112,7 @@ def prepare():
                 archive = zipfile.ZipFile(io.BytesIO(payload))
             with archive.open("Release/" + name) as item:
                 data = validate(item.read(size + 1), size, digest)
-        with tempfile.NamedTemporaryFile(dir=folder, delete=False) as staging:
-            staging.write(data)
-        os.replace(staging.name, path)
+        publish_bytes(path, data)
     verify(folder)
     public_fixture()
     print("Verified packaged speech resources:", len(ASSETS))
@@ -158,7 +170,7 @@ def payload_inventory(folder, source_revision, installer_sha256):
 
 
 def probe(folder):
-    folder = folder.resolve(strict=True)
+    folder = folder.absolute()
     verify(folder)
     wav = public_fixture()
     system_root = os.environ["SystemRoot"]

@@ -1,10 +1,10 @@
 # Source checks and Windows engineering builds
 
-For the 23 November v0.2.5 baseline, the [build and security review](qa/SECURITY-REVIEW-V025-20261123.md) records the source, run, installer hash and outstanding tests for `a8d6123`. The host uses IPC protocol 5 and financial policy 4. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. Resolve build inputs from the pinned declarations and frozen locks.
+For the 23 November v0.2.5 baseline, the [build and security review](qa/SECURITY-REVIEW-V025-20261123.md) records the source, run, installer hash and outstanding tests for `a8d6123`. The current 0.2.5.1 engineering host uses IPC protocol 6 and financial policy 4. Read [AGENTS.md](../AGENTS.md) and the [current status](ENGINEERING-STATUS.md) before changes. Resolve build inputs from the pinned declarations and frozen locks.
 
 ## Preparing the v0.2.5 speech resources
 
-Run `python scripts/prepare-speech.py` before building the native host or NSIS installer. This stages the pinned CPU decoder, model and licenses in `reports/speech`. On Windows, `python scripts/prepare-speech.py --test-dir reports/speech` checks the resource identities and transcribes a known public recording. The installer's CI repeats that probe on the extracted package.
+Run `python scripts/prepare-speech.py` before building the native host or NSIS installer. This stages the pinned CPU decoder, model and licenses in `reports/speech`. On Windows, `python scripts/prepare-speech.py --test-dir reports/speech` checks the resource identities and transcribes a known public recording. The installer's CI repeats that probe on the extracted package. Supply a directory whose path contains no symlinks or Windows reparse points. Use a private build workspace under your control throughout verification and execution.
 
 The release archive, model and licenses have separate upstream identities in [the preparation script](../scripts/prepare-speech.py). The pnpm and Cargo inventories cover their respective dependency graphs. CI also verifies and uploads `native-speech-inventory-<source>-<run>-<attempt>` for all nine speech resources extracted from the unsigned installer. It includes packaged path, upstream origin/revision, SHA-256, source revision and installer hash. This is provenance, not advisory coverage; review whisper.cpp and GGML advisories separately.
 
@@ -42,7 +42,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D w
 cargo test --manifest-path src-tauri/Cargo.toml --locked
 ```
 
-The [source guard scripts](../scripts/ci) additionally check probable secrets, vendored provenance, Tauri/React/WinRT cohorts and CPU receipts. [Run-LocalEngineeringChecks.ps1](../scripts/qa/Run-LocalEngineeringChecks.ps1) is an existing reviewed procedure; inspect its parameters and scope before use. Native/disposable credential fixtures need their specific authorised scope and must not touch a real owner key or production target.
+The [source guard scripts](../scripts/ci) additionally check probable secrets, vendored provenance, Tauri/React/WinRT cohorts, speech path handling, failed speech resource publication and CPU receipts. [Run-LocalEngineeringChecks.ps1](../scripts/qa/Run-LocalEngineeringChecks.ps1) is an existing reviewed procedure; inspect its parameters and scope before use. Native/disposable credential fixtures need their specific authorised scope and must not touch a real owner key or production target.
 
 ## Mandatory hosted/package gates
 
